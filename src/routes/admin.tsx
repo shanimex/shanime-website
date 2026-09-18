@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { ArrowDown, ArrowUp, ImagePlus, Loader2, LogOut, Plus, Save, Trash2 } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type ClipboardEvent } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import {
   fetchHeroImage,
@@ -622,16 +622,60 @@ function ShowRow({
   );
 }
 
-const WATCH_URL_RE =
-  /^https:\/\/([A-Za-z0-9-]+\.)?dood[A-Za-z0-9-]*\.[A-Za-z]{2,}\/[dev]\/[A-Za-z0-9_-]+\/?$|^https:\/\/vidmoly[A-Za-z0-9-]*\.[A-Za-z]{2,}\/(embed-[A-Za-z0-9_-]+(\.html)?|w\/[A-Za-z0-9_-]+(\.html)?|v\/[A-Za-z0-9_-]+|dl\/[A-Za-z0-9_-]+)$/;
+/** Kabul edilen video host aileleri: alan adında bu kelimeler geçen linkler geçerlidir.
+ *  StreamWish aynaları sık değiştiği için (hgcloud.to, hglink.to, awish.pro…) isim bazlı liste tutuyoruz. */
+const VIDEO_HOST_KEYWORDS = [
+  "dood",
+  "vidmoly",
+  "streamwish",
+  "awish.",
+  "hgcloud",
+  "hglink",
+  "hgonline",
+  "hgwatch",
+  "hgplay",
+  "khcloud",
+  "filemoon",
+  "streamtape",
+  "mp4upload",
+  "vidhide",
+  "oneupload",
+  "movhide",
+];
+
+/** Yapıştırılan metinden video linkini ayıklar:
+ *  - <IFRAME ...> embed kodu yapıştırılırsa src="..." içindeki linki döndürür
+ *  - düz link yapıştırılırsa aynen döndürür */
+function extractEmbedUrl(raw: string): string {
+  const text = raw.trim();
+  if (!text) return "";
+  const src = text.match(/src\s*=\s*["']([^"']+)["']/i);
+  if (src) return src[1].trim();
+  const bare = text.match(/https:\/\/[^\s"'<>]+/i);
+  return bare ? bare[0] : text;
+}
+
+/** Input'a yapıştırılan tam embed kodunu link'e çevirir (normal yazma davranışı bozulmaz). */
+function pasteEmbed(onSet: (v: string) => void) {
+  return (e: ClipboardEvent<HTMLInputElement>) => {
+    const text = e.clipboardData.getData("text");
+    if (!text) return;
+    e.preventDefault();
+    onSet(extractEmbedUrl(text));
+  };
+}
 
 function watchUrlError(url: string): string | null {
-  const u = url.trim();
+  const u = extractEmbedUrl(url);
   if (!u) return null;
   if (u.length > 300) return "Video linki çok uzun.";
-  if (/["<>\s]/.test(u)) return "Link boşluk veya geçersiz karakter içeriyor.";
-  if (!WATCH_URL_RE.test(u))
-    return "Sadece Doodstream (/d/ veya /e/) veya VidMoly embed linki kabul edilir.";
+  if (/["'<>\s]/.test(u)) return "Link geçersiz karakter içeriyor. Embed kodunun içindeki link otomatik alınır, düz linki yapıştır.";
+  if (!u.startsWith("https://")) return "Link https:// ile başlamalı.";
+  const host = u.replace(/^https:\/\//i, "").split("/")[0].toLowerCase();
+  if (!VIDEO_HOST_KEYWORDS.some((k) => host.includes(k)))
+    return "Bu video host tanınmıyor. Doodstream, VidMoly, StreamWish/hgcloud aileleri kabul edilir.";
+  const path = u.replace(/^https:\/\/[^/]+/i, "");
+  if (!/^\/[\w/.~?=&%-]*$/.test(path)) return "Link yolu geçersiz görünüyor.";
   return null;
 }
 
@@ -679,7 +723,7 @@ function EpisodeList({ showId }: { showId: string }) {
       show_id: showId,
       number: num,
       title: title.trim(),
-      watch_url: watchUrl.trim(),
+      watch_url: extractEmbedUrl(watchUrl),
     });
     setBusy(false);
     if (error) {
@@ -731,7 +775,8 @@ function EpisodeList({ showId }: { showId: string }) {
           className={inputCls}
           value={watchUrl}
           onChange={(e) => setWatchUrl(e.target.value)}
-          placeholder="Video linki (Doodstream /e/ veya VidMoly embed)"
+          onPaste={pasteEmbed(setWatchUrl)}
+          placeholder="Video linki (StreamWish/hgcloud, Dood, VidMoly — embed kodu da olur)"
           aria-label="Video linki"
         />
         <Button size="sm" className="rounded-full" onClick={() => void add()} disabled={busy}>
@@ -756,7 +801,7 @@ function EpisodeRow({ episode, onChanged }: { episode: Episode; onChanged: () =>
     setBusy(true);
     const { error } = await db
       .from("show_episodes")
-      .update({ title: title.trim(), watch_url: watchUrl.trim() })
+      .update({ title: title.trim(), watch_url: extractEmbedUrl(watchUrl) })
       .eq("id", episode.id);
     setBusy(false);
     if (error) {
@@ -808,7 +853,8 @@ function EpisodeRow({ episode, onChanged }: { episode: Episode; onChanged: () =>
         className={`${inputCls} mt-2`}
         value={watchUrl}
         onChange={(e) => setWatchUrl(e.target.value)}
-        placeholder="Video linki"
+        onPaste={pasteEmbed(setWatchUrl)}
+        placeholder="Video linki (embed kodu da yapıştırılabilir)"
         aria-label={`${episode.number}. bölüm video linki`}
       />
     </div>
