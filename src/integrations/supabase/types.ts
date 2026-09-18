@@ -14,30 +14,165 @@ export type Database = {
   }
   public: {
     Tables: {
-      shows: {
+      show_characters: {
         Row: {
           created_at: string
           id: string
           image_path: string
+          name: string
+          role: string
+          show_id: string
           sort_order: number
-          subtitle: string
-          title: string
+          updated_at: string
         }
         Insert: {
           created_at?: string
           id?: string
-          image_path: string
+          image_path?: string
+          name?: string
+          role?: string
+          show_id: string
           sort_order?: number
-          subtitle?: string
-          title: string
+          updated_at?: string
         }
         Update: {
           created_at?: string
           id?: string
           image_path?: string
+          name?: string
+          role?: string
+          show_id?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "show_characters_show_id_fkey"
+            columns: ["show_id"]
+            isOneToOne: false
+            referencedRelation: "shows"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      show_episodes: {
+        Row: {
+          created_at: string
+          duration: string
+          id: string
+          number: number
+          show_id: string
+          summary: string
+          title: string
+          updated_at: string
+          watch_url: string
+        }
+        Insert: {
+          created_at?: string
+          duration?: string
+          id?: string
+          number?: number
+          show_id: string
+          summary?: string
+          title?: string
+          updated_at?: string
+          watch_url?: string
+        }
+        Update: {
+          created_at?: string
+          duration?: string
+          id?: string
+          number?: number
+          show_id?: string
+          summary?: string
+          title?: string
+          updated_at?: string
+          watch_url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "show_episodes_show_id_fkey"
+            columns: ["show_id"]
+            isOneToOne: false
+            referencedRelation: "shows"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      show_images: {
+        Row: {
+          caption: string
+          created_at: string
+          id: string
+          image_path: string
+          show_id: string
+          sort_order: number
+        }
+        Insert: {
+          caption?: string
+          created_at?: string
+          id?: string
+          image_path: string
+          show_id: string
+          sort_order?: number
+        }
+        Update: {
+          caption?: string
+          created_at?: string
+          id?: string
+          image_path?: string
+          show_id?: string
+          sort_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "show_images_show_id_fkey"
+            columns: ["show_id"]
+            isOneToOne: false
+            referencedRelation: "shows"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      shows: {
+        Row: {
+          created_at: string
+          description: string
+          genre: string
+          id: string
+          image_path: string
+          slug: string | null
+          sort_order: number
+          subtitle: string
+          title: string
+          watch_url: string
+          year: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string
+          genre?: string
+          id?: string
+          image_path: string
+          slug?: string | null
+          sort_order?: number
+          subtitle?: string
+          title: string
+          watch_url?: string
+          year?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string
+          genre?: string
+          id?: string
+          image_path?: string
+          slug?: string | null
           sort_order?: number
           subtitle?: string
           title?: string
+          watch_url?: string
+          year?: string
         }
         Relationships: []
       }
