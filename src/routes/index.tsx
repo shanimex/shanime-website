@@ -1,7 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
 import { ArrowRight, Menu, Play, Search } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { fetchHeroImage, fetchShows } from "@/lib/content";
 import heroImage from "@/assets/shanime-hero.jpg";
 import cursedPoster from "@/assets/poster-cursed.jpg";
 import zeroPoster from "@/assets/poster-zero.jpg";
@@ -25,8 +27,8 @@ export const Route = createFileRoute("/")({
   component: Index,
 });
 
-// IMPORTANT: Replace this placeholder. See ./README.md for routing conventions.
-const shows = [
+// Veritabanı boşsa veya yüklenemediyse gösterilen yedek içerik.
+const fallbackShows = [
   { title: "Jujutsu Kaisen", subtitle: "Lanetler, büyücüler ve büyük bir hesaplaşma", image: cursedPoster },
   { title: "Re:Zero", subtitle: "Başka bir dünyada sıfırdan başlamak", image: zeroPoster },
   { title: "Mushoku Tensei", subtitle: "İkinci bir hayat, sınırsız bir dünya", image: magePoster },
@@ -39,6 +41,10 @@ function Index() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [query, setQuery] = useState("");
+  const { data: dbShows } = useQuery({ queryKey: ["shows"], queryFn: fetchShows, staleTime: 60_000 });
+  const { data: heroUrl } = useQuery({ queryKey: ["hero-image"], queryFn: fetchHeroImage, staleTime: 60_000 });
+  const shows = dbShows && dbShows.length > 0 ? dbShows : fallbackShows;
+  const heroSrc = heroUrl ?? heroImage;
   const filtered = shows.filter((show) => show.title.toLocaleLowerCase("tr").includes(query.toLocaleLowerCase("tr")));
 
   return (
@@ -63,7 +69,7 @@ function Index() {
 
       <main id="top">
         <section className="relative isolate min-h-[520px] overflow-hidden border-b border-border md:min-h-[620px]">
-          <img src={heroImage} alt="Kırmızı lanet enerjisi kullanan genç büyücü" width={1536} height={864} className="absolute inset-0 -z-20 size-full object-cover object-center" fetchPriority="high" />
+          <img src={heroSrc} alt="Kırmızı lanet enerjisi kullanan genç büyücü" width={1536} height={864} className="absolute inset-0 -z-20 size-full object-cover object-center" fetchPriority="high" />
           <div className="absolute inset-0 -z-10 bg-gradient-to-r from-background via-background/70 to-background/25" />
           <div className="mx-auto flex min-h-[520px] max-w-7xl items-end px-5 py-14 md:min-h-[620px] md:items-center lg:px-8">
             <div className="max-w-xl animate-rise-in">
