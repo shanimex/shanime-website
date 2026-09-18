@@ -69,7 +69,7 @@ function Index() {
 
       <main id="top">
         <section className="relative isolate min-h-[520px] overflow-hidden border-b border-border md:min-h-[620px]">
-          <img src={heroImage} alt="Kırmızı lanet enerjisi kullanan genç büyücü" width={1536} height={864} className="absolute inset-0 -z-20 size-full object-cover object-center" fetchPriority="high" />
+          <img src={heroSrc} alt="Kırmızı lanet enerjisi kullanan genç büyücü" width={1536} height={864} className="absolute inset-0 -z-20 size-full object-cover object-center" fetchPriority="high" />
           <div className="absolute inset-0 -z-10 bg-gradient-to-r from-background via-background/70 to-background/25" />
           <div className="mx-auto flex min-h-[520px] max-w-7xl items-end px-5 py-14 md:min-h-[620px] md:items-center lg:px-8">
             <div className="max-w-xl animate-rise-in">
