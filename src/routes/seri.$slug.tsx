@@ -59,17 +59,27 @@ function ShowDetailPage() {
       <header className="sticky top-0 z-50 border-b border-border bg-background/95 backdrop-blur">
         <div className="mx-auto flex min-h-16 max-w-6xl items-center justify-between px-5 lg:px-8">
           <Link to="/" className="flex items-center gap-2 font-display text-xl text-foreground">
-            <span className="grid size-8 place-items-center rounded-full border-2 border-accent text-xs text-primary">▶</span>
+            <span className="grid size-8 place-items-center rounded-full border-2 border-accent text-xs text-primary">
+              ▶
+            </span>
             shanime
           </Link>
-          <Link to="/" className="flex items-center gap-2 text-sm font-bold text-muted-foreground transition-colors hover:text-foreground">
+          <Link
+            to="/"
+            className="flex items-center gap-2 text-sm font-bold text-muted-foreground transition-colors hover:text-foreground"
+          >
             <ArrowLeft size={16} /> Geri
           </Link>
         </div>
       </header>
 
       <section className="relative isolate overflow-hidden border-b border-border">
-        <img src={show.image} alt="" aria-hidden className="absolute inset-0 -z-20 size-full object-cover object-center opacity-40" />
+        <img
+          src={show.image}
+          alt=""
+          aria-hidden
+          className="absolute inset-0 -z-20 size-full object-cover object-center opacity-40"
+        />
         <div className="absolute inset-0 -z-10 bg-gradient-to-t from-background via-background/85 to-background/40" />
         <div className="mx-auto flex max-w-6xl flex-col gap-8 px-5 py-12 md:flex-row md:py-16 lg:px-8">
           <img
@@ -78,17 +88,33 @@ function ShowDetailPage() {
             className="w-40 shrink-0 rounded-3xl object-cover shadow-2xl sm:w-52"
           />
           <div className="min-w-0">
-            <h1 className="font-display text-4xl leading-none text-accent sm:text-6xl">{show.title}</h1>
-            {show.subtitle && <p className="mt-3 text-sm font-bold text-muted-foreground">{show.subtitle}</p>}
+            <h1 className="font-display text-4xl leading-none text-accent sm:text-6xl">
+              {show.title}
+            </h1>
+            {show.subtitle && (
+              <p className="mt-3 text-sm font-bold text-muted-foreground">{show.subtitle}</p>
+            )}
             <div className="mt-5 flex flex-wrap gap-2 text-xs font-bold text-muted-foreground">
-              {show.year && <span className="rounded-full border border-border bg-background px-3 py-1">{show.year}</span>}
-              {show.genre && <span className="rounded-full border border-border bg-background px-3 py-1">{show.genre}</span>}
+              {show.year && (
+                <span className="rounded-full border border-border bg-background px-3 py-1">
+                  {show.year}
+                </span>
+              )}
+              {show.genre && (
+                <span className="rounded-full border border-border bg-background px-3 py-1">
+                  {show.genre}
+                </span>
+              )}
               {episodes.length > 0 && (
-                <span className="rounded-full border border-border bg-background px-3 py-1">{episodes.length} Bölüm</span>
+                <span className="rounded-full border border-border bg-background px-3 py-1">
+                  {episodes.length} Bölüm
+                </span>
               )}
             </div>
             {show.description && (
-              <p className="mt-5 max-w-2xl text-sm leading-7 text-foreground md:text-base">{show.description}</p>
+              <p className="mt-5 max-w-2xl text-sm leading-7 text-foreground md:text-base">
+                {show.description}
+              </p>
             )}
             {episodes.length > 0 ? (
               <Button asChild variant="hero" size="lg" className="mt-7 rounded-full">
@@ -115,12 +141,20 @@ function ShowDetailPage() {
             <ol className="mt-6 divide-y divide-border overflow-hidden rounded-3xl bg-card">
               {episodes.map((ep) => (
                 <li key={ep.id} className="flex flex-wrap items-center gap-4 px-6 py-5">
-                  <span className="font-display text-3xl text-primary">{String(ep.number).padStart(2, "0")}</span>
+                  <span className="font-display text-3xl text-primary">
+                    {String(ep.number).padStart(2, "0")}
+                  </span>
                   <div className="min-w-0 flex-1">
-                    <p className="font-extrabold text-foreground">{ep.title || `Bölüm ${ep.number}`}</p>
-                    {ep.summary && <p className="mt-1 text-xs leading-5 text-muted-foreground">{ep.summary}</p>}
+                    <p className="font-extrabold text-foreground">
+                      {ep.title || `Bölüm ${ep.number}`}
+                    </p>
+                    {ep.summary && (
+                      <p className="mt-1 text-xs leading-5 text-muted-foreground">{ep.summary}</p>
+                    )}
                   </div>
-                  {ep.duration && <span className="text-xs font-bold text-muted-foreground">{ep.duration}</span>}
+                  {ep.duration && (
+                    <span className="text-xs font-bold text-muted-foreground">{ep.duration}</span>
+                  )}
                   {ep.watch_url && (
                     <Button asChild size="sm" className="rounded-full">
                       <a href={`/izle/${show.slug || show.id}?b=${ep.number}`}>
@@ -128,7 +162,6 @@ function ShowDetailPage() {
                       </a>
                     </Button>
                   )}
-
                 </li>
               ))}
             </ol>
@@ -145,12 +178,19 @@ function ShowDetailPage() {
                 <article key={character.id} className="overflow-hidden rounded-3xl bg-card">
                   <div className="aspect-[3/4] bg-muted">
                     {character.image && (
-                      <img src={character.image} alt={character.name} loading="lazy" className="size-full object-cover" />
+                      <img
+                        src={character.image}
+                        alt={character.name}
+                        loading="lazy"
+                        className="size-full object-cover"
+                      />
                     )}
                   </div>
                   <div className="p-4">
                     <h3 className="text-sm font-extrabold text-foreground">{character.name}</h3>
-                    {character.role && <p className="mt-1 text-xs text-muted-foreground">{character.role}</p>}
+                    {character.role && (
+                      <p className="mt-1 text-xs text-muted-foreground">{character.role}</p>
+                    )}
                   </div>
                 </article>
               ))}
@@ -166,8 +206,17 @@ function ShowDetailPage() {
             <div className="mt-6 grid grid-cols-2 gap-4 md:grid-cols-3">
               {gallery.map((image) => (
                 <figure key={image.id} className="overflow-hidden rounded-3xl bg-card">
-                  <img src={image.image} alt={image.caption || show.title} loading="lazy" className="aspect-video w-full object-cover" />
-                  {image.caption && <figcaption className="px-4 py-3 text-xs text-muted-foreground">{image.caption}</figcaption>}
+                  <img
+                    src={image.image}
+                    alt={image.caption || show.title}
+                    loading="lazy"
+                    className="aspect-video w-full object-cover"
+                  />
+                  {image.caption && (
+                    <figcaption className="px-4 py-3 text-xs text-muted-foreground">
+                      {image.caption}
+                    </figcaption>
+                  )}
                 </figure>
               ))}
             </div>

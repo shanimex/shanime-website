@@ -46,15 +46,22 @@ function AuthPage() {
       setError(signUpError.message);
       return;
     }
-    setMessage("Hesabın oluşturuldu! E-postana gelen onay bağlantısına tıkla, sonra buradan giriş yap.");
+    setMessage(
+      "Hesabın oluşturuldu! E-postana gelen onay bağlantısına tıkla, sonra buradan giriş yap.",
+    );
     setMode("signin");
   }
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-5">
       <div className="w-full max-w-sm rounded-3xl border border-border bg-card p-8 shadow-2xl">
-        <a href="/" className="mb-6 flex items-center justify-center gap-2 font-display text-2xl text-foreground">
-          <span className="grid size-9 place-items-center rounded-full border-2 border-accent text-sm text-primary">▶</span>
+        <a
+          href="/"
+          className="mb-6 flex items-center justify-center gap-2 font-display text-2xl text-foreground"
+        >
+          <span className="grid size-9 place-items-center rounded-full border-2 border-accent text-sm text-primary">
+            ▶
+          </span>
           shanime
         </a>
         <h1 className="text-center text-lg font-extrabold text-foreground">
@@ -62,7 +69,9 @@ function AuthPage() {
         </h1>
         <form onSubmit={handleSubmit} className="mt-6 space-y-4">
           <div>
-            <label htmlFor="email" className="mb-1 block text-xs font-bold text-muted-foreground">E-posta</label>
+            <label htmlFor="email" className="mb-1 block text-xs font-bold text-muted-foreground">
+              E-posta
+            </label>
             <input
               id="email"
               type="email"
@@ -74,7 +83,12 @@ function AuthPage() {
             />
           </div>
           <div>
-            <label htmlFor="password" className="mb-1 block text-xs font-bold text-muted-foreground">Şifre</label>
+            <label
+              htmlFor="password"
+              className="mb-1 block text-xs font-bold text-muted-foreground"
+            >
+              Şifre
+            </label>
             <input
               id="password"
               type="password"
@@ -86,15 +100,27 @@ function AuthPage() {
               placeholder="••••••••"
             />
           </div>
-          {error && <p className="rounded-xl bg-destructive/15 px-4 py-2 text-xs font-bold text-destructive">{error}</p>}
-          {message && <p className="rounded-xl bg-secondary px-4 py-2 text-xs font-bold text-accent">{message}</p>}
+          {error && (
+            <p className="rounded-xl bg-destructive/15 px-4 py-2 text-xs font-bold text-destructive">
+              {error}
+            </p>
+          )}
+          {message && (
+            <p className="rounded-xl bg-secondary px-4 py-2 text-xs font-bold text-accent">
+              {message}
+            </p>
+          )}
           <Button type="submit" className="w-full rounded-full" disabled={loading}>
             {loading ? "Bekle..." : mode === "signin" ? "Giriş yap" : "Kayıt ol"}
           </Button>
         </form>
         <button
           type="button"
-          onClick={() => { setMode(mode === "signin" ? "signup" : "signin"); setError(null); setMessage(null); }}
+          onClick={() => {
+            setMode(mode === "signin" ? "signup" : "signin");
+            setError(null);
+            setMessage(null);
+          }}
           className="mt-4 w-full text-center text-xs font-bold text-muted-foreground transition-colors hover:text-foreground"
         >
           {mode === "signin" ? "Hesabın yok mu? Kayıt ol" : "Zaten hesabın var mı? Giriş yap"}

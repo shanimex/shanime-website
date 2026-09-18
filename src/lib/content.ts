@@ -54,7 +54,10 @@ export async function signImagePath(path: string): Promise<string> {
 const db = supabase as any;
 
 export async function fetchShows(): Promise<ShowWithImage[]> {
-  const { data, error } = await db.from("shows").select("*").order("sort_order", { ascending: true });
+  const { data, error } = await db
+    .from("shows")
+    .select("*")
+    .order("sort_order", { ascending: true });
   if (error || !data) return [];
   const shows = data as Show[];
   const urls = await Promise.all(shows.map((s) => signImagePath(s.image_path)));
@@ -62,7 +65,11 @@ export async function fetchShows(): Promise<ShowWithImage[]> {
 }
 
 export async function fetchHeroImage(): Promise<string | null> {
-  const { data, error } = await db.from("site_settings").select("value").eq("key", "hero_image").maybeSingle();
+  const { data, error } = await db
+    .from("site_settings")
+    .select("value")
+    .eq("key", "hero_image")
+    .maybeSingle();
   if (error || !data?.value) return null;
   return signImagePath(data.value as string);
 }
@@ -76,7 +83,12 @@ export async function uploadImage(file: File, folder: string): Promise<string> {
 }
 
 export async function isAdmin(userId: string): Promise<boolean> {
-  const { data } = await db.from("user_roles").select("id").eq("user_id", userId).eq("role", "admin").maybeSingle();
+  const { data } = await db
+    .from("user_roles")
+    .select("id")
+    .eq("user_id", userId)
+    .eq("role", "admin")
+    .maybeSingle();
   return Boolean(data);
 }
 
@@ -101,22 +113,36 @@ export async function fetchShowDetail(slug: string): Promise<ShowDetail | null> 
   if (!show) return null;
 
   const [episodesRes, charactersRes, galleryRes, cover] = await Promise.all([
-    db.from("show_episodes").select("*").eq("show_id", show.id).order("number", { ascending: true }),
-    db.from("show_characters").select("*").eq("show_id", show.id).order("sort_order", { ascending: true }),
-    db.from("show_images").select("*").eq("show_id", show.id).order("sort_order", { ascending: true }),
+    db
+      .from("show_episodes")
+      .select("*")
+      .eq("show_id", show.id)
+      .order("number", { ascending: true }),
+    db
+      .from("show_characters")
+      .select("*")
+      .eq("show_id", show.id)
+      .order("sort_order", { ascending: true }),
+    db
+      .from("show_images")
+      .select("*")
+      .eq("show_id", show.id)
+      .order("sort_order", { ascending: true }),
     signImagePath(show.image_path),
   ]);
 
   const characters = (charactersRes.data ?? []) as Character[];
   const gallery = (galleryRes.data ?? []) as GalleryImage[];
   const [charUrls, galleryUrls] = await Promise.all([
-    Promise.all(characters.map((c) => (c.image_path ? signImagePath(c.image_path) : Promise.resolve("")))),
+    Promise.all(
+      characters.map((c) => (c.image_path ? signImagePath(c.image_path) : Promise.resolve(""))),
+    ),
     Promise.all(gallery.map((g) => signImagePath(g.image_path))),
   ]);
 
   return {
     show: { ...show, image: cover },
-    episodes: ((episodesRes.data ?? []) as Episode[]),
+    episodes: (episodesRes.data ?? []) as Episode[],
     characters: characters.map((c, i) => ({ ...c, image: charUrls[i] ?? "" })),
     gallery: gallery.map((g, i) => ({ ...g, image: galleryUrls[i] ?? "" })),
   };

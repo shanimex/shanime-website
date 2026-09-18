@@ -1,14 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import {
-  ArrowDown,
-  ArrowUp,
-  ImagePlus,
-  Loader2,
-  LogOut,
-  Plus,
-  Save,
-  Trash2,
-} from "lucide-react";
+import { ArrowDown, ArrowUp, ImagePlus, Loader2, LogOut, Plus, Save, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -148,7 +139,9 @@ function AdminPage() {
     const [row] = next.splice(index, 1);
     next.splice(target, 0, row);
     setShows(next);
-    await Promise.all(next.map((s, i) => db.from("shows").update({ sort_order: i }).eq("id", s.id)));
+    await Promise.all(
+      next.map((s, i) => db.from("shows").update({ sort_order: i }).eq("id", s.id)),
+    );
     setNotice("Sıralama güncellendi.");
   }
 
@@ -168,7 +161,11 @@ function AdminPage() {
           <p className="mt-2 text-sm text-muted-foreground">
             Bu hesap henüz admin değil. user_roles tablosuna kendi mailini "admin" rolüyle ekleyen.
           </p>
-          <Button variant="outline" className="mt-5 rounded-full" onClick={() => supabase.auth.signOut().then(() => navigate({ to: "/auth" }))}>
+          <Button
+            variant="outline"
+            className="mt-5 rounded-full"
+            onClick={() => supabase.auth.signOut().then(() => navigate({ to: "/auth" }))}
+          >
             Çıkış yap
           </Button>
         </div>
@@ -181,8 +178,11 @@ function AdminPage() {
       <header className="sticky top-0 z-50 border-b border-border bg-background/95 backdrop-blur">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-5 py-3">
           <a href="/admin" className="flex items-center gap-2 font-display text-xl">
-            <span className="grid size-8 place-items-center rounded-full border-2 border-accent text-xs text-primary">▶</span>
-            shanime <span className="text-sm font-sans font-bold text-muted-foreground">· yönetim</span>
+            <span className="grid size-8 place-items-center rounded-full border-2 border-accent text-xs text-primary">
+              ▶
+            </span>
+            shanime{" "}
+            <span className="text-sm font-sans font-bold text-muted-foreground">· yönetim</span>
           </a>
           <Button
             variant="ghost"
@@ -196,13 +196,25 @@ function AdminPage() {
       </header>
 
       <main className="mx-auto max-w-5xl space-y-10 px-5 py-10">
-        {notice && <p className="rounded-2xl bg-secondary px-5 py-3 text-sm font-bold text-accent">{notice}</p>}
+        {notice && (
+          <p className="rounded-2xl bg-secondary px-5 py-3 text-sm font-bold text-accent">
+            {notice}
+          </p>
+        )}
 
         <section className="rounded-3xl border border-border bg-card p-6 md:p-8">
           <h2 className="font-display text-2xl text-foreground">Ana görsel (hero)</h2>
-          <p className="mt-1 text-sm text-muted-foreground">Ana sayfanın en üstündeki büyük görsel.</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Ana sayfanın en üstündeki büyük görsel.
+          </p>
           <div className="mt-5 flex flex-wrap items-center gap-5">
-            {heroUrl && <img src={heroUrl} alt="Mevcut ana görsel" className="h-28 w-48 rounded-2xl object-cover" />}
+            {heroUrl && (
+              <img
+                src={heroUrl}
+                alt="Mevcut ana görsel"
+                className="h-28 w-48 rounded-2xl object-cover"
+              />
+            )}
             <input
               ref={heroInputRef}
               type="file"
@@ -220,13 +232,19 @@ function AdminPage() {
           </div>
         </section>
 
-        <AdSection adCodes={adCodes} onChange={(k, v) => setAdCodes((m) => ({ ...m, [k]: v }))} onSave={saveAd} />
+        <AdSection
+          adCodes={adCodes}
+          onChange={(k, v) => setAdCodes((m) => ({ ...m, [k]: v }))}
+          onSave={saveAd}
+        />
 
         <section className="rounded-3xl border border-border bg-card p-6 md:p-8">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
               <h2 className="font-display text-2xl text-foreground">Seriler</h2>
-              <p className="mt-1 text-sm text-muted-foreground">Kartlar, detay sayfaları ve bölümler buradan yönetilir.</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Kartlar, detay sayfaları ve bölümler buradan yönetilir.
+              </p>
             </div>
             <AddShowButton
               nextOrder={(shows[shows.length - 1]?.sort_order ?? 0) + 1}
@@ -255,7 +273,9 @@ function AdminPage() {
               />
             ))}
             {shows.length === 0 && (
-              <p className="text-sm text-muted-foreground">Henüz seri yok. "Yeni seri ekle" ile başla.</p>
+              <p className="text-sm text-muted-foreground">
+                Henüz seri yok. "Yeni seri ekle" ile başla.
+              </p>
             )}
           </div>
         </section>
@@ -277,7 +297,8 @@ function AdSection({
     <section className="rounded-3xl border border-border bg-card p-6 md:p-8">
       <h2 className="font-display text-2xl text-foreground">Reklam kodları</h2>
       <p className="mt-1 text-sm text-muted-foreground">
-        Sadece <b>Banner</b> kodlarını yapıştır. Popunder / Social Bar koyma — kullanıcı siteyi terk eder.
+        Sadece <b>Banner</b> kodlarını yapıştır. Popunder / Social Bar koyma — kullanıcı siteyi terk
+        eder.
       </p>
       <div className="mt-5 space-y-5">
         {AD_SLOTS.map((slot) => (
@@ -292,7 +313,12 @@ function AdSection({
               value={adCodes[slot.key] ?? ""}
               onChange={(e) => onChange(slot.key, e.target.value)}
             />
-            <Button size="sm" variant="outline" className="mt-2 rounded-full" onClick={() => void onSave(slot.key)}>
+            <Button
+              size="sm"
+              variant="outline"
+              className="mt-2 rounded-full"
+              onClick={() => void onSave(slot.key)}
+            >
               <Save size={14} /> Kaydet
             </Button>
           </div>
@@ -358,11 +384,35 @@ function AddShowButton({ nextOrder, onAdded }: { nextOrder: number; onAdded: () 
 
   return (
     <div className="w-full space-y-2 rounded-2xl border border-border bg-background p-4">
-      <input className={inputCls} value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Anime adı *" aria-label="Anime adı" />
-      <input className={inputCls} value={subtitle} onChange={(e) => setSubtitle(e.target.value)} placeholder="Kısa alt başlık (kart altında)" aria-label="Alt başlık" />
+      <input
+        className={inputCls}
+        value={title}
+        onChange={(e) => setTitle(e.target.value)}
+        placeholder="Anime adı *"
+        aria-label="Anime adı"
+      />
+      <input
+        className={inputCls}
+        value={subtitle}
+        onChange={(e) => setSubtitle(e.target.value)}
+        placeholder="Kısa alt başlık (kart altında)"
+        aria-label="Alt başlık"
+      />
       <div className="flex flex-wrap gap-2">
-        <input className={`${inputCls} w-28`} value={year} onChange={(e) => setYear(e.target.value)} placeholder="Yıl" aria-label="Yıl" />
-        <input className={`${inputCls} w-44`} value={genre} onChange={(e) => setGenre(e.target.value)} placeholder="Tür (ör. Aksiyon)" aria-label="Tür" />
+        <input
+          className={`${inputCls} w-28`}
+          value={year}
+          onChange={(e) => setYear(e.target.value)}
+          placeholder="Yıl"
+          aria-label="Yıl"
+        />
+        <input
+          className={`${inputCls} w-44`}
+          value={genre}
+          onChange={(e) => setGenre(e.target.value)}
+          placeholder="Tür (ör. Aksiyon)"
+          aria-label="Tür"
+        />
       </div>
       <input
         type="file"
@@ -459,7 +509,11 @@ function ShowRow({
           className="group relative h-28 w-20 shrink-0 overflow-hidden rounded-xl"
           title="Kapağı değiştir"
         >
-          <img src={show.image} alt="" className="h-full w-full object-cover transition-opacity group-hover:opacity-60" />
+          <img
+            src={show.image}
+            alt=""
+            className="h-full w-full object-cover transition-opacity group-hover:opacity-60"
+          />
           <span className="absolute inset-0 grid place-items-center opacity-0 transition-opacity group-hover:opacity-100">
             <ImagePlus size={20} className="text-white" />
           </span>
@@ -476,7 +530,12 @@ function ShowRow({
           }}
         />
         <div className="min-w-0 flex-1">
-          <input className={inputCls} value={title} onChange={(e) => setTitle(e.target.value)} aria-label="Başlık" />
+          <input
+            className={inputCls}
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            aria-label="Başlık"
+          />
           <input
             className={`${inputCls} mt-2`}
             value={subtitle}
@@ -485,24 +544,67 @@ function ShowRow({
             aria-label="Alt başlık"
           />
           <div className="mt-2 flex flex-wrap items-center gap-2">
-            <input className={`${inputCls} w-24`} value={year} onChange={(e) => setYear(e.target.value)} placeholder="Yıl" aria-label="Yıl" />
-            <input className={`${inputCls} w-40`} value={genre} onChange={(e) => setGenre(e.target.value)} placeholder="Tür" aria-label="Tür" />
-            <span className="ml-auto font-mono text-xs text-muted-foreground">/{showSlug(show)}</span>
+            <input
+              className={`${inputCls} w-24`}
+              value={year}
+              onChange={(e) => setYear(e.target.value)}
+              placeholder="Yıl"
+              aria-label="Yıl"
+            />
+            <input
+              className={`${inputCls} w-40`}
+              value={genre}
+              onChange={(e) => setGenre(e.target.value)}
+              placeholder="Tür"
+              aria-label="Tür"
+            />
+            <span className="ml-auto font-mono text-xs text-muted-foreground">
+              /{showSlug(show)}
+            </span>
           </div>
           <div className="mt-3 flex flex-wrap items-center gap-2">
-            <Button size="sm" className="rounded-full" onClick={() => void save()} disabled={saving}>
+            <Button
+              size="sm"
+              className="rounded-full"
+              onClick={() => void save()}
+              disabled={saving}
+            >
               {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />} Kaydet
             </Button>
-            <Button size="sm" variant="outline" className="rounded-full" onClick={() => setOpen((o) => !o)}>
+            <Button
+              size="sm"
+              variant="outline"
+              className="rounded-full"
+              onClick={() => setOpen((o) => !o)}
+            >
               {open ? "Bölümleri kapat" : "Bölümler"}
             </Button>
-            <Button size="sm" variant="ghost" className="rounded-full" onClick={() => onMove(-1)} disabled={first} aria-label="Yukarı taşı">
+            <Button
+              size="sm"
+              variant="ghost"
+              className="rounded-full"
+              onClick={() => onMove(-1)}
+              disabled={first}
+              aria-label="Yukarı taşı"
+            >
               <ArrowUp size={14} />
             </Button>
-            <Button size="sm" variant="ghost" className="rounded-full" onClick={() => onMove(1)} disabled={last} aria-label="Aşağı taşı">
+            <Button
+              size="sm"
+              variant="ghost"
+              className="rounded-full"
+              onClick={() => onMove(1)}
+              disabled={last}
+              aria-label="Aşağı taşı"
+            >
               <ArrowDown size={14} />
             </Button>
-            <Button size="sm" variant="destructive" className="ml-auto rounded-full" onClick={() => void remove()}>
+            <Button
+              size="sm"
+              variant="destructive"
+              className="ml-auto rounded-full"
+              onClick={() => void remove()}
+            >
               <Trash2 size={14} /> Sil
             </Button>
           </div>
@@ -528,7 +630,8 @@ function watchUrlError(url: string): string | null {
   if (!u) return null;
   if (u.length > 300) return "Video linki çok uzun.";
   if (/["<>\s]/.test(u)) return "Link boşluk veya geçersiz karakter içeriyor.";
-  if (!WATCH_URL_RE.test(u)) return "Sadece Doodstream (/d/ veya /e/) veya VidMoly embed linki kabul edilir.";
+  if (!WATCH_URL_RE.test(u))
+    return "Sadece Doodstream (/d/ veya /e/) veya VidMoly embed linki kabul edilir.";
   return null;
 }
 
@@ -540,10 +643,16 @@ function EpisodeList({ showId }: { showId: string }) {
   const [busy, setBusy] = useState(false);
 
   const reload = useCallback(async () => {
-    const { data } = await db.from("show_episodes").select("*").eq("show_id", showId).order("number", { ascending: true });
+    const { data } = await db
+      .from("show_episodes")
+      .select("*")
+      .eq("show_id", showId)
+      .order("number", { ascending: true });
     const rows = (data ?? []) as Episode[];
     setEpisodes(rows);
-    setNumber((n) => (n.trim() === "" ? String(rows.reduce((m, e) => Math.max(m, e.number), 0) + 1) : n));
+    setNumber((n) =>
+      n.trim() === "" ? String(rows.reduce((m, e) => Math.max(m, e.number), 0) + 1) : n,
+    );
   }, [showId]);
 
   useEffect(() => {
@@ -594,7 +703,11 @@ function EpisodeList({ showId }: { showId: string }) {
         {episodes.map((ep) => (
           <EpisodeRow key={ep.id} episode={ep} onChanged={() => void reload()} />
         ))}
-        {episodes.length === 0 && <p className="text-sm text-muted-foreground">Henüz bölüm yok. Aşağıdan ilk bölümü ekle.</p>}
+        {episodes.length === 0 && (
+          <p className="text-sm text-muted-foreground">
+            Henüz bölüm yok. Aşağıdan ilk bölümü ekle.
+          </p>
+        )}
       </div>
       <div className="mt-4 space-y-2 border-t border-border pt-4">
         <div className="flex flex-wrap gap-2">
@@ -606,9 +719,21 @@ function EpisodeList({ showId }: { showId: string }) {
             placeholder="No"
             aria-label="Bölüm numarası"
           />
-          <input className={`${inputCls} w-52`} value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Bölüm adı (opsiyonel)" aria-label="Bölüm adı" />
+          <input
+            className={`${inputCls} w-52`}
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="Bölüm adı (opsiyonel)"
+            aria-label="Bölüm adı"
+          />
         </div>
-        <input className={inputCls} value={watchUrl} onChange={(e) => setWatchUrl(e.target.value)} placeholder="Video linki (Doodstream /e/ veya VidMoly embed)" aria-label="Video linki" />
+        <input
+          className={inputCls}
+          value={watchUrl}
+          onChange={(e) => setWatchUrl(e.target.value)}
+          placeholder="Video linki (Doodstream /e/ veya VidMoly embed)"
+          aria-label="Video linki"
+        />
         <Button size="sm" className="rounded-full" onClick={() => void add()} disabled={busy}>
           {busy ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />} Bölüm ekle
         </Button>
@@ -669,7 +794,13 @@ function EpisodeRow({ episode, onChanged }: { episode: Episode; onChanged: () =>
         <Button size="sm" className="rounded-full" onClick={() => void save()} disabled={busy}>
           {busy ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />} Kaydet
         </Button>
-        <Button size="sm" variant="destructive" className="rounded-full" onClick={() => void remove()} disabled={busy}>
+        <Button
+          size="sm"
+          variant="destructive"
+          className="rounded-full"
+          onClick={() => void remove()}
+          disabled={busy}
+        >
           <Trash2 size={14} />
         </Button>
       </div>

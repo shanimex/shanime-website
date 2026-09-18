@@ -19,7 +19,11 @@ const PREROLL_SECONDS = 5;
 function WatchPage() {
   const { slug } = useParams({ from: "/izle/$slug" });
   const navigate = useNavigate();
-  const { data: detail, isLoading, isError } = useQuery({
+  const {
+    data: detail,
+    isLoading,
+    isError,
+  } = useQuery({
     queryKey: ["show-detail", slug],
     queryFn: () => fetchShowDetail(slug),
     staleTime: 60_000,
@@ -73,8 +77,13 @@ function WatchPage() {
             </span>
             shanime
           </a>
-          <span className="min-w-0 flex-1 truncate text-sm font-bold text-muted-foreground">{show.title}</span>
-          <a href={`/seri/${showSlug(show)}`} className="flex shrink-0 items-center gap-1 text-sm font-bold text-accent">
+          <span className="min-w-0 flex-1 truncate text-sm font-bold text-muted-foreground">
+            {show.title}
+          </span>
+          <a
+            href={`/seri/${showSlug(show)}`}
+            className="flex shrink-0 items-center gap-1 text-sm font-bold text-accent"
+          >
             <ArrowLeft size={15} /> Detay
           </a>
         </div>
@@ -150,7 +159,9 @@ function WatchBody({
           {epUrl ? (
             <>
               <AdSlot slot="ad_preroll" className="flex justify-center" />
-              <p className="text-sm font-bold text-foreground">Video {countdown} saniye içinde başlayacak</p>
+              <p className="text-sm font-bold text-foreground">
+                Video {countdown} saniye içinde başlayacak
+              </p>
               <Button size="sm" className="rounded-full" onClick={onSkip}>
                 Reklamı geç
               </Button>
