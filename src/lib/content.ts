@@ -26,7 +26,7 @@ export async function fetchShows(): Promise<ShowWithImage[]> {
   if (error || !data) return [];
   const shows = data as Show[];
   const urls = await Promise.all(shows.map((s) => signImagePath(s.image_path)));
-  return shows.map((s, i) => ({ ...s, image: urls[i] }));
+  return shows.map((s, i) => ({ ...s, image: urls[i] ?? "" }));
 }
 
 export async function fetchHeroImage(): Promise<string | null> {
