@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, Loader2, Play } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { AdSlot } from "@/components/AdSlot";
 import { fetchShowDetail } from "@/lib/content";
 
 export const Route = createFileRoute("/seri/$slug")({
@@ -89,9 +90,9 @@ function ShowDetailPage() {
             {show.description && (
               <p className="mt-5 max-w-2xl text-sm leading-7 text-foreground md:text-base">{show.description}</p>
             )}
-            {show.watch_url ? (
+            {episodes.length > 0 ? (
               <Button asChild variant="hero" size="lg" className="mt-7 rounded-full">
-                <a href={show.watch_url} target="_blank" rel="noreferrer noopener">
+                <a href={`/izle/${show.slug || show.id}?b=${episodes[0].number}`}>
                   <Play size={17} fill="currentColor" /> Şimdi izle
                 </a>
               </Button>
@@ -105,6 +106,7 @@ function ShowDetailPage() {
       </section>
 
       <main className="mx-auto max-w-6xl space-y-16 px-5 py-14 lg:px-8">
+        <AdSlot slot="ad_detail_top" className="flex justify-center" />
         <section>
           <h2 className="font-display text-3xl text-foreground">Bölümler</h2>
           {episodes.length === 0 ? (
@@ -121,11 +123,12 @@ function ShowDetailPage() {
                   {ep.duration && <span className="text-xs font-bold text-muted-foreground">{ep.duration}</span>}
                   {ep.watch_url && (
                     <Button asChild size="sm" className="rounded-full">
-                      <a href={ep.watch_url} target="_blank" rel="noreferrer noopener">
+                      <a href={`/izle/${show.slug || show.id}?b=${ep.number}`}>
                         <Play size={14} fill="currentColor" /> İzle
                       </a>
                     </Button>
                   )}
+
                 </li>
               ))}
             </ol>
@@ -170,6 +173,8 @@ function ShowDetailPage() {
             </div>
           )}
         </section>
+
+        <AdSlot slot="ad_detail_bottom" className="flex justify-center" />
       </main>
 
       <footer className="border-t border-border bg-secondary">

@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as AuthRouteImport } from './routes/auth'
+import { Route as IzleSlugRouteImport } from './routes/izle.$slug'
 import { Route as SeriSlugRouteImport } from './routes/seri.$slug'
 
 const IndexRoute = IndexRouteImport.update({
@@ -29,6 +30,11 @@ const AuthRoute = AuthRouteImport.update({
   path: '/auth',
   getParentRoute: () => rootRouteImport,
 } as any)
+const IzleSlugRoute = IzleSlugRouteImport.update({
+  id: '/izle/$slug',
+  path: '/izle/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SeriSlugRoute = SeriSlugRouteImport.update({
   id: '/seri/$slug',
   path: '/seri/$slug',
@@ -39,12 +45,14 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
   '/auth': typeof AuthRoute
+  '/izle/$slug': typeof IzleSlugRoute
   '/seri/$slug': typeof SeriSlugRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
   '/auth': typeof AuthRoute
+  '/izle/$slug': typeof IzleSlugRoute
   '/seri/$slug': typeof SeriSlugRoute
 }
 export interface FileRoutesById {
@@ -52,20 +60,22 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
   '/auth': typeof AuthRoute
+  '/izle/$slug': typeof IzleSlugRoute
   '/seri/$slug': typeof SeriSlugRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/admin' | '/auth' | '/seri/$slug'
+  fullPaths: '/' | '/admin' | '/auth' | '/izle/$slug' | '/seri/$slug'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/admin' | '/auth' | '/seri/$slug'
-  id: '__root__' | '/' | '/admin' | '/auth' | '/seri/$slug'
+  to: '/' | '/admin' | '/auth' | '/izle/$slug' | '/seri/$slug'
+  id: '__root__' | '/' | '/admin' | '/auth' | '/izle/$slug' | '/seri/$slug'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AdminRoute: typeof AdminRoute
   AuthRoute: typeof AuthRoute
+  IzleSlugRoute: typeof IzleSlugRoute
   SeriSlugRoute: typeof SeriSlugRoute
 }
 
@@ -92,6 +102,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/izle/$slug': {
+      id: '/izle/$slug'
+      path: '/izle/$slug'
+      fullPath: '/izle/$slug'
+      preLoaderRoute: typeof IzleSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/seri/$slug': {
       id: '/seri/$slug'
       path: '/seri/$slug'
@@ -106,6 +123,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AdminRoute: AdminRoute,
   AuthRoute: AuthRoute,
+  IzleSlugRoute: IzleSlugRoute,
   SeriSlugRoute: SeriSlugRoute,
 }
 export const routeTree = rootRouteImport

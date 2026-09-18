@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { ArrowRight, Menu, Play, Search } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { AdSlot } from "@/components/AdSlot";
 import { fetchHeroImage, fetchShows } from "@/lib/content";
 import heroImage from "@/assets/shanime-hero.jpg";
 import cursedPoster from "@/assets/poster-cursed.jpg";
@@ -29,10 +30,10 @@ export const Route = createFileRoute("/")({
 
 // Veritabanı boşsa veya yüklenemediyse gösterilen yedek içerik.
 const fallbackShows = [
-  { title: "Jujutsu Kaisen", subtitle: "Lanetler, büyücüler ve büyük bir hesaplaşma", image: cursedPoster },
-  { title: "Re:Zero", subtitle: "Başka bir dünyada sıfırdan başlamak", image: zeroPoster },
-  { title: "Mushoku Tensei", subtitle: "İkinci bir hayat, sınırsız bir dünya", image: magePoster },
-  { title: "Erased", subtitle: "Geçmişe uzanan karanlık bir gizem", image: erasedPoster },
+  { id: undefined, slug: null, title: "Jujutsu Kaisen", subtitle: "Lanetler, büyücüler ve büyük bir hesaplaşma", image: cursedPoster },
+  { id: undefined, slug: null, title: "Re:Zero", subtitle: "Başka bir dünyada sıfırdan başlamak", image: zeroPoster },
+  { id: undefined, slug: null, title: "Mushoku Tensei", subtitle: "İkinci bir hayat, sınırsız bir dünya", image: magePoster },
+  { id: undefined, slug: null, title: "Erased", subtitle: "Geçmişe uzanan karanlık bir gizem", image: erasedPoster },
 ];
 
 const genres = ["Tüm seriler", "Aksiyon", "Bilim kurgu", "Dram", "Fantastik", "Komedi", "Gizem"];
@@ -86,12 +87,30 @@ function Index() {
         <section id="season" className="mx-auto max-w-7xl px-5 py-16 lg:px-8">
           <div className="mb-8 flex items-end justify-between"><div><p className="text-sm font-extrabold text-primary">Yeni seçkiler</p><h2 className="mt-1 font-display text-3xl text-foreground">Bu sezon</h2></div><a href="#series" className="group flex items-center gap-2 text-sm font-extrabold">Tümünü gör <ArrowRight size={17} className="transition-transform group-hover:translate-x-1" /></a></div>
           <div id="series" className="grid grid-cols-2 gap-4 md:grid-cols-4 md:gap-6">
-            {(query ? filtered : shows).map((show) => <article key={show.title} className="group overflow-hidden rounded-3xl bg-card shadow-2xl"><div className="aspect-[2/3] overflow-hidden bg-muted"><img src={show.image} alt={`${show.title} kapak görseli`} width={768} height={1152} loading="lazy" className="size-full object-cover transition-transform duration-500 group-hover:scale-105" /></div><div className="p-4"><h3 className="text-base font-extrabold text-foreground">{show.title}</h3><p className="mt-1 text-xs leading-5 text-muted-foreground">{show.subtitle}</p></div></article>)}
+            {(query ? filtered : shows).map((show) => {
+              const href = show.id ? `/seri/${show.slug && show.slug.trim() ? show.slug : show.id}` : undefined;
+              return (
+                <a
+                  key={show.title}
+                  href={href}
+                  className="group overflow-hidden rounded-3xl bg-card shadow-2xl transition-transform duration-300 hover:-translate-y-1"
+                >
+                  <div className="aspect-[2/3] overflow-hidden bg-muted">
+                    <img src={show.image} alt={`${show.title} kapak görseli`} width={768} height={1152} loading="lazy" className="size-full object-cover transition-transform duration-500 group-hover:scale-105" />
+                  </div>
+                  <div className="p-4">
+                    <h3 className="text-base font-extrabold text-foreground">{show.title}</h3>
+                    <p className="mt-1 text-xs leading-5 text-muted-foreground">{show.subtitle}</p>
+                  </div>
+                </a>
+              );
+            })}
           </div>
           {query && filtered.length === 0 && <p className="py-16 text-center text-muted-foreground">Aramana uygun seri bulunamadı.</p>}
         </section>
 
-        <section className="border-y border-border bg-background"><div className="mx-auto grid max-w-7xl gap-10 px-5 py-16 md:grid-cols-[1fr_1.4fr] lg:px-8"><div><p className="text-sm font-extrabold text-primary">Hızlı seçim</p><h2 className="mt-1 font-display text-3xl">En çok izlenenler</h2><p className="mt-4 max-w-sm text-sm leading-7 text-muted-foreground">Kısa, kolay taranan bir liste. Haftanın en çok ilgi gören serilerini hemen yakala.</p></div><ol className="divide-y divide-border rounded-3xl bg-card px-6">{[["01","Transit Echo","24,8K izlenme"],["02","Fox Protocol","19,2K izlenme"],["03","Night Market","14,7K izlenme"]].map(([n,name,count]) => <li key={n} className="flex items-center gap-5 py-5"><span className="font-display text-3xl text-primary">{n}</span><div><p className="font-extrabold">{name}</p><p className="mt-1 text-xs text-muted-foreground">Kurgusal seri · {count}</p></div></li>)}</ol></div></section>
+        <AdSlot slot="ad_home" className="flex justify-center" />
+
 
         <section id="genres" className="mx-auto max-w-7xl px-5 py-16 lg:px-8"><div className="rounded-3xl bg-card p-8 md:p-12"><p className="text-sm font-extrabold text-primary">Rotanı seç</p><h2 className="mt-1 font-display text-3xl">Türlere göre keşfet</h2><p className="mt-4 max-w-xl text-sm leading-7 text-muted-foreground">Şehir haritası gibi açılan türler arasında kaybolmadan bir sonraki serini bul.</p><div className="mt-8 flex flex-wrap gap-3">{genres.map((genre) => <a key={genre} href="#series" className="rounded-lg border border-border px-5 py-3 text-sm font-bold transition-colors hover:border-accent hover:text-accent">{genre}</a>)}</div></div></section>
       </main>
