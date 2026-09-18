@@ -637,6 +637,9 @@ const VIDEO_HOST_KEYWORDS = [
   "khcloud",
   "filemoon",
   "streamtape",
+  "strcloud",
+  "streamta",
+  "tapecontent",
   "mp4upload",
   "vidhide",
   "oneupload",
@@ -669,11 +672,15 @@ function watchUrlError(url: string): string | null {
   const u = extractEmbedUrl(url);
   if (!u) return null;
   if (u.length > 300) return "Video linki çok uzun.";
-  if (/["'<>\s]/.test(u)) return "Link geçersiz karakter içeriyor. Embed kodunun içindeki link otomatik alınır, düz linki yapıştır.";
+  if (/["'<>\s]/.test(u))
+    return "Link geçersiz karakter içeriyor. Embed kodunun içindeki link otomatik alınır, düz linki yapıştır.";
   if (!u.startsWith("https://")) return "Link https:// ile başlamalı.";
-  const host = u.replace(/^https:\/\//i, "").split("/")[0].toLowerCase();
+  const host = u
+    .replace(/^https:\/\//i, "")
+    .split("/")[0]
+    .toLowerCase();
   if (!VIDEO_HOST_KEYWORDS.some((k) => host.includes(k)))
-    return "Bu video host tanınmıyor. Doodstream, VidMoly, StreamWish/hgcloud aileleri kabul edilir.";
+    return "Bu video host tanınmıyor. Doodstream, VidMoly, StreamWish/hgcloud, Streamtape aileleri kabul edilir.";
   const path = u.replace(/^https:\/\/[^/]+/i, "");
   if (!/^\/[\w/.~?=&%-]*$/.test(path)) return "Link yolu geçersiz görünüyor.";
   return null;
