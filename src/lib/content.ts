@@ -46,6 +46,9 @@ const BUCKET = "images";
 const SIGNED_URL_TTL = 60 * 60; // 1 saat
 
 export async function signImagePath(path: string): Promise<string> {
+  // "static/" ile başlayan yollar sitenin kendi dosyalarıdır (public/static/),
+  // imzalı URL gerekmez; doğrudan döndürülür.
+  if (path.startsWith("static/")) return `/${path}`;
   const { data } = await supabase.storage.from(BUCKET).createSignedUrl(path, SIGNED_URL_TTL);
   return data?.signedUrl ?? "";
 }
