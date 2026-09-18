@@ -52,5 +52,14 @@ export function AdSlot({ slot, className }: { slot: string; className?: string }
   }, [code]);
 
   if (!code) return null;
-  return <div ref={hostRef} className={className} aria-hidden="true" />;
+  // w-full + overflow-hidden: 728x90 gibi geniş bannerlar mobilde taşıp sayfayı bozmasın.
+  // İçerideki iframe/img/ins de %100'den büyük çizemesin.
+  const cls = [
+    "w-full max-w-full overflow-hidden",
+    "[&>iframe]:max-w-full [&>img]:max-w-full [&>ins]:max-w-full [&>div]:max-w-full",
+    className,
+  ]
+    .filter(Boolean)
+    .join(" ");
+  return <div ref={hostRef} className={cls} aria-hidden="true" />;
 }
