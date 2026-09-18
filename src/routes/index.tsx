@@ -1,7 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
 import { ArrowRight, Menu, Play, Search } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { fetchHeroImage, fetchShows } from "@/lib/content";
 import heroImage from "@/assets/shanime-hero.jpg";
 import cursedPoster from "@/assets/poster-cursed.jpg";
 import zeroPoster from "@/assets/poster-zero.jpg";
@@ -25,8 +27,8 @@ export const Route = createFileRoute("/")({
   component: Index,
 });
 
-// IMPORTANT: Replace this placeholder. See ./README.md for routing conventions.
-const shows = [
+// Veritabanı boşsa veya yüklenemediyse gösterilen yedek içerik.
+const fallbackShows = [
   { title: "Jujutsu Kaisen", subtitle: "Lanetler, büyücüler ve büyük bir hesaplaşma", image: cursedPoster },
   { title: "Re:Zero", subtitle: "Başka bir dünyada sıfırdan başlamak", image: zeroPoster },
   { title: "Mushoku Tensei", subtitle: "İkinci bir hayat, sınırsız bir dünya", image: magePoster },
@@ -39,6 +41,10 @@ function Index() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [query, setQuery] = useState("");
+  const { data: dbShows } = useQuery({ queryKey: ["shows"], queryFn: fetchShows, staleTime: 60_000 });
+  const { data: heroUrl } = useQuery({ queryKey: ["hero-image"], queryFn: fetchHeroImage, staleTime: 60_000 });
+  const shows = dbShows && dbShows.length > 0 ? dbShows : fallbackShows;
+  const heroSrc = heroUrl ?? heroImage;
   const filtered = shows.filter((show) => show.title.toLocaleLowerCase("tr").includes(query.toLocaleLowerCase("tr")));
 
   return (
