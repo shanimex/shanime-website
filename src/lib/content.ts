@@ -6,6 +6,38 @@ export type Show = {
   subtitle: string;
   image_path: string;
   sort_order: number;
+  slug: string | null;
+  description: string;
+  year: string;
+  genre: string;
+  watch_url: string;
+};
+
+export type Episode = {
+  id: string;
+  show_id: string;
+  number: number;
+  title: string;
+  summary: string;
+  duration: string;
+  watch_url: string;
+};
+
+export type Character = {
+  id: string;
+  show_id: string;
+  name: string;
+  role: string;
+  image_path: string;
+  sort_order: number;
+};
+
+export type GalleryImage = {
+  id: string;
+  show_id: string;
+  image_path: string;
+  caption: string;
+  sort_order: number;
 };
 
 export type ShowWithImage = Show & { image: string };
