@@ -33,9 +33,15 @@ function createSupabaseFetch(supabaseKey: string): typeof fetch {
 function createSupabaseClient() {
   // Use import.meta.env for client-side (Vite build-time replacement)
   // Fall back to process.env for SSR (server-side rendering)
-  const SUPABASE_URL = import.meta.env["VITE_SUPABASE_URL"] || process.env["SUPABASE_URL"];
+  // Son çare: shanime prod URL/key (Cloudflare'de env girilmesi unutulursa site boşa düşmesin)
+  const SUPABASE_URL =
+    import.meta.env["VITE_SUPABASE_URL"] ||
+    process.env["SUPABASE_URL"] ||
+    "https://zbcsjvxzlcxhnyzmnapu.supabase.co";
   const SUPABASE_PUBLISHABLE_KEY =
-    import.meta.env["VITE_SUPABASE_PUBLISHABLE_KEY"] || process.env["SUPABASE_PUBLISHABLE_KEY"];
+    import.meta.env["VITE_SUPABASE_PUBLISHABLE_KEY"] ||
+    process.env["SUPABASE_PUBLISHABLE_KEY"] ||
+    "sb_publishable_A9_iI7B-AYaEW8R1BCQI7w_M068ZSTN";
 
   if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
     const missing = [
