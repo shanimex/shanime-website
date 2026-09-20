@@ -598,7 +598,9 @@ function Index() {
                       muted
                       loop
                       playsInline
-                      preload="auto"
+                      // Videoyu baştan indirmesin: oynatmaya başlarken parça parça getirsin,
+                      // gelene kadar alttaki jpg arka plan görünür.
+                      preload="metadata"
                       tabIndex={-1}
                       aria-hidden="true"
                       onError={() => setBrokenVideos((map) => ({ ...map, [key]: true }))}
