@@ -157,6 +157,18 @@
 }
 
 @layer components {
+  .site-button:not(:disabled) {
+    transition: transform 200ms ease-out, background-color 200ms ease, color 200ms ease;
+  }
+
+  .site-button:not(:disabled):hover {
+    transform: translateY(-2px) scale(1.05);
+  }
+
+  .site-button:not(:disabled):active {
+    transform: translateY(0) scale(0.95);
+  }
+
   .search-button {
     transition: transform 220ms ease, background-color 220ms ease, color 220ms ease;
   }
@@ -179,8 +191,10 @@
   }
 
   @media (prefers-reduced-motion: reduce) {
+    .site-button:not(:disabled),
     .search-button,
     .search-button-icon {
+      transform: none;
       transition: none;
     }
   }
