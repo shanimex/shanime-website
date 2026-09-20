@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowRight, Menu, Play, Search } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { AdSlot } from "@/components/AdSlot";
 import { fetchHeroImage, fetchShows } from "@/lib/content";
@@ -72,6 +72,35 @@ function Index() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [query, setQuery] = useState("");
+  const searchButtonRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    const button = searchButtonRef.current;
+    if (!button || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+
+    let frame = 0;
+    const followPointer = (event: PointerEvent) => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        const bounds = button.getBoundingClientRect();
+        const angle = Math.atan2(
+          event.clientY - (bounds.top + bounds.height / 2),
+          event.clientX - (bounds.left + bounds.width / 2),
+        );
+
+        button.style.setProperty("--search-x", `${Math.cos(angle) * 5}px`);
+        button.style.setProperty("--search-y", `${Math.sin(angle) * 5}px`);
+        button.style.setProperty("--search-icon-x", `${Math.cos(angle) * 2}px`);
+        button.style.setProperty("--search-icon-y", `${Math.sin(angle) * 2}px`);
+      });
+    };
+
+    window.addEventListener("pointermove", followPointer, { passive: true });
+    return () => {
+      cancelAnimationFrame(frame);
+      window.removeEventListener("pointermove", followPointer);
+    };
+  }, []);
   const { data: dbShows } = useQuery({
     queryKey: ["shows"],
     queryFn: fetchShows,
@@ -121,6 +150,7 @@ function Index() {
           </nav>
           <div className="relative hidden items-center gap-3 md:flex">
             <Button
+              ref={searchButtonRef}
               variant="ghost"
               size="icon"
               className={`search-button rounded-full bg-secondary ${searchOpen ? "is-open" : ""}`}
