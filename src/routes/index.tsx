@@ -417,7 +417,7 @@ function Index() {
               src="/shanime-logo.png"
               alt="shanime logosu"
               width={800}
-              height={400}
+              height={187}
               loading="eager"
               decoding="async"
               className="h-14 w-auto object-contain sm:h-16"
@@ -829,7 +829,7 @@ function Index() {
                 src="/shanime-logo.png"
                 alt="shanime logosu"
                 width={800}
-                height={400}
+                height={187}
                 loading="lazy"
                 decoding="async"
                 className="h-11 w-auto object-contain"
