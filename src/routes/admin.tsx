@@ -178,11 +178,17 @@ function AdminPage() {
     <div className="min-h-screen bg-background text-foreground">
       <header className="sticky top-0 z-50 border-b border-border bg-background/95 backdrop-blur">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-5 py-3">
-          <a href="/admin" className="flex items-center gap-2 font-display text-xl">
-            <span className="grid size-8 place-items-center rounded-full border-2 border-accent text-xs text-primary">
-              ▶
-            </span>
-            shanime{" "}
+          <a href="/admin" aria-label="shanime yönetim" className="flex items-center gap-3">
+            <img
+              src="/shanime-logo.png"
+              alt="shanime logosu"
+              width={1983}
+              height={793}
+              loading="eager"
+              decoding="async"
+              className="h-9 w-auto object-contain"
+            />
+            <span className="sr-only">shanime</span>
             <span className="text-sm font-sans font-bold text-muted-foreground">· yönetim</span>
           </a>
           <Button
@@ -206,7 +212,8 @@ function AdminPage() {
         <section className="rounded-3xl border border-border bg-card p-6 md:p-8">
           <h2 className="font-display text-2xl text-foreground">Ana görsel (hero)</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            Ana sayfanın en üstündeki büyük görsel.
+            Ana sayfadaki vitrin slaytları için yedek arka plan. Serinin kendi geniş görseli varsa
+            (JJK, Re:Zero, Mushoku Tensei) o kullanılır; bu görsel diğer serilerde devreye girer.
           </p>
           <div className="mt-5 flex flex-wrap items-center gap-5">
             {heroUrl && (
@@ -645,6 +652,7 @@ const VIDEO_HOST_KEYWORDS = [
   "vidhide",
   "oneupload",
   "movhide",
+  "morencius",
 ];
 
 /** Yapıştırılan metinden video linkini ayıklar:
@@ -678,7 +686,7 @@ function watchUrlError(url: string): string | null {
   if (!u.startsWith("https://")) return "Link https:// ile başlamalı.";
   const host = u.replace(/^https:\/\//i, "").split("/")[0]?.toLowerCase() ?? "";
   if (!VIDEO_HOST_KEYWORDS.some((k) => host.includes(k)))
-    return "Bu video host tanınmıyor. Doodstream, VidMoly, StreamWish/hgcloud, Streamtape aileleri kabul edilir.";
+    return "Bu video host tanınmıyor. Morencius, Doodstream, VidMoly, StreamWish/hgcloud, Streamtape aileleri kabul edilir.";
   const path = u.replace(/^https:\/\/[^/]+/i, "");
   if (!/^\/[\w/.~?=&%-]*$/.test(path)) return "Link yolu geçersiz görünüyor.";
   return null;
@@ -781,7 +789,7 @@ function EpisodeList({ showId }: { showId: string }) {
           value={watchUrl}
           onChange={(e) => setWatchUrl(e.target.value)}
           onPaste={pasteEmbed(setWatchUrl)}
-          placeholder="Video linki (StreamWish/hgcloud, Dood, VidMoly — embed kodu da olur)"
+          placeholder="Video linki (Morencius, Dood, VidMoly, StreamWish/hgcloud — embed kodu da olur)"
           aria-label="Video linki"
         />
         <Button size="sm" className="rounded-full" onClick={() => void add()} disabled={busy}>
@@ -859,7 +867,7 @@ function EpisodeRow({ episode, onChanged }: { episode: Episode; onChanged: () =>
         value={watchUrl}
         onChange={(e) => setWatchUrl(e.target.value)}
         onPaste={pasteEmbed(setWatchUrl)}
-        placeholder="Video linki (embed kodu da yapıştırılabilir)"
+        placeholder="Video linki (Morencius, Dood, VidMoly, StreamWish/hgcloud — embed kodu da olur)"
         aria-label={`${episode.number}. bölüm video linki`}
       />
     </div>

@@ -58,11 +58,21 @@ function ShowDetailPage() {
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-50 border-b border-border bg-background/95 backdrop-blur">
         <div className="mx-auto flex min-h-16 max-w-6xl items-center justify-between px-5 lg:px-8">
-          <Link to="/" className="flex items-center gap-2 font-display text-xl text-foreground">
-            <span className="grid size-8 place-items-center rounded-full border-2 border-accent text-xs text-primary">
-              ▶
-            </span>
-            shanime
+          <Link
+            to="/"
+            aria-label="shanime ana sayfa"
+            className="flex items-center gap-2 rounded-full px-1 py-1"
+          >
+            <img
+              src="/shanime-logo.png"
+              alt="shanime logosu"
+              width={1983}
+              height={793}
+              loading="eager"
+              decoding="async"
+              className="h-10 w-auto object-contain sm:h-12"
+            />
+            <span className="sr-only">shanime</span>
           </Link>
           <Link
             to="/"

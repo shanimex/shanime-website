@@ -71,11 +71,17 @@ function WatchPage() {
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-50 border-b border-border bg-background/95 backdrop-blur">
         <div className="mx-auto flex min-h-14 max-w-6xl items-center gap-4 px-4 lg:px-8">
-          <a href="/" className="flex items-center gap-2 font-display text-lg text-foreground">
-            <span className="grid size-8 place-items-center rounded-full border-2 border-accent text-xs text-primary">
-              ▶
-            </span>
-            shanime
+          <a href="/" className="flex items-center gap-2 rounded-full px-1 py-1">
+            <img
+              src="/shanime-logo.png"
+              alt="shanime logosu"
+              width={1983}
+              height={793}
+              loading="eager"
+              decoding="async"
+              className="h-10 w-auto object-contain sm:h-12"
+            />
+            <span className="sr-only">shanime</span>
           </a>
           <span className="min-w-0 flex-1 truncate text-sm font-bold text-muted-foreground">
             {show.title}
@@ -104,7 +110,7 @@ function WatchPage() {
         />
         {episodes.length > 0 && (
           <section className="rounded-2xl border border-border bg-card p-5">
-            <h2 className="font-display text-lg text-foreground">Bölümler</h2>
+            <h2 className="rounded-full px-1 py-1">Bölümler</h2>
             <div className="mt-3 flex flex-wrap gap-2">
               {episodes.map((ep) => (
                 <a
