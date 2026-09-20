@@ -137,6 +137,7 @@ function AdminPage() {
     if (target < 0 || target >= shows.length) return;
     const next = [...shows];
     const [row] = next.splice(index, 1);
+    if (!row) return;
     next.splice(target, 0, row);
     setShows(next);
     await Promise.all(
@@ -653,7 +654,7 @@ function extractEmbedUrl(raw: string): string {
   const text = raw.trim();
   if (!text) return "";
   const src = text.match(/src\s*=\s*["']([^"']+)["']/i);
-  if (src) return src[1].trim();
+  if (src?.[1]) return src[1].trim();
   const bare = text.match(/https:\/\/[^\s"'<>]+/i);
   return bare ? bare[0] : text;
 }
@@ -675,10 +676,7 @@ function watchUrlError(url: string): string | null {
   if (/["'<>\s]/.test(u))
     return "Link geçersiz karakter içeriyor. Embed kodunun içindeki link otomatik alınır, düz linki yapıştır.";
   if (!u.startsWith("https://")) return "Link https:// ile başlamalı.";
-  const host = u
-    .replace(/^https:\/\//i, "")
-    .split("/")[0]
-    .toLowerCase();
+  const host = u.replace(/^https:\/\//i, "").split("/")[0]?.toLowerCase() ?? "";
   if (!VIDEO_HOST_KEYWORDS.some((k) => host.includes(k)))
     return "Bu video host tanınmıyor. Doodstream, VidMoly, StreamWish/hgcloud, Streamtape aileleri kabul edilir.";
   const path = u.replace(/^https:\/\/[^/]+/i, "");

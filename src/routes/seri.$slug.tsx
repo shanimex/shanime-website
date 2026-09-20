@@ -118,7 +118,7 @@ function ShowDetailPage() {
             )}
             {episodes.length > 0 ? (
               <Button asChild variant="hero" size="lg" className="mt-7 rounded-full">
-                <a href={`/izle/${show.slug || show.id}?b=${episodes[0].number}`}>
+                <a href={`/izle/${show.slug || show.id}?b=${episodes[0]?.number ?? 1}`}>
                   <Play size={17} fill="currentColor" /> Şimdi izle
                 </a>
               </Button>

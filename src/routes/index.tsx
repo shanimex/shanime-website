@@ -123,11 +123,12 @@ function Index() {
             <Button
               variant="ghost"
               size="icon"
-              className="rounded-full bg-secondary"
+              className={`search-button rounded-full bg-secondary ${searchOpen ? "is-open" : ""}`}
               aria-label="Anime ara"
               onClick={() => setSearchOpen((open) => !open)}
+              aria-expanded={searchOpen}
             >
-              <Search size={18} />
+              <Search className="search-button-icon" size={18} />
             </Button>
             <Button
               onClick={() =>
