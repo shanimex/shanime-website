@@ -684,7 +684,11 @@ function watchUrlError(url: string): string | null {
   if (/["'<>\s]/.test(u))
     return "Link geçersiz karakter içeriyor. Embed kodunun içindeki link otomatik alınır, düz linki yapıştır.";
   if (!u.startsWith("https://")) return "Link https:// ile başlamalı.";
-  const host = u.replace(/^https:\/\//i, "").split("/")[0]?.toLowerCase() ?? "";
+  const host =
+    u
+      .replace(/^https:\/\//i, "")
+      .split("/")[0]
+      ?.toLowerCase() ?? "";
   if (!VIDEO_HOST_KEYWORDS.some((k) => host.includes(k)))
     return "Bu video host tanınmıyor. Morencius, Doodstream, VidMoly, StreamWish/hgcloud, Streamtape aileleri kabul edilir.";
   const path = u.replace(/^https:\/\/[^/]+/i, "");
