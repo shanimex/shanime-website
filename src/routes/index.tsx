@@ -390,8 +390,6 @@ function Index() {
   });
 
   const isFiltering = query.trim().length > 0 || genre !== ALL_GENRES;
-  /** Vitrin kartında gösterilen ilk tür; boşsa etiket çizilmez. */
-  const primaryGenre = (current.genre ?? "").split(",")[0]?.trim() ?? "";
 
   const openSearch = () => {
     setSearchOpen(true);
