@@ -407,7 +407,7 @@ function Index() {
   return (
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-50 border-b border-border bg-background/95 backdrop-blur">
-        <div className="mx-auto flex min-h-16 max-w-7xl items-center justify-between gap-5 px-5 lg:px-8">
+        <div className="mx-auto flex min-h-20 max-w-7xl items-center justify-between gap-5 px-5 lg:px-8">
           <a
             href="#top"
             aria-label="shanime ana sayfa"
@@ -416,11 +416,11 @@ function Index() {
             <img
               src="/shanime-logo.png"
               alt="shanime logosu"
-              width={1983}
-              height={793}
+              width={800}
+              height={400}
               loading="eager"
               decoding="async"
-              className="h-12 w-auto object-contain sm:h-14"
+              className="h-14 w-auto object-contain sm:h-16"
             />
             <span className="sr-only">shanime</span>
           </a>
@@ -828,11 +828,11 @@ function Index() {
               <img
                 src="/shanime-logo.png"
                 alt="shanime logosu"
-                width={1983}
-                height={793}
+                width={800}
+                height={400}
                 loading="lazy"
                 decoding="async"
-                className="h-9 w-auto object-contain"
+                className="h-11 w-auto object-contain"
               />
               <span className="sr-only">shanime</span>
             </p>

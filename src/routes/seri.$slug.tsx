@@ -57,7 +57,7 @@ function ShowDetailPage() {
   return (
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-50 border-b border-border bg-background/95 backdrop-blur">
-        <div className="mx-auto flex min-h-16 max-w-6xl items-center justify-between px-5 lg:px-8">
+        <div className="mx-auto flex min-h-20 max-w-6xl items-center justify-between px-5 lg:px-8">
           <Link
             to="/"
             aria-label="shanime ana sayfa"
@@ -66,11 +66,11 @@ function ShowDetailPage() {
             <img
               src="/shanime-logo.png"
               alt="shanime logosu"
-              width={1983}
-              height={793}
+              width={800}
+              height={400}
               loading="eager"
               decoding="async"
-              className="h-10 w-auto object-contain sm:h-12"
+              className="h-14 w-auto object-contain sm:h-16"
             />
             <span className="sr-only">shanime</span>
           </Link>

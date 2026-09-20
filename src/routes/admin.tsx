@@ -182,8 +182,8 @@ function AdminPage() {
             <img
               src="/shanime-logo.png"
               alt="shanime logosu"
-              width={1983}
-              height={793}
+              width={800}
+              height={400}
               loading="eager"
               decoding="async"
               className="h-9 w-auto object-contain"
