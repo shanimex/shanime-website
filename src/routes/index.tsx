@@ -63,12 +63,12 @@ function ShowLogo({
       key={logo}
       src={logo}
       alt={`${title} logosu`}
-      width={640}
-      height={200}
+      width={800}
+      height={187}
       loading="eager"
       decoding="async"
       onError={() => setLogoState((state) => ({ ...state, failed: true }))}
-      className={`w-full max-w-md object-contain drop-shadow-[0_10px_30px_rgba(0,0,0,0.55)] ${className ?? ""}`}
+      className={className}
     />
   );
 }
@@ -214,6 +214,21 @@ function Index() {
   // hata alınan dosya kaydedilir ve kapak görseline düşülür.
   const [brokenBackdrops, setBrokenBackdrops] = useState<Record<string, boolean>>({});
   const [brokenVideos, setBrokenVideos] = useState<Record<string, boolean>>({});
+  // Sonanime gibi: slayt açıldıktan 3 saniye sonra video devreye girer;
+  // video oynarken açıklama/bilgiler kapanır, sadece logo + butonlar kalır.
+  const [videoPhase, setVideoPhase] = useState<"waiting" | "playing">("waiting");
+  const [videoVisibleKey, setVideoVisibleKey] = useState<string | null>(null);
+  useEffect(() => {
+    setVideoPhase("waiting");
+    setVideoVisibleKey(null);
+    if (!allowVideo) return;
+    const timer = window.setTimeout(() => setVideoPhase("playing"), 3000);
+    return () => window.clearTimeout(timer);
+  }, [safeIndex, allowVideo]);
+  const currentVideoKey = current.slug ?? current.title;
+  const currentHasVideo =
+    Boolean(heroVideo(current.slug)) && allowVideo && !brokenVideos[currentVideoKey];
+  const videoPlaying = videoPhase === "playing" && currentHasVideo;
 
   // Geçiş efekti: yeni slayt üstten fade-in olur, eski slayt 1.3 sn boyunca
   // altında kalmaya devam eder. Crossfade'de iki arka plan yarı saydam
@@ -239,14 +254,15 @@ function Index() {
   const goNext = useCallback(() => goTo(safeIndex + 1), [goTo, safeIndex]);
   const goPrev = useCallback(() => goTo(safeIndex - 1), [goTo, safeIndex]);
 
-  // Otomatik dönüş: her slayt 10 saniye ekranda kalır, sürükleme sırasında durur.
+  // Otomatik dönüş: her slayt 10 saniye ekranda kalır; sürükleme ve video
+  // oynatma sırasında durur (sonanime ile aynı davranış).
   useEffect(() => {
-    if (heroShows.length < 2 || heroDragging) return;
+    if (heroShows.length < 2 || heroDragging || videoPlaying) return;
     const timer = window.setTimeout(() => {
       setHeroIndex((index) => (index + 1) % heroShows.length);
     }, HERO_AUTO_MS);
     return () => window.clearTimeout(timer);
-  }, [heroShows.length, safeIndex, heroDragging]);
+  }, [heroShows.length, safeIndex, heroDragging, videoPlaying]);
 
   // Vitrin ekrandayken ←/→ tuşları slaytı çevirir (metin alanlarında devre dışı).
   useEffect(() => {
@@ -407,7 +423,7 @@ function Index() {
   return (
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-50 border-b border-border bg-background/95 backdrop-blur">
-        <div className="mx-auto flex min-h-20 max-w-7xl items-center justify-between gap-5 px-5 lg:px-8">
+        <div className="mx-auto flex h-[72px] max-w-7xl items-center justify-between gap-5 px-5 lg:px-8">
           <a
             href="#top"
             aria-label="shanime ana sayfa"
@@ -420,7 +436,7 @@ function Index() {
               height={187}
               loading="eager"
               decoding="async"
-              className="h-14 w-auto object-contain sm:h-16"
+              className="h-9 w-auto object-contain sm:h-10"
             />
             <span className="sr-only">shanime</span>
           </a>
@@ -542,131 +558,114 @@ function Index() {
         <section
           ref={heroRef}
           aria-label="Vitrin"
-          className={`hero-slide relative isolate min-h-[520px] select-none overflow-hidden md:min-h-[620px] ${
-            heroDragging ? "is-dragging" : ""
-          }`}
+          className={`hero-section ${heroDragging ? "hero-dragging is-dragging" : ""}`}
           onPointerDown={onHeroPointerDown}
           onPointerMove={onHeroPointerMove}
           onPointerUp={onHeroPointerUp}
           onPointerCancel={onHeroPointerCancel}
         >
-          {/* Arka planlar + karartma tek katmanda; içerik her zaman üstte kalır. */}
-          <div className="pointer-events-none absolute inset-0 -z-10">
-            {heroShows.map((show, index) => {
-              const key = show.slug ?? show.title;
-              // Dikey kapak hero'da kırpılıyor: önce geniş header, dosya yoksa kapak.
-              const backdrop = brokenBackdrops[key]
-                ? show.image
-                : heroBackdrop(show.slug, heroUrl ?? show.image);
-              const videoUrl = brokenVideos[key] ? undefined : heroVideo(show.slug);
-              const active = index === safeIndex;
-              return (
-                <div
-                  key={key}
-                  aria-hidden={!active}
-                  style={backdropDragStyle(index)}
-                  className={`absolute inset-0 ${
-                    active
-                      ? "z-[2] motion-safe:animate-hero-fade-in"
-                      : index === leavingIndex
-                        ? "z-[1]"
-                        : "z-0 opacity-0"
-                  }`}
-                >
-                  <img
-                    src={backdrop}
-                    alt={active ? `${show.title} sahnesi` : ""}
-                    width={1536}
-                    height={864}
-                    loading={index === 0 ? "eager" : "lazy"}
-                    fetchPriority={index === 0 ? "high" : "low"}
-                    decoding="async"
-                    draggable={false}
-                    onError={() => setBrokenBackdrops((map) => ({ ...map, [key]: true }))}
-                    style={heroDragging ? { transition: "none" } : undefined}
-                    className={`hero-backdrop size-full object-cover object-center ${
-                      active ? "is-active" : ""
-                    }`}
+          {heroShows.map((show, index) => {
+            const key = show.slug ?? show.title;
+            // Dikey kapak hero'da kırpılıyor: önce geniş header, dosya yoksa kapak.
+            const backdrop = brokenBackdrops[key]
+              ? show.image
+              : heroBackdrop(show.slug, heroUrl ?? show.image);
+            const videoUrl = brokenVideos[key] ? undefined : heroVideo(show.slug);
+            const active = index === safeIndex;
+            const videoActive = active && allowVideo && videoUrl && !brokenVideos[key];
+            return (
+              <div
+                key={key}
+                aria-hidden={!active}
+                style={backdropDragStyle(index)}
+                className={`hero-slide ${active ? "active" : ""} ${
+                  index === leavingIndex ? "is-leaving" : ""
+                }`}
+              >
+                <img
+                  src={backdrop}
+                  alt={active ? `${show.title} sahnesi` : ""}
+                  width={1536}
+                  height={864}
+                  loading={index === 0 ? "eager" : "lazy"}
+                  fetchPriority={index === 0 ? "high" : "low"}
+                  decoding="async"
+                  draggable={false}
+                  onError={() => setBrokenBackdrops((map) => ({ ...map, [key]: true }))}
+                  className="hero-image"
+                />
+                {/* Video, görselin üstüne biner; oynamaya başlayınca yumuşakça görünür. */}
+                {videoActive && (
+                  <video
+                    className={`hero-video ${videoVisibleKey === key ? "is-visible" : ""}`}
+                    src={videoUrl}
+                    muted
+                    loop
+                    playsInline
+                    autoPlay
+                    preload="metadata"
+                    tabIndex={-1}
+                    aria-hidden="true"
+                    onPlaying={() => setVideoVisibleKey(key)}
+                    onError={() => {
+                      setBrokenVideos((map) => ({ ...map, [key]: true }));
+                      setVideoVisibleKey((k) => (k === key ? null : k));
+                    }}
                   />
-                  {/* Video, görselin üstüne biner; eski sitedeki hero gibi canlı arka plan.
-                      Sadece aktif slaytın videosu indirilir, oynatmaya hazır olunca görünür. */}
-                  {active && allowVideo && videoUrl && (
-                    <video
-                      className="absolute inset-0 size-full object-cover object-center motion-safe:animate-hero-fade-in"
-                      src={videoUrl}
-                      autoPlay
-                      muted
-                      loop
-                      playsInline
-                      // Videoyu baştan indirmesin: oynatmaya başlarken parça parça getirsin,
-                      // gelene kadar alttaki jpg arka plan görünür.
-                      preload="metadata"
-                      tabIndex={-1}
-                      aria-hidden="true"
-                      onError={() => setBrokenVideos((map) => ({ ...map, [key]: true }))}
-                    />
-                  )}
-                </div>
-              );
-            })}
-            {/* Karartma: soldan yatay + alttan yumuşak geçiş (sert çizgi yok).
-                Aktif slayt z-[2] olduğu için gölge onun ÜSTÜNDE kalmalı (z-[3]). */}
-            <div className="hero-shade absolute inset-0 z-[3]" />
-          </div>
-          <div className="mx-auto flex min-h-[520px] max-w-7xl items-end px-5 py-12 md:min-h-[620px] md:items-center lg:px-8">
-            <div
-              key={current.slug}
-              style={contentDragStyle}
-              className={`max-w-xl ${heroDragging ? "" : "motion-safe:animate-hero-fade-in"}`}
-            >
-              <p className="mb-3 inline-flex rounded-full border border-border bg-secondary px-3 py-1 text-xs font-extrabold text-muted-foreground">
-                Popüler animeler
-              </p>
-              <p className="mb-2 text-sm font-bold text-muted-foreground">Öne çıkan seri</p>
-              <ShowLogo
-                slug={current.slug}
-                title={current.title}
-                className="-ml-1 max-w-sm sm:max-w-md"
-              />
-              <div className="mt-5 flex flex-wrap gap-2 text-xs font-bold text-muted-foreground">
-                {current.year && (
-                  <span className="rounded-full border border-border bg-background px-3 py-1">
-                    {current.year}
-                  </span>
-                )}
-                {primaryGenre && (
-                  <span className="rounded-full border border-border bg-background px-3 py-1">
-                    {primaryGenre}
-                  </span>
                 )}
               </div>
-              {/* min-h: slaytlar arasında butonlar zıplamasın (açıklama uzunlukları farklı). */}
-              <p className="mt-5 max-w-lg text-sm leading-7 text-foreground md:min-h-[5.5rem] md:text-base">
-                {current.description}
-              </p>
-              <div className="mt-7 flex flex-wrap items-center gap-4">
-                <Button asChild variant="hero" size="lg" className="rounded-full hero-btn">
-                  <a
-                    href={
-                      current.id
-                        ? `/izle/${current.slug && current.slug.trim() ? current.slug : current.id}?b=1`
-                        : "#series"
-                    }
-                  >
-                    <Play size={17} fill="currentColor" /> Şimdi izle
-                  </a>
-                </Button>
-                <a
-                  href={
-                    current.id
-                      ? `/seri/${current.slug && current.slug.trim() ? current.slug : current.id}`
-                      : "#series"
-                  }
-                  className="ui-hover rounded-full border border-border bg-secondary px-5 py-3 text-sm font-bold text-foreground hover:border-accent hover:text-accent"
-                >
-                  Seri detayı
-                </a>
+            );
+          })}
+          {/* Karartma: soldan yatay + alttan yumuşak geçiş (sert çizgi yok). */}
+          <div className="hero-gradient pointer-events-none absolute inset-0 z-[2]" />
+          <div
+            className={`hero-content ${videoPlaying ? "is-video-playing" : ""}`}
+            style={contentDragStyle}
+            key={`content-${current.slug ?? current.title}`}
+          >
+            <span className="hero-featured-badge">Popüler animeler</span>
+            <ShowLogo slug={current.slug} title={current.title} className="hero-logo" />
+            <div className="hero-details">
+              <div className="hero-details-inner">
+                <div className="hero-meta">{current.year && <span>{current.year}</span>}</div>
+                {current.genre && (
+                  <div className="hero-genres">
+                    {current.genre
+                      .split(",")
+                      .map((part) => part.trim())
+                      .filter(Boolean)
+                      .slice(0, 4)
+                      .map((genreName) => (
+                        <span key={genreName} className="hero-genre-chip">
+                          {genreName}
+                        </span>
+                      ))}
+                  </div>
+                )}
+                <p className="hero-description">{current.description}</p>
               </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-4">
+              <a
+                href={
+                  current.id
+                    ? `/izle/${current.slug && current.slug.trim() ? current.slug : current.id}?b=1`
+                    : "#series"
+                }
+                className="home-cta-pill"
+              >
+                <Play size={17} fill="currentColor" /> Şimdi izle
+              </a>
+              <a
+                href={
+                  current.id
+                    ? `/seri/${current.slug && current.slug.trim() ? current.slug : current.id}`
+                    : "#series"
+                }
+                className="ui-hover rounded-full border border-border bg-secondary px-5 py-3 text-sm font-bold text-foreground hover:border-accent hover:text-accent"
+              >
+                Seri detayı
+              </a>
             </div>
           </div>
 
@@ -676,17 +675,17 @@ function Index() {
                 type="button"
                 aria-label="Önceki seri"
                 onClick={goPrev}
-                className="hero-arrow is-prev"
+                className="hero-nav hero-nav-prev"
               >
-                <ChevronLeft size={20} aria-hidden="true" />
+                <ChevronLeft size={24} aria-hidden="true" />
               </button>
               <button
                 type="button"
                 aria-label="Sonraki seri"
                 onClick={goNext}
-                className="hero-arrow is-next"
+                className="hero-nav hero-nav-next"
               >
-                <ChevronRight size={20} aria-hidden="true" />
+                <ChevronRight size={24} aria-hidden="true" />
               </button>
             </>
           )}
@@ -706,11 +705,7 @@ function Index() {
                   aria-selected={i === safeIndex}
                   aria-label={`${s.title} slaytına git`}
                   onClick={() => goTo(i)}
-                  className={`h-1.5 rounded-full transition-[width,background-color] duration-300 ease-out active:scale-90 ${
-                    i === safeIndex
-                      ? "w-[26px] bg-primary"
-                      : "w-1.5 bg-foreground/35 hover:bg-foreground/70"
-                  }`}
+                  className={`hero-dot ${i === safeIndex ? "active" : ""}`}
                 />
               ))}
             </div>
@@ -832,7 +827,7 @@ function Index() {
                 height={187}
                 loading="lazy"
                 decoding="async"
-                className="h-11 w-auto object-contain"
+                className="h-10 w-auto object-contain"
               />
               <span className="sr-only">shanime</span>
             </p>

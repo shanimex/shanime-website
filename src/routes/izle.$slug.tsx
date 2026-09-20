@@ -70,7 +70,7 @@ function WatchPage() {
   return (
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-50 border-b border-border bg-background/95 backdrop-blur">
-        <div className="mx-auto flex min-h-20 max-w-6xl items-center gap-4 px-4 lg:px-8">
+        <div className="mx-auto flex h-[72px] max-w-6xl items-center gap-4 px-4 lg:px-8">
           <a href="/" className="flex items-center gap-2 rounded-full px-1 py-1">
             <img
               src="/shanime-logo.png"
@@ -79,7 +79,7 @@ function WatchPage() {
               height={187}
               loading="eager"
               decoding="async"
-              className="h-14 w-auto object-contain sm:h-16"
+              className="h-9 w-auto object-contain sm:h-10"
             />
             <span className="sr-only">shanime</span>
           </a>

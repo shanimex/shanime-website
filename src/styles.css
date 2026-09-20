@@ -1,3 +1,4 @@
+@import url("https://fonts.googleapis.com/css2?family=Signika+Negative:wght@400;500;600;700&display=swap");
 @import "tailwindcss" source(none);
 @source "../src";
 
@@ -16,7 +17,7 @@
  */
 
 @theme inline {
-  --font-sans: "Manrope", sans-serif;
+  --font-sans: "Signika Negative", system-ui, sans-serif;
   --font-display: "Archivo Black", sans-serif;
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
@@ -221,77 +222,236 @@
   }
 
   /* Vitrin slaytı: fare/parmakla tutup kaydırılabilir (kaydırırken el işareti). */
-  .hero-slide {
+  /* === SONANIME VITRIN REPLIKASI === */
+
+  /* Hero bolumu: yukseklik clamp, hero ile header arasinda bosluk yok. */
+  .hero-section {
+    position: relative;
+    width: 100%;
+    height: clamp(60vh, 600px, 80vh);
+    overflow: hidden;
+    background: #0f0f0f;
     user-select: none;
     touch-action: pan-y;
   }
 
-  /* Sürükleme sırasında imleç tutan el olur; normalde imleç değişmez. */
-  .hero-slide.is-dragging {
+  .hero-section.is-dragging {
     cursor: grabbing;
   }
 
-  /* Sürükleme sırasında Ken Burns durur, görsel parmağı birebir takip eder. */
-  .hero-slide.is-dragging .hero-backdrop {
-    transition: none;
+  /* Slayt: yumusak fade gecisi (opacity + visibility). */
+  .hero-slide {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    visibility: hidden;
+    transition:
+      opacity 1.2s ease,
+      visibility 1.2s ease;
+    z-index: 0;
   }
 
-  /* Ken Burns: aktif slaytın görseli 6 saniyede hafifçe yerine oturur. */
-  .hero-backdrop {
+  .hero-slide.active {
+    opacity: 1;
+    visibility: visible;
+    z-index: 1;
+  }
+
+  /* Foto + Ken Burns zoom: aktif slaytta 6 saniyede yerine oturur. */
+  .hero-image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center 20%;
     transform: scale(1.05);
     transition: transform 6s ease-out;
   }
 
-  .hero-backdrop.is-active {
+  .hero-slide.active .hero-image {
     transform: scale(1);
   }
 
-  /* Vitrin karartması: soldan yatay + altta belirgin koyu gölge (sert çizgi yok).
-     Alt gradyan %55'e kadar yayılır: parlak video/sahnede bile alt kısım koyu kalır. */
-  .hero-shade {
-    background:
-      linear-gradient(
-        90deg,
-        var(--background) 0%,
-        color-mix(in oklab, var(--background) 62%, transparent) 46%,
-        transparent 84%
-      ),
-      linear-gradient(
-        0deg,
-        var(--background) 0%,
-        color-mix(in oklab, var(--background) 82%, transparent) 18%,
-        transparent 55%
-      );
+  .hero-section.hero-dragging .hero-image {
+    transition: none;
+    transform: scale(1);
   }
 
+  /* Video: aktif slaytta oynamaya baslayinca gorunur. */
+  .hero-video {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.6s ease;
+  }
+
+  .hero-video.is-visible {
+    opacity: 1;
+  }
+
+  /* Karartma: soldan yatay + alttan yumusak gecis. */
+  .hero-gradient {
+    position: absolute;
+    inset: 0;
+    background:
+      linear-gradient(90deg, #0f0f0ff2, #0f0f0f99, transparent 80%),
+      linear-gradient(0deg, #0f0f0f, transparent 25%);
+  }
+
+  /* Vitrin karartması: soldan yatay + altta belirgin koyu gölge (sert çizgi yok).
   /* Vitrin başlığı: beyaz, kalın, ince konturlu ve gölgeli (hafif 3B hissi). */
+  /* Vitrin basligi: logosu olmayan seriler icin duz yazi. */
   .hero-title {
     color: #fff;
-    font-size: clamp(2rem, 5vw, 3.75rem);
-    font-weight: 800;
-    letter-spacing: -0.02em;
+    font-size: clamp(2rem, 5vw, 4rem);
+    font-weight: 700;
+    letter-spacing: -1px;
     line-height: 1.05;
-    -webkit-text-stroke: 1px rgb(255 255 255 / 55%);
-    paint-order: stroke fill;
-    text-shadow:
-      2px 2px 4px rgb(0 0 0 / 55%),
-      0 12px 32px rgb(0 0 0 / 45%);
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
   }
 
-  /* Vitrin okları: sade ve her zaman görünür; üzerine gelince cam daire olur. */
-  .hero-arrow {
+  /* Icerik: header a mesafe buradan; sol hizali, dikeyde ortalanmis. */
+  .hero-content {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    z-index: 2;
+    padding: 0 0 5vh 8%;
+    max-width: 900px;
+  }
+
+  .hero-featured-badge {
+    align-self: flex-start;
+    margin-bottom: 0.85rem;
+    padding: 0.32rem 0.85rem;
+    border-radius: 50px;
+    border: 1px solid rgba(255, 60, 100, 0.35);
+    background: #ff3c6414;
+    color: #ff7c95;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+
+  /* Seri logosu: yukseklik clamp ile ekrana gore olceklenir, sola dayali. */
+  .hero-logo {
+    display: block;
+    width: min(100%, 480px);
+    max-height: clamp(72px, 16vh, 160px);
+    margin-bottom: 0.75rem;
+    object-fit: contain;
+    object-position: left center;
+    filter: drop-shadow(0 8px 24px rgba(0, 0, 0, 0.45));
+  }
+
+  /* Detaylar: video baslarken grid satiri kapanir (yukseklik animasyonu). */
+  .hero-details {
+    display: grid;
+    grid-template-rows: 1fr;
+    transition: grid-template-rows 0.6s ease;
+  }
+
+  .hero-details-inner {
+    min-height: 0;
+    overflow: hidden;
+    transition: opacity 0.6s ease;
+  }
+
+  .hero-content.is-video-playing .hero-details {
+    grid-template-rows: 0fr;
+  }
+
+  .hero-content.is-video-playing .hero-details-inner {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .hero-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 10px;
+    margin-bottom: 0.55rem;
+    font-size: 1rem;
+    color: #ffffffd9;
+  }
+
+  .hero-score {
+    background: #ffc1071f;
+    border: 1px solid rgba(255, 193, 7, 0.35);
+    color: #ffc107;
+    border-radius: 50px;
+    padding: 0.24rem 0.7rem;
+    font-weight: 700;
+  }
+
+  .hero-genres {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 1.15rem;
+  }
+
+  .hero-genre-chip {
+    background: #ffffff17;
+    padding: 0.26rem 0.72rem;
+    border-radius: 999px;
+    font-size: 0.78rem;
+  }
+
+  .hero-description {
+    font-size: 1.1rem;
+    max-width: 600px;
+    line-height: 1.6;
+    color: #ffffffbf;
+    margin-bottom: 2rem;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .home-cta-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.7rem 1.7rem;
+    border-radius: 50px;
+    background: #ff3c64;
+    color: #fff;
+    font-weight: 700;
+    box-shadow: 0 4px 18px #ff3c6459;
+    transition:
+      transform 250ms cubic-bezier(0.22, 1, 0.36, 1),
+      box-shadow 250ms ease-out;
+  }
+
+  @media (hover: hover) {
+    .home-cta-pill:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 26px #ff3c6473;
+    }
+  }
+
+  /* Vitrin oklari: 64px daire, seffaf; uzerine gelince koyu daire. */
+  .hero-nav {
     position: absolute;
     top: 50%;
-    z-index: 10;
+    z-index: 3;
     display: inline-flex;
-    height: 4rem;
-    width: 4rem;
+    height: 64px;
+    width: 64px;
     align-items: center;
     justify-content: center;
     border: none;
-    border-radius: 999px;
+    border-radius: 50%;
     background: transparent;
-    color: rgb(255 255 255 / 72%);
+    color: #ffffffb8;
     cursor: pointer;
     transform: translateY(-50%);
     transition:
@@ -299,25 +459,73 @@
       background-color 250ms ease;
   }
 
-  .hero-arrow.is-prev {
-    left: clamp(12px, 2vw, 28px);
+  .hero-nav-prev {
+    left: 20px;
   }
 
-  .hero-arrow.is-next {
-    right: clamp(12px, 2vw, 28px);
+  .hero-nav-next {
+    right: 20px;
   }
 
-  .hero-arrow:hover,
-  .hero-arrow:focus-visible {
-    background: rgb(0 0 0 / 45%);
+  .hero-nav:hover,
+  .hero-nav:focus-visible {
+    background: #0f0f0f73;
     color: rgb(255 255 255 / 96%);
-    backdrop-filter: blur(6px);
-    -webkit-backdrop-filter: blur(6px);
   }
 
-  .hero-arrow:focus-visible {
+  .hero-nav:focus-visible {
     outline: 1px solid rgb(255 255 255 / 65%);
     outline-offset: -10px;
+  }
+
+  /* Noktalar: alt ortada; aktif olan pembe cizgiye uzar. */
+  .hero-indicators {
+    position: absolute;
+    bottom: 30px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 8px;
+    z-index: 3;
+  }
+
+  .hero-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 999px;
+    background: #ffffff59;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    transition: width 0.3s ease;
+  }
+
+  .hero-dot.active {
+    width: 26px;
+    background: #ff3c64;
+  }
+
+  /* Mobilde icerik ortalanir, logo biraz kuculur. */
+  @media (max-width: 767px) {
+    .hero-content {
+      padding: 0 6% 5vh;
+      align-items: center;
+      text-align: center;
+    }
+
+    .hero-logo {
+      width: min(100%, 340px);
+      object-position: center;
+    }
+
+    .hero-featured-badge {
+      align-self: center;
+    }
+
+    .hero-genres,
+    .hero-meta {
+      justify-content: center;
+    }
   }
 }
 
@@ -331,16 +539,6 @@
     transform: none;
   }
 
-  /* Hareket hassasiyeti olan kullanıcıda vitrin animasyonları kapalı kalır. */
-  .animate-hero-fade-in {
-    animation: none;
-  }
-
-  /* Ken Burns ve sürükleme geçişleri de kapanır. */
-  .hero-backdrop {
-    transform: none;
-    transition: none;
-  }
 }
 
 @layer components {
