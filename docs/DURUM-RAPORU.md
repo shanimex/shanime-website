@@ -1653,3 +1653,72 @@ Kazanç: istek sayısı **2 → 1**; sayım SQL'de yapıldığı için 1000+ bö
 | `/izle/jujutsu-kaisen?sezon=1&b=2` panel satırı | **24** ✅ |
 | `/admin` yerelde | `/auth`'a yönlendirdi (yerelde oturum yok) — beklenen |
 | Derleme · `tsc` · `eslint` | temiz ✅ |
+
+---
+
+## 30. Reklamlar: kaynak tespiti, oynatıcı sandbox'ı ve boş bekleme ekranı
+
+### 30.1 Şikâyet ve ölçüm
+
+Kullanıcı bildirdi: mobilde bölüm açınca o kadar çok reklam çıkıyor ki başlat butonuna
+dokunamıyor; "reklamlar videonun içine aynı videoyu tekrar açıyor"; masaüstünde bu kadar
+rahatsız edici değil.
+
+Ölçüm (gerçek tarayıcı; canlı site + sağlayıcının embed sayfası):
+
+| Ölçüm | Sonuç |
+| --- | --- |
+| Bizim sayfada 3. taraf reklam script'i | **0** |
+| Bizim sayfada reklam overlay'ı / popunder | **0** |
+| Bizim reklam slotları | **hepsi boş** — `site_settings` içinde hiç `ad_*` anahtarı yok |
+| VidMoly embed'inde reklam ağı script'i | **9** — AdSense (`adsbygoogle`), `llvpn.com` (×4), `mamshirt.com`, `portalfluently.com`, `eatenmockingoverwhelm.com` |
+| Popunder motoru | **var** — `window.zfgloadedpopup = true` (PopAds) |
+| Sağ-altta sabit reklam kutusu | **var** — `position: fixed`, `z-index: 2147483647`, 150×170 px |
+| Oynatıcıya tıklama | sekme başlığı `(1) New Message!` olarak değişiyor (clickunder hilesi) |
+
+**Sonuç:** Rahatsız eden reklamlar bizim sistemimizden **değil**, video sağlayıcısı
+VidMoly'nin embed'inden geliyor. Bizim reklam slotlarımız tamamen boş — yani kendi
+trafiğimizden şu an gelir üretilmiyor.
+
+**Mobil/masaüstü farkının sebebi:** 150×170 px'lik sabit reklam kutusu oynatıcının
+sağ-alt köşesine çakılı. Masaüstünde oynatıcı 1034×582 → kutu küçük bir köşeyi kaplıyor;
+mobilde oynatıcı 341×192 → kutunun kapladığı alan oynatıcının yarısına yakın. Kullanıcının
+"telefonda başlata dokunamıyorum, PC'de sorun değil" tarifi bununla birebir uyuşuyor.
+
+### 30.2 Yapılan düzeltmeler
+
+| Ne | Neden |
+| --- | --- |
+| Oynatıcı `<iframe>`'ine `sandbox="allow-scripts allow-same-origin allow-presentation"` | Sağlayıcının popunder'ı ve sayfa kaçırma davranışı engellenir. `allow-popups` ile `allow-top-navigation` bilinçli olarak verilmedi: oynatıcı çalışır, yeni sekme/başlık değiştirme çalışmaz. |
+| `useAdCode` kancası (`components/AdSlot.tsx`) | Bir slotun gerçekten boş olduğunu ayırt etmek için (kod yok ≠ henüz yüklenmedi). |
+| `ad_preroll` boşken geri sayım atlanıyor (`izle.$slug.tsx`) | Kod yokken 5 saniyelik boş "Reklamı geç" ekranı göstermek ziyaretçiyi rahatsız etmekten başka işe yaramıyordu. Kod girilirse bekleme aynen geri gelir. |
+
+Atlatma kararı yalnızca istemcide çalışan bir etkileşimle veriliyor; ilk çizim sunucuyla
+aynı kaldığı için hydration farkı oluşmuyor.
+
+**Sınır:** Sabit reklam kutusu sağlayıcının kendi belgesinin İÇİNDE; cross-origin olduğu
+için dışarıdan gizlenemez. Tamamen kaldırmak sağlayıcı değişikliği ya da VidMoly'nin
+reklamsız seçeneğini gerektirir — ikisi de onay ister.
+
+### 30.3 Doğrulama
+
+| Kontrol | Sonuç |
+| --- | --- |
+| `sandbox` attribute'u (yerel, ham DOM) | `allow-scripts allow-same-origin allow-presentation` ✅ (390×844 ve 1600×1000) |
+| Geri sayım / "Reklamı geç" ekranı | **yok** — kod olmadığı için video hemen başlıyor ✅ |
+| Oynatıcıya tıklamada yeni sekme | **yok** — sekme sayısı 6 → 6, URL ve başlık değişmedi ✅ |
+| Konsol hatası | **0** ✅ |
+| Oynatıcı yerelde | ⚠️ VidMoly localhost'u reddediyor ("The embed could not be loaded.") → video testi canlıda yapılır |
+| `build` · `tsc` · `eslint` | temiz ✅ |
+
+### 30.4 Bekleyen: `245305a` derlemesi başarısız
+
+Cloudflare Pages, `245305a` commit'inin derlemesini **36 dk 17 sn** sonra öldürdü:
+
+```
+Failed: build exceeded the time limit and was terminated.
+```
+
+Derleme adımı 36 dakika boyunca hiç çıktı üretmedi (önceki başarılı derlemeler ~1 dk).
+Hata lightningcss kaynaklı değil — altyapı tarafında takılma. Canlıdaki sürüm hâlâ
+`6f0d93a`; yeni push yeni bir derleme tetikler.

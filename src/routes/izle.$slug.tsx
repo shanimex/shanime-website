@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, ArrowRight, Home, Loader2, Play } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { AdSlot } from "@/components/AdSlot";
+import { AdSlot, useAdCode } from "@/components/AdSlot";
 import { EpisodeCover } from "@/components/EpisodeCover";
 import {
   episodeCoverFromWatchUrl,
@@ -38,7 +38,13 @@ export const Route = createFileRoute("/izle/$slug")({
   component: WatchPage,
 });
 
-/** Video öncesi bekleme: sadece bu tek sayaç, max 5 sn, başka reklam/popup yok. */
+/**
+ * Video öncesi bekleme.
+ *
+ * Bu bekleme YALNIZCA `ad_preroll` slotunda gerçek bir reklam kodu varsa
+ * uygulanır. Kod yokken kullanıcı boş bir "reklam" ekranında bekletilmez;
+ * aşağıdaki etki geri sayımı sıfıra çeker ve video hemen başlar.
+ */
 const PREROLL_SECONDS = 5;
 
 function seasonLabel(season: SeasonWithEpisodes): string {
@@ -99,6 +105,15 @@ function WatchPage() {
     const timer = window.setTimeout(() => setCountdown((value) => value - 1), 1000);
     return () => window.clearTimeout(timer);
   }, [countdown]);
+
+  // Panelde `ad_preroll` kodu girilmemişse bekleme ekranını hiç gösterme: boş bir
+  // "Reklamı geç" ekranında 5 saniye bekletmek ziyaretçiyi rahatsız etmekten
+  // başka işe yaramıyor. Etki yalnızca istemcide çalıştığı için ilk çizim sunucu
+  // ile aynı kalır (hydration farkı oluşmaz).
+  const preroll = useAdCode("ad_preroll");
+  useEffect(() => {
+    if (preroll.isFetched && !preroll.code) setCountdown(0);
+  }, [preroll.isFetched, preroll.code]);
 
   // Sekme başlığı: rota başlığı statik ("shanime | İzle") olduğu için seri ve
   // bölüm bilgisi veri hazır olunca burada yazılır.
@@ -263,6 +278,12 @@ function PlayerBox({
           src={epUrl}
           title={`${showTitle} bölüm ${epNumber}`}
           loading="lazy"
+          // Sağlayıcının embed sayfası AdSense + PopAds popunder motoru yüklüyor:
+          // oynatıcıya yapılan tıklamada yeni sekme açıyor, açılan sekme aynı
+          // videoyu gösteriyor ve sayfanın başlığını değiştiriyor. `allow-popups`
+          // ile `allow-top-navigation` bilinçli olarak VERİLMİYOR — oynatıcı
+          // çalışmaya devam eder, reklam kaçırma çalışmaz.
+          sandbox="allow-scripts allow-same-origin allow-presentation"
           allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
           allowFullScreen
           className="aspect-video w-full"

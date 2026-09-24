@@ -21,16 +21,29 @@ async function fetchAdCode(key: string): Promise<string> {
 }
 
 /**
+ * Bir slotun reklam kodunu okur.
+ *
+ * `isFetched === true` iken `code` boşsa slot gerçekten boştur (panelde kod
+ * girilmemiş). Oynatıcı sayfası bu ayrımı kullanıyor: kod yokken boş bir
+ * "reklam" ekranı bekletmiyor, video hemen başlıyor.
+ */
+// eslint-disable-next-line react-refresh/only-export-components -- tek bir hook için ayrı dosya açmak gereksiz
+export function useAdCode(slot: string): { code: string; isFetched: boolean } {
+  const { data, isFetched } = useQuery({
+    queryKey: ["ad-slot", slot],
+    queryFn: () => fetchAdCode(slot),
+    staleTime: 5 * 60_000,
+  });
+  return { code: data ?? "", isFetched };
+}
+
+/**
  * Admin'in site_settings'e yapıştırdığı reklam kodunu (Adsterra banner vb.)
  * sayfaya enjekte eder. Kod boşsa hiçbir şey çizmez; popunder asla kullanılmaz.
  */
 export function AdSlot({ slot, className }: { slot: string; className?: string }) {
   const hostRef = useRef<HTMLDivElement>(null);
-  const { data: code } = useQuery({
-    queryKey: ["ad-slot", slot],
-    queryFn: () => fetchAdCode(slot),
-    staleTime: 5 * 60_000,
-  });
+  const { code } = useAdCode(slot);
 
   useEffect(() => {
     const host = hostRef.current;
