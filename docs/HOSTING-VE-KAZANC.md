@@ -527,3 +527,23 @@ Tüm oranlar ilgili hostun kendi panelinden/oran tablosundan okundu. Kullanıcı
 - Filemoon için otomatik bölüm çekme yazılabilir (API var) **ama** kapak türetilemediği için
   kapaklar yer tutucuda kalır ve ödeme oranı öneriyi desteklemiyor; önce host kararı verilmeli.
 - API anahtarı hiçbir dosyaya/repoya yazılmadı; panelde yalnızca tarayıcıda saklanır.
+
+## 6.5 Teyit: "sınırsız depolama" ve "$0,85" iddiaları
+
+Kullanıcı "Filemoon sınırsız depolama veriyor ve 1000 izlenme başına $0,85 kazanırsın" bilgisini
+getirdi (başka bir asistandan). Panel ve site **kelime kelime** okunarak doğrulandı:
+
+| İddia | Paneldeki gerçek |
+| --- | --- |
+| "Sınırsız depolama" | **Yalnızca PREMIUM planda** (`/premium` → Premium: Storage "Unlimited", max dosya 15 GB, silinme "Never"). **Free plan = 30 GB** ("Users" kolonu: 30 GB · 4 GB · 20 sn bekleme · "60 days after last download"). Kullanıcının hesabı **FREE** → `/user/dashboard`: "Storage **789.15 MB of 30 GB**", API: `premium.status = "free"` |
+| "1000 izlenme başına $0,85" | **Hiçbir sayfada yok.** `/make-money` ülke tablosu tamamen okundu: **Türkiye $0,0700** / 1.000 gösterim; en yüksek ABD-Kanada $0,30; Download CPM en yüksek ABD $1,00. `0.85` araması → **eşleşme yok** |
+
+**Panel kendi içinde çelişiyor:** `/make-money` → "Minimum withdrawal **$100.00**" · `/user/dashboard`
+→ "Minimum withdrawal: **$0.1000**". Ödeme sayfasında ayrıca
+**"Withdrawal requests are currently disabled"** görüldü.
+
+**Filemoon oynatıcısında reklam var** (İngilizce): DOM'da `.filemoon-video-ad-skip` → **"Skip in 5"**,
+ayrıca "Visit advertiser", "Sponsored", "Preparing advertisement…", "Loading video…".
+
+Sonuç: "sınırsız depolama" ücretli Premium'a ait bir vaat; **TR trafiği için oran $0,07/1000** yani
+Voe/VidMoly'nin (~$1,00) **1/14'i**. Filemoon'a geçmek reklamdan da kurtarmıyor (reklam İngilizce).
