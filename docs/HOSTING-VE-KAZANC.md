@@ -439,3 +439,91 @@ Faydası: embed'ler kendi alan adından servis edilir → güven + reklam engell
 Yukarıdaki tüm sayılar ve ayarlar kullanıcının gönderdiği Voe paneli ekran görüntülerinden okundu
 (birinci elden kanıt). Voe'nun TR'ye özel izlenme oranı ve "Premium Traffic tükendiğinde ne olur"
 hâlâ **doğrulanamadı**.
+
+---
+
+# BÖLÜM 6 — Filemoon (filemoon.org) doğrulanmış veriler
+
+Kaynak: kullanıcının kendi Filemoon paneli + resmî API (24.09.2026). Rakamlar ekrandan/API'den
+**birebir okundu**; tahmin yok.
+
+## 6.1 Oynatıcı dili: Türkçe YAPILAMIYOR
+
+| Deneme | Sonuç |
+| --- | --- |
+| `/{kod}/embed` | otomatik olarak **`/en/…`** yoluna yönleniyor, `<html lang="en">` |
+| `?lang=tr` · `?language=tr` · `?hl=tr` | üçü de `/en/`'e düşüyor, arayüz İngilizce kalıyor |
+| `/tr/{kod}/embed` | `/en` sayfasına yönleniyor — **`/tr` locale YOK** |
+| Panelde oynatıcı/dil ayarı | **yok** (Ayarlar: Account details, Change Password, 2FA, Withdrawal details, Subscription) |
+
+Desteklenen diller: `en, id, pl, fr, de, pt, hi, es` → **Türkçe listede yok.**
+Reklam atlama sayacı da İngilizce: **"Skip in 5"** (kullanıcının gördüğü "5 sn yazısı" bu).
+
+**Sonuç:** Oynatıcı arayüzü İngilizce kalır; bizim taraftan değiştirilemez (iframe içi, sağlayıcı kontrolünde).
+
+## 6.2 Kazanç oranları (panelden okundu)
+
+| Kalem | Değer |
+| --- | --- |
+| **Streaming eCPM (1.000 gösterim) — Türkiye** | **$0,0700** |
+| Streaming eCPM — ABD / Kanada | $0,3000 |
+| En yüksek Streaming eCPM | Kanada/ABD $0,30 |
+| Download CPM (1.000 indirme) | ABD $1,00 · İngiltere $0,90 · Almanya $0,80 (**Türkiye listede yok**) |
+| Referans komisyonu | %10 |
+| **Minimum ödeme** | **$100,00** (PayPal; biri $0,10 gösteriyor — panelde çelişkili) |
+| Ödeme süresi | 24-72 saat |
+| **Para çekme durumu** | **"Withdrawal requests are currently disabled"** |
+| Kullanıcının gerçekleşen kazancı | **$0,0000** (5 görüntüleme, 0 ücretli görüntüleme) |
+
+## 6.3 Depolama / plan
+
+| Kalem | Değer |
+| --- | --- |
+| Depolama | **30 GB** (kullanıcı 789 MB kullanıyor) |
+| Dosya süresi | **60 gün** |
+| Yükleme limiti | 4 GB |
+| Creator Pro (ücretli) | 7 gün $10 · 30 gün $45,99 · 60 gün $85,99 · 180 gün $185 |
+
+## 6.4 API (otomasyon için)
+
+`GET https://filemoon.org/api/v1/account` · `GET /api/v1/files` — `Authorization: Bearer <token>`,
+~60 istek/dk. Dosya kaydı: `{ id, name, filename, size_bytes, visibility, stream_views, created_at,
+urls: { page, watch, embed } }`.
+
+- ✅ API **çalışıyor** (kullanıcının hesabı: 1 dosya, 827 MB).
+- ❌ **Kapak/thumbnail alanı YOK** → Filemoon'da bölüm kapağı otomatik türetilemez (Voe'da türetilebiliyor).
+
+---
+
+## BÖLÜM 7 — Host karşılaştırması (Türkiye trafiği)
+
+Tüm oranlar ilgili hostun kendi panelinden/oran tablosundan okundu. Kullanıcının izleyicisi **%100 İstanbul**.
+
+| Host | 1.000 izlenme (TR) | Depolama | Min. ödeme | Oynatıcı dili | Altyazı | Kapak oto. | Reklam ayarı |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| **VidMoly** | **~$1,00** ($10/10k) | **15 TB** | $15 | ? | ✅ var | ✅ | Full/Medium/Low |
+| **Voe** | **~$1,00** ($10/10k) | 3 TB (60 gün) | **$10 (LTC)** · $50 (TRC20) | Panel Türkçe ✅ (oynatıcı doğrulanmadı) | ✅ var | ✅ | 5 kademe (%0-100) · **reklamsız trafik satın alınabilir** |
+| **Filemoon** | **$0,07** ⚠️ | **30 GB** (60 gün) | **$100** (şu an kapalı) | ❌ İngilizce (TR desteklenmiyor) | ✅ var | ❌ yok | ❌ yok |
+| DoodStream | ~$0,15 ($1,50/10k) | ? | $10 | ? | ✅ | ? | premium |
+| StreamWish | ~$0,30 | sınırsız* | ? | ? | ✅ | ? | ücretsiz premium |
+| Earnvids | ~$0,50 | ? | $20 | ? | ? | ? | ? |
+| Streamtape | ~$0,40 | sınırsız | ~$10 | ? | ✅ | ? | ❌ yok |
+
+\* "Player StreamWish'e öncelik verirsen"
+
+## 7.1 Sonuç ve öneri
+
+1. **Filemoon Türkiye için açık ara en kötüsü:** izlenme başına **$0,07** — VidMoly/Voe'nin ($1,00)
+   **1/14'i**. Üstüne depolaması 30 GB, minimum ödeme $100 ve **para çekme şu an kapalı**.
+   Kullanıcının tek dosyası için kazanç: **$0,0000** (5 görüntüleme, 0 ücretli).
+2. **Oynatıcı dili isteniyorsa Filemoon zaten elenir** (Türkçe yok).
+3. **Öneri: Filemoon'u bırak, Voe'ya dön** — TR ödemesi ~14 kat yüksek, depolama 100 kat,
+   minimum ödeme $10, kademeli reklam ayarı var ve **tamamen reklamsız oynatıcı** Premium
+   Trafik ile mümkün. Voe'nun "otomatik bölüm çekme" özelliği **hazır** (§36).
+4. Reklam yoğunluğu sorun değilse **VidMoly** de aynı parayı verir (15 TB depolama + altyazı + kapak oto.).
+
+## 7.2 Notlar
+
+- Filemoon için otomatik bölüm çekme yazılabilir (API var) **ama** kapak türetilemediği için
+  kapaklar yer tutucuda kalır ve ödeme oranı öneriyi desteklemiyor; önce host kararı verilmeli.
+- API anahtarı hiçbir dosyaya/repoya yazılmadı; panelde yalnızca tarayıcıda saklanır.
