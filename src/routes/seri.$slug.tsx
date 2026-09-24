@@ -189,7 +189,8 @@ function ShowDetailPage() {
                   <button
                     type="button"
                     onClick={() => setDescOpen((open) => !open)}
-                    className="mt-2 text-sm font-bold text-accent hover:underline"
+                    // py-2: dokunma alani 20 px yuksekligindeydi, mobilde zor basilıyordu.
+                    className="mt-2 py-2 text-sm font-bold text-accent hover:underline"
                   >
                     {descOpen ? "Daha az göster" : "Devamını oku"}
                   </button>

@@ -65,7 +65,13 @@ function WatchPage() {
     staleTime: 60_000,
   });
 
-  const [countdown, setCountdown] = useState(PREROLL_SECONDS);
+  // Panelde `ad_preroll` kodu var mı? Geri sayım kararı buna bağlı.
+  const preroll = useAdCode("ad_preroll");
+  const prerollHasAd = preroll.isFetched && Boolean(preroll.code);
+
+  // Geri sayım VARSAYILAN OLARAK 0: kod yokken ziyaretçi boş bir "Reklamı geç"
+  // ekranında bekletilmez, video hemen başlar. Kod girilmişse bekleme geri gelir.
+  const [countdown, setCountdown] = useState(0);
 
   // Sezonu bölümü olan sezonlar üzerinden çöz: boş bir sezon seçilirse
   // izleyici "bölüm yok" ekranında kalmaz, ilk dolu sezona düşer.
@@ -94,26 +100,18 @@ function WatchPage() {
       : null;
   const multipleSeasons = playableSeasons.length > 1;
 
-  // Bölüm değişince geri sayım baştan başlar (istemci içi geçişte de).
+  // Bölüm değişince (istemci içi geçişte de) bekleme yeniden ayarlanır: geri
+  // sayım yalnızca panelde gerçek bir `ad_preroll` kodu varsa kurulur.
   const currentKey = currentEpisode ? `${currentEpisode.season}-${currentEpisode.number}` : "yok";
   useEffect(() => {
-    setCountdown(PREROLL_SECONDS);
-  }, [currentKey]);
+    setCountdown(prerollHasAd ? PREROLL_SECONDS : 0);
+  }, [currentKey, prerollHasAd]);
 
   useEffect(() => {
     if (countdown <= 0) return;
     const timer = window.setTimeout(() => setCountdown((value) => value - 1), 1000);
     return () => window.clearTimeout(timer);
   }, [countdown]);
-
-  // Panelde `ad_preroll` kodu girilmemişse bekleme ekranını hiç gösterme: boş bir
-  // "Reklamı geç" ekranında 5 saniye bekletmek ziyaretçiyi rahatsız etmekten
-  // başka işe yaramıyor. Etki yalnızca istemcide çalıştığı için ilk çizim sunucu
-  // ile aynı kalır (hydration farkı oluşmaz).
-  const preroll = useAdCode("ad_preroll");
-  useEffect(() => {
-    if (preroll.isFetched && !preroll.code) setCountdown(0);
-  }, [preroll.isFetched, preroll.code]);
 
   // Sekme başlığı: rota başlığı statik ("shanime | İzle") olduğu için seri ve
   // bölüm bilgisi veri hazır olunca burada yazılır.

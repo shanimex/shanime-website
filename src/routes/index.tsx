@@ -777,7 +777,10 @@ function Index() {
           {/* Slayt göstergeleri: alt ortada; aktif olan pembe çizgi, diğerleri nokta. */}
           {heroShows.length > 1 && (
             <div
-              className="absolute bottom-[30px] left-1/2 z-10 flex -translate-x-1/2 items-center gap-2"
+              // Mobilde aralik genis: noktalarin dokunma alanlari (padding ile
+              // buyutulmus) 8px aralikta ust uste biniyordu ve yanlis slayta
+              // gidiliyordu. Masaustunde aralik eskisi gibi 8px kaliyor.
+              className="absolute bottom-[30px] left-1/2 z-10 flex -translate-x-1/2 items-center gap-7 md:gap-2"
               role="tablist"
               aria-label="Vitrin seçimi"
             >

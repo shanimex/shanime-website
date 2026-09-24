@@ -1731,6 +1731,55 @@ engellenemiyor. Kalan seçenekler kullanıcı kararı ister: (a) sağlayıcı b�
 | Kırık görsel | **0** ✅ |
 | `build` · `tsc` · `eslint` | temiz ✅ |
 
+---
+
+## 31. Mobil denetim (390×844) ve düzeltmeler
+
+### 31.1 Ölçülen bulgular (gerçek tarayıcı, canlı site)
+
+| Bulgu | Ölçüm | Ciddiyet |
+| --- | --- | --- |
+| Panelde seri adları görünmüyor | satırdaki metin alanı **0 px**'e çöküyordu; yalnızca 40×56 kapak görünüyordu | yüksek |
+| Panel butonları kart sınırını aşıyor | son buton kartın ~10 px dışına taşıyordu | orta-yüksek |
+| Vitrin okları içeriğin üzerinde | 64×64 oklar tür çipleri (y=352-379) ve özet metniyle (y=397-481) çakışıyordu | orta-yüksek |
+| Slayt noktaları | dokunma alanı 24×28 ve komşularla **10 px kesişiyordu** (yanlış slayta gidiş) | orta |
+| "Kayıt ol" bağlantısı | **284×16 px** — mobilde basılamıyor | orta |
+| "Devamını oku" | **82×20 px** | orta |
+| Sayfa taşması / kırık görsel / konsol hatası | yok / 0 / 0 | — |
+
+**Hata olmayan bulgu:** `/seri/jujutsu-kaisen` sayfasında "24 bölüm" başlığına karşılık 20 satır
+sayılması kusur değil — liste `GRID_PAGE_SIZE` (24) gruplar hâlinde çiziliyor ve ilk grupta
+bölümlerin tamamı var. "N bölüm daha göster" butonu fazlası için duruyor.
+
+### 31.2 Yapılan düzeltmeler
+
+| Ne | Yer |
+| --- | --- |
+| Panel satırı mobilde sarar: ad/slug her zaman okunur, butonlar alt satıra iner | `components/admin/ShowRow.tsx` (`flex-wrap` + `min-w-[9rem]` + butonlar tek kapta) |
+| Panel ikon butonları mobilde 40×40 (masaüstünde 36×36) | aynı dosya |
+| Vitrin okları mobilde gizlendi (kaydırma + noktalar var) | `styles.css` mobil bloğu |
+| Nokta dokunma alanı mobilde 34×34, aralık 28 px → kesişme bitti | `styles.css` + `index.tsx` (`gap-7 md:gap-2`) |
+| "Kayıt ol" 40 px, "Devamını oku" 36 px yükseklik | `auth.tsx`, `seri.$slug.tsx` |
+| Sahte bekleme ekranı kaldırıldı: geri sayım varsayılan **0** | `izle.$slug.tsx` |
+
+**Tuzak (tekrar düşülmesin):** `.hero-indicators` diye bir sınıf YOK — göstergeler çubuğu
+Tailwind sınıflarıyla çiziliyor (`gap-2`). CSS'e yazılan `.hero-indicators { gap: … }` kuralı
+hiç uygulanmaz, çünkü utility katmanı bileşen katmanından önce gelir. Aralık JSX'ten
+(`gap-7 md:gap-2`) değiştirilmeli.
+
+### 31.3 Doğrulama (yerel, 390×844 ve 1600×1000)
+
+| Kontrol | Sonuç |
+| --- | --- |
+| `.hero-nav` mobilde | `display: none`, kutu 0×0 ✅ |
+| `.hero-nav` masaüstünde | görünür, 64×64 ✅ |
+| Nokta dokunma alanları (mobil) | 34×34; komşu kesişimi **0 / 0 / 0** ✅ |
+| Nokta yerleşimi (masaüstü) | `11px 9px` padding, 8 px aralık — **değişmedi** ✅ |
+| Bekleme ekranı | 0,3 / 1 / 2 sn kontrollerinde hiç görünmedi ✅ |
+| "Devamını oku" / "Kayıt ol" yüksekliği | 36 px / 40 px ✅ |
+| Yatay taşma · konsol hatası | yok · 0 ✅ |
+| `build` · `tsc` · `eslint` | temiz ✅ |
+
 ### 30.4 Bekleyen: `245305a` derlemesi başarısız
 
 Cloudflare Pages, `245305a` commit'inin derlemesini **36 dk 17 sn** sonra öldürdü:

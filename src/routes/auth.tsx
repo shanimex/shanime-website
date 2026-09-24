@@ -124,7 +124,8 @@ function AuthPage() {
             setError(null);
             setMessage(null);
           }}
-          className="mt-4 w-full text-center text-xs font-bold text-muted-foreground transition-colors hover:text-foreground"
+          // py-3: dokunma alani 16 px yuksekligindeydi, mobilde basilamiyordu.
+          className="mt-4 w-full py-3 text-center text-xs font-bold text-muted-foreground transition-colors hover:text-foreground"
         >
           {mode === "signin" ? "Hesabın yok mu? Kayıt ol" : "Zaten hesabın var mı? Giriş yap"}
         </button>

@@ -608,6 +608,22 @@
     .hero-meta {
       justify-content: center;
     }
+
+    /* Vitrin oklari mobilde gizlenir: 64x64 daireler tur ciplerinin ve ozet
+       metninin uzerine biniyordu (olculdu: ok x=20-84 ile cipler ayni satirda).
+       Slayt degistirme mobilde parmakla surukleme ve noktalarla yapiliyor. */
+    .hero-nav {
+      display: none;
+    }
+
+    /* Noktalarin dokunma alani mobilde buyutulur (34x34). Aralik da genis
+       tutuldugu icin (gap-7 = 28px) komsu alanlar artik ust uste binmiyor;
+       eskiden 10px biniyordu ve yanlis slayta gidiliyordu. Nokta gorseli
+       (6px, aktif 26px) background-clip sayesinde degismiyor. */
+    .hero-dot {
+      padding: 14px;
+      margin: -14px;
+    }
   }
 }
 
