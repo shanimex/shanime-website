@@ -1,21 +1,46 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, Loader2, Play } from "lucide-react";
+import { ArrowLeft, ChevronDown, Home, LayoutGrid, List, Play } from "lucide-react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { AdSlot } from "@/components/AdSlot";
-import { fetchShowDetail } from "@/lib/content";
+import { EpisodeCard } from "@/components/EpisodeCard";
+import { fetchShowDetail, showSlug, watchHref } from "@/lib/content";
+
+/** Bir seferde gösterilen bölüm sayısı. 1000+ bölümlü seride sayfa kilitlenmesin. */
+const GRID_PAGE_SIZE = 24;
 
 export const Route = createFileRoute("/seri/$slug")({
-  head: () => ({
-    meta: [
-      { title: "shanime | Seri detayı" },
-      { name: "description", content: "Serinin bölümleri, karakterleri ve görselleri." },
-      { property: "og:title", content: "shanime | Seri detayı" },
-      { property: "og:description", content: "Serinin bölümleri, karakterleri ve görselleri." },
-      { property: "og:type", content: "video.tv_show" },
-      { name: "twitter:card", content: "summary_large_image" },
-    ],
-  }),
+  // Sayfa verisi loader'da çekilir. Kazanç: (1) sayfa sunucuda gerçek içerikle
+  // render edilir, arama motoru bölümleri görür; (2) başlık/açıklama seriye
+  // özel üretilebilir (eskiden TÜM seri sayfaları aynı başlığı taşıyordu).
+  loader: ({ params }) => fetchShowDetail(params.slug),
+  staleTime: 5 * 60_000,
+  head: ({ loaderData }) => {
+    const detail = loaderData;
+    if (!detail) {
+      return {
+        meta: [{ title: "Seri bulunamadı | shanime" }, { name: "robots", content: "noindex" }],
+      };
+    }
+    const { show, episodes, seasons } = detail;
+    const title = `${show.title} izle | shanime`;
+    const summary = (show.description ?? "").replace(/\s+/g, " ").trim();
+    const description = summary
+      ? `${summary.slice(0, 150)}${summary.length > 150 ? "…" : ""}`
+      : `${show.title} tüm bölümleri Türkçe altyazılı izle.${
+          seasons.length > 1 ? ` ${seasons.length} sezon,` : ""
+        } ${episodes.length} bölüm.`;
+    return {
+      meta: [
+        { title },
+        { name: "description", content: description },
+        { property: "og:title", content: title },
+        { property: "og:description", content: description },
+        { property: "og:type", content: "video.tv_show" },
+        { name: "twitter:card", content: "summary_large_image" },
+      ],
+    };
+  },
   component: ShowDetailPage,
   errorComponent: () => <Centered>Bu seri yüklenemedi.</Centered>,
   notFoundComponent: () => <Centered>Bu seri bulunamadı.</Centered>,
@@ -34,25 +59,47 @@ function Centered({ children }: { children: React.ReactNode }) {
   );
 }
 
-function ShowDetailPage() {
-  const { slug } = Route.useParams();
-  const { data, isLoading } = useQuery({
-    queryKey: ["show-detail", slug],
-    queryFn: () => fetchShowDetail(slug),
-    staleTime: 30_000,
-  });
+function seasonLabel(season: { number: number; title: string }): string {
+  return season.title.trim() || `${season.number}. Sezon`;
+}
 
-  if (isLoading) {
-    return (
-      <div className="grid min-h-screen place-items-center bg-background">
-        <Loader2 className="animate-spin text-primary" size={30} />
-      </div>
-    );
-  }
+function ShowDetailPage() {
+  const [selectedSeason, setSelectedSeason] = useState<number | null>(null);
+  // Varsayılan görünüm animecix tarzı SATIR düzeni; kapak ızgarası alternatif.
+  const [view, setView] = useState<"row" | "grid">("row");
+  const [visibleCount, setVisibleCount] = useState(GRID_PAGE_SIZE);
+  // Uzun açıklama 3 satırda kısaltılır; sayfa "kompakt" kalsın diye.
+  const [descOpen, setDescOpen] = useState(false);
+
+  // Veri loader'dan gelir; sayfa sunucuda içerikle birlikte render edildiği
+  // için ayrı bir "yükleniyor" ekranına gerek yok.
+  const data = Route.useLoaderData();
 
   if (!data) return <Centered>Bu seri bulunamadı.</Centered>;
 
-  const { show, episodes, characters, gallery } = data;
+  const { show, episodes, seasons } = data;
+  const playableSeasons = seasons.filter((season) => season.episodes.length > 0);
+  // Boş sezonlar (henüz bölümü olmayan, panelde hazırlananlar) halka açık
+  // sayfada görünmez; yalnızca içinde bölüm olan sezonlar listelenir.
+  const activeSeason =
+    playableSeasons.find((season) => season.number === selectedSeason) ??
+    playableSeasons[0] ??
+    null;
+  const firstEpisode = playableSeasons[0]?.episodes[0] ?? null;
+  const backdrop = show.banner_image || show.image;
+  const activeEpisodes = activeSeason?.episodes ?? [];
+  const visibleEpisodes = activeEpisodes.slice(0, visibleCount);
+  const hiddenCount = activeEpisodes.length - visibleEpisodes.length;
+  const description = show.description?.trim() ?? "";
+  // Bu uzunluğun üstündeki açıklamalar 3 satırı aşar; "devamını oku" gösterilir.
+  const longDescription = description.length > 280;
+
+  // Sezon değişince liste başa döner; yoksa 2. sezona geçince 1. sezonun
+  // açılmış "daha fazla" hâli kalıyor.
+  function selectSeason(number: number) {
+    setSelectedSeason(number);
+    setVisibleCount(GRID_PAGE_SIZE);
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -74,31 +121,34 @@ function ShowDetailPage() {
             />
             <span className="sr-only">shanime</span>
           </Link>
+          {/* "Geri" kaldırıldı: tarayıcıda zaten geri düğmesi var, burada
+              tekrar etmek yerine her sayfada aynı olan ana sayfa bağlantısı
+              duruyor. */}
           <Link
             to="/"
-            className="flex items-center gap-2 text-sm font-bold text-muted-foreground transition-colors hover:text-foreground"
+            className="flex items-center gap-1.5 text-sm font-bold text-muted-foreground transition-colors hover:text-accent"
           >
-            <ArrowLeft size={16} /> Geri
+            <Home size={16} /> Anasayfa
           </Link>
         </div>
       </header>
 
       <section className="relative isolate overflow-hidden border-b border-border">
         <img
-          src={show.image}
+          src={backdrop}
           alt=""
           aria-hidden
           className="absolute inset-0 -z-20 size-full object-cover object-center opacity-40"
         />
         <div className="absolute inset-0 -z-10 bg-gradient-to-t from-background via-background/85 to-background/40" />
-        <div className="mx-auto flex max-w-6xl flex-col gap-8 px-5 py-12 md:flex-row md:py-16 lg:px-8">
+        <div className="mx-auto flex max-w-6xl flex-col gap-6 px-5 py-9 md:flex-row md:gap-8 md:py-12 lg:px-8">
           <img
             src={show.image}
             alt={`${show.title} kapak görseli`}
-            className="w-40 shrink-0 rounded-3xl object-cover shadow-2xl sm:w-52"
+            className="w-32 shrink-0 rounded-2xl object-cover shadow-2xl sm:w-44"
           />
           <div className="min-w-0">
-            <h1 className="font-display text-4xl leading-none text-accent sm:text-6xl">
+            <h1 className="font-display text-3xl leading-none text-accent sm:text-5xl">
               {show.title}
             </h1>
             {show.subtitle && (
@@ -120,15 +170,35 @@ function ShowDetailPage() {
                   {episodes.length} Bölüm
                 </span>
               )}
+              {playableSeasons.length > 1 && (
+                <span className="rounded-full border border-border bg-background px-3 py-1">
+                  {playableSeasons.length} Sezon
+                </span>
+              )}
             </div>
-            {show.description && (
-              <p className="mt-5 max-w-2xl text-sm leading-7 text-foreground md:text-base">
-                {show.description}
-              </p>
+            {description && (
+              <>
+                <p
+                  className={`mt-4 max-w-2xl text-sm leading-6 text-foreground md:text-base md:leading-7 ${
+                    descOpen || !longDescription ? "" : "line-clamp-3"
+                  }`}
+                >
+                  {description}
+                </p>
+                {longDescription && (
+                  <button
+                    type="button"
+                    onClick={() => setDescOpen((open) => !open)}
+                    className="mt-2 text-sm font-bold text-accent hover:underline"
+                  >
+                    {descOpen ? "Daha az göster" : "Devamını oku"}
+                  </button>
+                )}
+              </>
             )}
-            {episodes.length > 0 ? (
-              <Button asChild variant="hero" size="lg" className="mt-7 rounded-full">
-                <a href={`/izle/${show.slug || show.id}?b=${episodes[0]?.number ?? 1}`}>
+            {firstEpisode ? (
+              <Button asChild variant="hero" size="lg" className="mt-6 rounded-full">
+                <a href={watchHref(show, firstEpisode.season, firstEpisode.number)}>
                   <Play size={17} fill="currentColor" /> Şimdi izle
                 </a>
               </Button>
@@ -141,95 +211,115 @@ function ShowDetailPage() {
         </div>
       </section>
 
-      <main className="mx-auto max-w-6xl space-y-16 px-5 py-14 lg:px-8">
+      <main className="mx-auto max-w-6xl space-y-12 px-5 py-12 lg:px-8">
         <AdSlot slot="ad_detail_top" className="flex justify-center" />
-        <section>
-          <h2 className="font-display text-3xl text-foreground">Bölümler</h2>
-          {episodes.length === 0 ? (
+        {/* Katalog, sayfanın geri kalanından daha dar bir sütunda durur: satırlar
+            kısalır, kapaklar sayfaya göre daha küçük kalır (animecix düzeni). */}
+        <section className="mx-auto w-full max-w-4xl">
+          <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+            <h2 className="font-display text-3xl text-foreground">Bölümler</h2>
+            {activeSeason && (
+              <p className="text-sm font-bold text-muted-foreground">
+                {seasonLabel(activeSeason)} · {activeEpisodes.length} bölüm
+              </p>
+            )}
+          </div>
+
+          {playableSeasons.length === 0 ? (
             <p className="mt-4 text-sm text-muted-foreground">Henüz bölüm eklenmedi.</p>
           ) : (
-            <ol className="mt-6 divide-y divide-border overflow-hidden rounded-3xl bg-card">
-              {episodes.map((ep) => (
-                <li key={ep.id} className="flex flex-wrap items-center gap-4 px-6 py-5">
-                  <span className="font-display text-3xl text-primary">
-                    {String(ep.number).padStart(2, "0")}
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <p className="font-extrabold text-foreground">
-                      {ep.title || `Bölüm ${ep.number}`}
-                    </p>
-                    {ep.summary && (
-                      <p className="mt-1 text-xs leading-5 text-muted-foreground">{ep.summary}</p>
-                    )}
-                  </div>
-                  {ep.duration && (
-                    <span className="text-xs font-bold text-muted-foreground">{ep.duration}</span>
-                  )}
-                  {ep.watch_url && (
-                    <Button asChild size="sm" className="rounded-full">
-                      <a href={`/izle/${show.slug || show.id}?b=${ep.number}`}>
-                        <Play size={14} fill="currentColor" /> İzle
-                      </a>
-                    </Button>
-                  )}
-                </li>
-              ))}
-            </ol>
-          )}
-        </section>
+            <>
+              {/* Araç çubuğu: solda sezon sekmeleri, sağda bölüme atlama + görünüm. */}
+              <div className="mt-5 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                <div className="flex flex-wrap gap-2" role="tablist" aria-label="Sezon seçimi">
+                  {playableSeasons.map((season) => {
+                    const active = activeSeason?.number === season.number;
+                    return (
+                      <button
+                        key={season.id}
+                        type="button"
+                        role="tab"
+                        aria-selected={active}
+                        onClick={() => selectSeason(season.number)}
+                        className={`rounded-full border px-4 py-2 text-sm font-bold transition-colors ${
+                          active
+                            ? "border-accent/60 bg-accent/15 text-accent"
+                            : "border-border text-muted-foreground hover:border-accent/60 hover:text-accent"
+                        }`}
+                      >
+                        {seasonLabel(season)}
+                        <span className="ml-2 text-xs font-normal opacity-70">
+                          {season.episodes.length}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
 
-        <section>
-          <h2 className="font-display text-3xl text-foreground">Karakterler</h2>
-          {characters.length === 0 ? (
-            <p className="mt-4 text-sm text-muted-foreground">Henüz karakter eklenmedi.</p>
-          ) : (
-            <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-5">
-              {characters.map((character) => (
-                <article key={character.id} className="overflow-hidden rounded-3xl bg-card">
-                  <div className="aspect-[3/4] bg-muted">
-                    {character.image && (
-                      <img
-                        src={character.image}
-                        alt={character.name}
-                        loading="lazy"
-                        className="size-full object-cover"
-                      />
-                    )}
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="flex items-center gap-1 rounded-full border border-border p-1">
+                    <button
+                      type="button"
+                      aria-pressed={view === "row"}
+                      aria-label="Satır görünümü"
+                      onClick={() => setView("row")}
+                      className={`grid size-8 place-items-center rounded-full transition-colors ${
+                        view === "row"
+                          ? "bg-accent/15 text-accent"
+                          : "text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      <List size={16} />
+                    </button>
+                    <button
+                      type="button"
+                      aria-pressed={view === "grid"}
+                      aria-label="Izgara görünümü"
+                      onClick={() => setView("grid")}
+                      className={`grid size-8 place-items-center rounded-full transition-colors ${
+                        view === "grid"
+                          ? "bg-accent/15 text-accent"
+                          : "text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      <LayoutGrid size={16} />
+                    </button>
                   </div>
-                  <div className="p-4">
-                    <h3 className="text-sm font-extrabold text-foreground">{character.name}</h3>
-                    {character.role && (
-                      <p className="mt-1 text-xs text-muted-foreground">{character.role}</p>
-                    )}
-                  </div>
-                </article>
-              ))}
-            </div>
-          )}
-        </section>
+                </div>
+              </div>
 
-        <section>
-          <h2 className="font-display text-3xl text-foreground">Görseller</h2>
-          {gallery.length === 0 ? (
-            <p className="mt-4 text-sm text-muted-foreground">Henüz görsel eklenmedi.</p>
-          ) : (
-            <div className="mt-6 grid grid-cols-2 gap-4 md:grid-cols-3">
-              {gallery.map((image) => (
-                <figure key={image.id} className="overflow-hidden rounded-3xl bg-card">
-                  <img
-                    src={image.image}
-                    alt={image.caption || show.title}
-                    loading="lazy"
-                    className="aspect-video w-full object-cover"
+              <div
+                className={
+                  view === "row"
+                    ? "mt-6 flex flex-col gap-2"
+                    : "mt-6 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4"
+                }
+              >
+                {visibleEpisodes.map((episode) => (
+                  <EpisodeCard
+                    key={episode.id}
+                    slug={showSlug(show)}
+                    episode={episode}
+                    variant={view}
+                    href={watchHref(show, activeSeason?.number ?? episode.season, episode.number)}
                   />
-                  {image.caption && (
-                    <figcaption className="px-4 py-3 text-xs text-muted-foreground">
-                      {image.caption}
-                    </figcaption>
-                  )}
-                </figure>
-              ))}
-            </div>
+                ))}
+              </div>
+
+              {hiddenCount > 0 && (
+                <div className="mt-6 flex justify-center">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="rounded-full"
+                    onClick={() => setVisibleCount((count) => count + GRID_PAGE_SIZE)}
+                  >
+                    <ChevronDown size={16} />
+                    {hiddenCount} bölüm daha göster
+                  </Button>
+                </div>
+              )}
+            </>
           )}
         </section>
 

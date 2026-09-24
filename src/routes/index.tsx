@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowRight, ChevronLeft, ChevronRight, Menu, Play, Search, X } from "lucide-react";
 import {
   useCallback,
@@ -12,7 +12,7 @@ import {
 } from "react";
 import { Button } from "@/components/ui/button";
 import { AdSlot } from "@/components/AdSlot";
-import { fetchHeroImage, fetchShows, type ShowWithImage } from "@/lib/content";
+import { fetchShowDetail, fetchShows, showSlug, type ShowWithImage } from "@/lib/content";
 
 /**
  * Statik dosya düzeni (public/static/anime-data/<slug>/):
@@ -24,10 +24,33 @@ import { fetchHeroImage, fetchShows, type ShowWithImage } from "@/lib/content";
  */
 const STATIC_DIR = "/static/anime-data";
 
-/** Vitrinde her slaytın ekranda kalma süresi (sonanime.com ile aynı: 10 sn). */
-const HERO_AUTO_MS = 10_000;
+/**
+ * Vitrinde her slaytın ekranda kalma süresi.
+ *
+ * Süre dağılımı: ilk 6 sn fotoğraf + yazı (HERO_VIDEO_DELAY), sonrasında video
+ * görünür. 6 → 24 sn arası = **video 18 saniye** ekranda kalır. Video bundan
+ * uzun olsa bile bu sürede kesilir; fazlası indirilmez (aşağıdaki nota bak).
+ */
+const HERO_AUTO_MS = 24_000; // 24 sn (video 18 sn görünür)
 
-/** Vitrin başlığı: logosu varsa logo, yoksa yazı. Her seri kendi logosunu taşır. */
+/**
+ * Logo uzantısı seriden seriye değişiyor (.png veya .svg). Vitrin slaytı her
+ * döndüğünde `ShowLogo` yeniden kurulduğu için, bulunan adres burada hatırlanır:
+ * aynı tarayıcı oturumunda her seri için en fazla bir kez deneme yapılır.
+ *
+ * (Yalnızca statik dosya yollarını tutar; kişisel veri saklamaz. Sunucuda her
+ * istek kendi modül örneğini kullandığı için istekler arası sızma olmaz.)
+ */
+const LOGO_RESOLVED = new Map<string, string>();
+
+/**
+ * Vitrinin koyu zemininde HARFLERİ KAYBOLAN logolar. Beyaz kontur yalnızca
+ * bunlara uygulanır; renkli/aydınlık logolarda kontur görüntüyü bozuyordu.
+ * Yeni bir koyu logo eklenirse slug'ını buraya yazmak yeterli.
+ */
+const LOGO_NEEDS_OUTLINE = new Set(["mushoku-tensei"]);
+
+/** Vitrin başlığı: `.png` → `.svg` → düz yazı. Her seri kendi logosunu taşır. */
 function ShowLogo({
   slug,
   title,
@@ -37,38 +60,56 @@ function ShowLogo({
   title: string;
   className?: string;
 }) {
-  // Logo uzantısı seriden seriye değişiyor: önce .png, olmazsa .svg, o da
-  // olmazsa düz yazı başlık. Sıra tek yerde tutulur, seri listesi tutulmaz.
+  // Sıra tek yerde tutulur, seri listesi tutulmaz.
   const sources = useMemo(
     () =>
       slug ? [`${STATIC_DIR}/${slug}/anime-logo.png`, `${STATIC_DIR}/${slug}/anime-logo.svg`] : [],
     [slug],
   );
-  const [logoState, setLogoState] = useState<{ src: string; failed: boolean }>({
-    src: sources[0] ?? "",
-    failed: false,
+  // Kaçıncı kaynakta olduğumuz: 0 = .png, 1 = .svg, 2+ = logo yok (düz yazı).
+  // Daha önce bulunmuşsa doğrudan oradan başlanır; boşa istek gitmez.
+  const [step, setStep] = useState(() => {
+    const known = slug ? LOGO_RESOLVED.get(slug) : undefined;
+    const index = known ? sources.indexOf(known) : -1;
+    return index > 0 ? index : 0;
   });
 
+  const source = sources[step];
+  const imgRef = useRef<HTMLImageElement>(null);
+  // SSR'da sunucu HTML'e ilk kaynağı (.png) koyar. O dosya yoksa tarayıcı hatayı
+  // React hidrasyondan ÖNCE alır ve `onError` hiç çalışmaz → ekranda kırık resim
+  // simgesi + alt metin kalır (nadiren, tamamen yarışa bağlı). Bu yüzden kaynak
+  // her değiştiğinde durum elle de kontrol edilir.
   useEffect(() => {
-    setLogoState({ src: sources[0] ?? "", failed: false });
-  }, [sources]);
+    const node = imgRef.current;
+    if (node && node.complete && node.naturalWidth === 0) {
+      setStep((value) => value + 1);
+    }
+  }, [source]);
 
-  const logo = logoState.failed ? sources[1] : sources[0];
-  if (!sources.length || logoState.failed || !logo) {
+  if (!source) {
     // Logosu olmayan seri: beyaz, kalın ve gölgeli düz yazı başlık.
-    return <h1 className="hero-title">{title.toLocaleUpperCase("tr")}</h1>;
+    // (Sayfanın tek h1'i kendisine ait; bu yüzden burada başlık değil metin.)
+    return <span className="hero-title">{title.toLocaleUpperCase("tr")}</span>;
   }
   return (
     <img
-      key={logo}
-      src={logo}
+      // Kaynak değişince <img> yeniden kurulsun; yoksa tarayıcı hatayı taşır.
+      key={source}
+      ref={imgRef}
+      src={source}
       alt={`${title} logosu`}
       width={800}
       height={187}
       loading="eager"
       decoding="async"
-      onError={() => setLogoState((state) => ({ ...state, failed: true }))}
-      className={className}
+      onLoad={() => {
+        if (slug) LOGO_RESOLVED.set(slug, source);
+      }}
+      onError={() => setStep((value) => value + 1)}
+      className={`${className ?? ""}${
+        slug && LOGO_NEEDS_OUTLINE.has(slug) ? " hero-logo--outline" : ""
+      }`}
     />
   );
 }
@@ -88,6 +129,12 @@ function heroVideo(slug: string | null | undefined): string | undefined {
 // __root.tsx, and ships no og:image so serve-time hosting can inject the
 // project's social preview (explicit og:image or latest screenshot).
 export const Route = createFileRoute("/")({
+  // Vitrin verisi loader'da gelir; sayfa SUNUCUDA gerçek slaytlarla render edilir.
+  // Böylece ilk anda projedeki yedek/statik görseller görünüp sonra gerçek slayta
+  // atlamaz — "yenileyince önce başka slayt, sonra başlangıç slaytı" hatasının
+  // ve eski görsellerin göz kırpması gibi görünmesinin sebebi buydu.
+  loader: () => fetchShows(),
+  staleTime: 5 * 60_000,
   head: () => ({
     meta: [
       { title: "Ana Sayfa - shanime" },
@@ -117,6 +164,9 @@ const fallbackHero = {
   title: "Jujutsu Kaisen",
   subtitle: "Lanetler, büyücüler ve büyük bir hesaplaşma",
   image: `${STATIC_DIR}/jujutsu-kaisen/anime-cover.jpg`,
+  banner_image: undefined,
+  is_featured: false,
+  episode_count: 0,
   year: "2020",
   genre: "Aksiyon, Shounen, Korku, Doğaüstü, Fantastik",
   description:
@@ -131,6 +181,9 @@ const fallbackShows = [
     title: "Re:Zero",
     subtitle: "Başka bir dünyada sıfırdan başlamak",
     image: `${STATIC_DIR}/re-zero/anime-cover.jpg`,
+    banner_image: undefined,
+    episode_count: 0,
+    is_featured: false,
     year: "2016",
     genre: "Başka Dünya, Drama, Psikolojik, Fantastik, Gerilim",
     description:
@@ -142,6 +195,9 @@ const fallbackShows = [
     title: "Mushoku Tensei",
     subtitle: "İkinci bir hayat, sınırsız bir dünya",
     image: `${STATIC_DIR}/mushoku-tensei/anime-cover.jpg`,
+    banner_image: undefined,
+    episode_count: 0,
+    is_featured: false,
     year: "2021",
     genre: "Başka Dünya, Drama, Aksiyon, Macera, Fantastik",
     description:
@@ -153,6 +209,9 @@ const fallbackShows = [
     title: "Erased",
     subtitle: "Geçmişe uzanan karanlık bir gizem",
     image: `${STATIC_DIR}/erased/anime-cover.jpg`,
+    banner_image: undefined,
+    episode_count: 0,
+    is_featured: false,
     year: "2016",
     genre: "Drama, Psikolojik, Gerilim",
     description:
@@ -173,21 +232,15 @@ function Index() {
   const searchRef = useRef<HTMLInputElement>(null);
   const desktopSearchRef = useRef<HTMLDivElement>(null);
   const mobileSearchRef = useRef<HTMLDivElement>(null);
-  const { data: dbShows } = useQuery({
-    queryKey: ["shows"],
-    queryFn: fetchShows,
-    staleTime: 60_000,
-  });
-  const { data: heroUrl } = useQuery({
-    queryKey: ["hero-image"],
-    queryFn: fetchHeroImage,
-    staleTime: 60_000,
-  });
+  const queryClient = useQueryClient();
+  // Veri loader'dan gelir (sunucuda çekilmiş) — "yükleniyor" ara durumu yok.
+  const dbShows = Route.useLoaderData();
   const shows: HeroCard[] = dbShows && dbShows.length > 0 ? dbShows : fallbackShows;
 
-  // Vitrin slider'ı: tüm seriler aynı sırayla (sort_order) döner; ayrıcalıklı
-  // sabit liste yok.
-  const heroShows: HeroCard[] = shows;
+  // Vitrin slider'ı: panelde "Vitrin'de göster" işaretli seriler döner.
+  // Hiçbiri işaretli değilse tüm seriler sırayla gösterilir.
+  const featuredShows = shows.filter((show) => show.is_featured);
+  const heroShows: HeroCard[] = featuredShows.length > 0 ? featuredShows : shows;
 
   const [heroIndex, setHeroIndex] = useState(0);
   // Sürükleme sırasında slaytların yatay kayması (yüzde) ve tutma durumu.
@@ -209,39 +262,43 @@ function Index() {
   const heroRef = useRef<HTMLElement>(null);
   const dragStart = useRef<{ x: number; y: number } | null>(null);
   const safeIndex = heroShows.length > 0 ? heroIndex % heroShows.length : 0;
-  const current: HeroCard = heroShows[safeIndex] ?? fallbackHero;
   // Header görseli ya da videosu olmayan seride 404 isteğiyle uğraşmamak için
   // hata alınan dosya kaydedilir ve kapak görseline düşülür.
   const [brokenBackdrops, setBrokenBackdrops] = useState<Record<string, boolean>>({});
   const [brokenVideos, setBrokenVideos] = useState<Record<string, boolean>>({});
-  // Sonanime gibi: slayt açıldıktan 3 saniye sonra video devreye girer;
-  // video oynarken açıklama/bilgiler kapanır, sadece logo + butonlar kalır.
+  // Akış: slayt açılır → bir süre FOTOĞRAF görünür → açıklama bilgileri
+  // animasyonla kapanır (grid-template-rows 0fr + opacity, 0.6 sn) → tam o anda
+  // video medya olarak devreye girer (opacity 0.6 sn); geriye logo + butonlar kalır.
+  // Vitrin medya akışı (sonanime.com'da ölçülerek eşlendi):
+  //   1. AŞAMA — slayt aktif olur, önce SADECE fotoğraf görünür, yazı açık.
+  //   2. AŞAMA — 3 sn sonra video DOM'a girer.
+  //   3. AŞAMA — video GERÇEKTEN oynamaya başladığı an yazı animasyonla kapanır
+  //               ve video görünür olur (ikisi senkron).
+  // Fotoğraf + yazı bu süre boyunca görünür; sonra video girip yazı kapanır.
+  const HERO_VIDEO_DELAY = 6000;
+  const [videoArmed, setVideoArmed] = useState(false);
   const [videoPhase, setVideoPhase] = useState<"waiting" | "playing">("waiting");
   const [videoVisibleKey, setVideoVisibleKey] = useState<string | null>(null);
   useEffect(() => {
+    // Yeni slaytın yazısı hemen açılsın.
+    setVideoArmed(false);
     setVideoPhase("waiting");
-    setVideoVisibleKey(null);
-    if (!allowVideo) return;
-    const timer = window.setTimeout(() => setVideoPhase("playing"), 3000);
-    return () => window.clearTimeout(timer);
+    let armTimer: number | undefined;
+    if (allowVideo) {
+      armTimer = window.setTimeout(() => setVideoArmed(true), HERO_VIDEO_DELAY);
+    }
+    // ÇIKAN slaytın videosu fade (1.2 sn) boyunca ekranda kalsın. Hemen
+    // sıfırlarsak geçiş anında video kayboluyor, yerine eski fotoğraf geliyor
+    // ve "video kapandı, resim geri geldi" görüntüsü oluşuyor.
+    const clearTimer = window.setTimeout(() => setVideoVisibleKey(null), 1300);
+    return () => {
+      if (armTimer) window.clearTimeout(armTimer);
+      window.clearTimeout(clearTimer);
+    };
   }, [safeIndex, allowVideo]);
-  const currentVideoKey = current.slug ?? current.title;
-  const currentHasVideo =
-    Boolean(heroVideo(current.slug)) && allowVideo && !brokenVideos[currentVideoKey];
-  const videoPlaying = videoPhase === "playing" && currentHasVideo;
 
-  // Geçiş efekti: yeni slayt üstten fade-in olur, eski slayt 1.3 sn boyunca
-  // altında kalmaya devam eder. Crossfade'de iki arka plan yarı saydam
-  // üst üste binip karışıyordu; bu yöntemle karışma olmaz.
-  const [leavingIndex, setLeavingIndex] = useState<number | null>(null);
-  const lastIndexRef = useRef(0);
-  useEffect(() => {
-    if (lastIndexRef.current === safeIndex) return;
-    setLeavingIndex(lastIndexRef.current);
-    lastIndexRef.current = safeIndex;
-    const timer = window.setTimeout(() => setLeavingIndex(null), 1300);
-    return () => window.clearTimeout(timer);
-  }, [safeIndex]);
+  // Geçiş: sonanime.com'da ölçtüğüm gibi opacity FADE (1.2 sn, CSS'te tanımlı).
+  // Kayma yok; sürükleme sırasında slaytlar yine parmağı takip eder.
 
   // Nokta, ok, parmak ve klavye aynı fade geçişinden geçsin diye tek kapı: goTo.
   const goTo = useCallback(
@@ -254,15 +311,13 @@ function Index() {
   const goNext = useCallback(() => goTo(safeIndex + 1), [goTo, safeIndex]);
   const goPrev = useCallback(() => goTo(safeIndex - 1), [goTo, safeIndex]);
 
-  // Otomatik dönüş: her slayt 10 saniye ekranda kalır; sürükleme ve video
-  // oynatma sırasında durur (sonanime ile aynı davranış).
+  // Otomatik dönüş: her slayt ekranda kalır. Sonanime'de video oynarken de
+  // dönüş devam ediyor; bu yüzden burada SADECE sürükleme durdurur.
   useEffect(() => {
-    if (heroShows.length < 2 || heroDragging || videoPlaying) return;
-    const timer = window.setTimeout(() => {
-      setHeroIndex((index) => (index + 1) % heroShows.length);
-    }, HERO_AUTO_MS);
+    if (heroShows.length < 2 || heroDragging) return;
+    const timer = window.setTimeout(goNext, HERO_AUTO_MS);
     return () => window.clearTimeout(timer);
-  }, [heroShows.length, safeIndex, heroDragging, videoPlaying]);
+  }, [heroShows.length, heroDragging, goNext]);
 
   // Vitrin ekrandayken ←/→ tuşları slaytı çevirir (metin alanlarında devre dışı).
   useEffect(() => {
@@ -311,8 +366,10 @@ function Index() {
     if (!start) return;
     const dx = event.clientX - start.x;
     const dy = event.clientY - start.y;
-    // Dikey hareket sayfa kaydırmadır: sürüklemeyi bırak.
-    if (Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > 24) {
+    // Dokunmatikte dikey hareket sayfa kaydırmadır: sürüklemeyi bırak.
+    // Farede böyle bir çakışma yok; dikey titreme sürüklemeyi iptal etmemeli,
+    // çünkü iptal edilince el (grabbing) imleci de bir anda kayboluyordu.
+    if (event.pointerType !== "mouse" && Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > 24) {
       dragStart.current = null;
       setHeroDragging(false);
       setDragX(null);
@@ -344,27 +401,39 @@ function Index() {
     const total = heroShows.length;
     const prev = (safeIndex - 1 + total) % total;
     const next = (safeIndex + 1) % total;
+    // DİKKAT: slaytlar normalde `visibility: hidden` (CSS). Sürükleme sırasında
+    // komşu slaytın görünmesi için burada açıkça `visible` yapılmalı; yoksa
+    // parmakla kaydırınca aktif slayt çekilir ve yerinde SİYAH kalır.
     if (index === safeIndex) {
-      return { transform: `translateX(${dragX}%)`, opacity: 1, transition: "none" };
+      return {
+        transform: `translateX(${dragX}%)`,
+        opacity: 1,
+        visibility: "visible",
+        transition: "none",
+      };
     }
     if (dragX > 0 && index === prev) {
-      return { transform: `translateX(${dragX - 100}%)`, opacity: 1, transition: "none" };
+      return {
+        transform: `translateX(${dragX - 100}%)`,
+        opacity: 1,
+        visibility: "visible",
+        transition: "none",
+      };
     }
     if (dragX < 0 && index === next) {
-      return { transform: `translateX(${dragX + 100}%)`, opacity: 1, transition: "none" };
+      return {
+        transform: `translateX(${dragX + 100}%)`,
+        opacity: 1,
+        visibility: "visible",
+        transition: "none",
+      };
     }
-    return { opacity: 0, transition: "none" };
+    // Sürüklenmeyen komşular kendi hâlinde (gizli) kalır.
+    return { transition: "none" };
   }
 
-  // İçerik, arka planın yarısı kadar kayar ve sürükleme derinliğiyle soluklaşır.
-  const contentDragStyle: CSSProperties | undefined =
-    dragX === null
-      ? undefined
-      : {
-          transform: `translateX(${dragX * 0.5}%)`,
-          opacity: Math.max(0.15, 1 - Math.abs(dragX) / 130),
-          transition: "none",
-        };
+  // Not: içerik artık slaytın İÇİNDE olduğu için ayrı bir sürükleme stiline gerek
+  // yok; slaytın kendi `translateX`'i yazıyı da birlikte taşıyor.
 
   // Türler serilerin kendi verisinden türetilir; sahte sabit liste yok.
   const genreOptions = useMemo(() => {
@@ -434,23 +503,23 @@ function Index() {
               height={187}
               loading="eager"
               decoding="async"
-              className="h-9 w-auto object-contain sm:h-10"
+              className="h-10 w-auto object-contain sm:h-12"
             />
             <span className="sr-only">shanime</span>
           </a>
           <nav aria-label="Ana navigasyon" className="hidden items-center gap-8 md:flex">
-            <a href="#top" className="link-hover text-sm font-extrabold text-accent">
+            <a href="#top" className="link-hover text-base font-extrabold text-accent">
               Ana sayfa
             </a>
             <a
               href="#series"
-              className="link-hover text-sm font-bold text-muted-foreground transition-colors hover:text-foreground"
+              className="link-hover text-base font-bold text-muted-foreground transition-colors hover:text-foreground"
             >
               Seriler
             </a>
             <a
               href="#season"
-              className="link-hover text-sm font-bold text-muted-foreground transition-colors hover:text-foreground"
+              className="link-hover text-base font-bold text-muted-foreground transition-colors hover:text-foreground"
             >
               Bu sezon
             </a>
@@ -562,23 +631,37 @@ function Index() {
           onPointerUp={onHeroPointerUp}
           onPointerCancel={onHeroPointerCancel}
         >
+          {/* Sayfanın tek h1'i: vitrindeki seri başlıkları h1 değil, vitrin
+              içeriği olduğu için h1 kirliliği yapmaz. */}
+          <h1 className="sr-only">shanime — sezonun öne çıkan anime serileri</h1>
           {heroShows.map((show, index) => {
             const key = show.slug ?? show.title;
             // Dikey kapak hero'da kırpılıyor: önce geniş header, dosya yoksa kapak.
+            // Öncelik: admin'den yüklenen vitrin banner'ı → statik header → kapak.
             const backdrop = brokenBackdrops[key]
               ? show.image
-              : heroBackdrop(show.slug, heroUrl ?? show.image);
-            const videoUrl = brokenVideos[key] ? undefined : heroVideo(show.slug);
+              : show.banner_image || heroBackdrop(show.slug, show.image);
+            const uploaded =
+              "banner_video" in show && show.banner_video ? show.banner_video : undefined;
+            const videoUrl = brokenVideos[key] ? undefined : uploaded || heroVideo(show.slug);
             const active = index === safeIndex;
-            const videoActive = active && allowVideo && videoUrl && !brokenVideos[key];
+            const slideHasVideo = Boolean(videoUrl) && allowVideo && !brokenVideos[key];
+            // Aktif slayt: 6 sn sonra video girer.
+            // Çıkan slayt: fade bitene kadar videosu takılı kalsın (videoVisibleKey
+            // ile işaretli); yoksa geçiş anında video kaybolup eski fotoğraf görünür.
+            const videoActive =
+              slideHasVideo && ((active && videoArmed) || videoVisibleKey === key);
+            // Yazı, video GERÇEKTEN oynamaya başlayınca kapanır. Çıkan slaytta ise
+            // fade bitene kadar kapalı kalır; yoksa fade sırasında yazı yeniden
+            // açılıp görüntü bozuluyor.
+            const contentCollapsed =
+              slideHasVideo && (active ? videoPhase === "playing" : videoVisibleKey === key);
             return (
               <div
                 key={key}
                 aria-hidden={!active}
                 style={backdropDragStyle(index)}
-                className={`hero-slide ${active ? "active" : ""} ${
-                  index === leavingIndex ? "is-leaving" : ""
-                }`}
+                className={`hero-slide ${active ? "active" : ""}`}
               >
                 <img
                   src={backdrop}
@@ -604,68 +687,71 @@ function Index() {
                     preload="metadata"
                     tabIndex={-1}
                     aria-hidden="true"
-                    onPlaying={() => setVideoVisibleKey(key)}
+                    onPlaying={() => {
+                      // Görünürlük + yazının kapanması aynı anda tetiklenir.
+                      setVideoVisibleKey(key);
+                      setVideoPhase("playing");
+                    }}
                     onError={() => {
                       setBrokenVideos((map) => ({ ...map, [key]: true }));
                       setVideoVisibleKey((k) => (k === key ? null : k));
                     }}
                   />
                 )}
+                {/* Karartma: soldan yatay + alttan yumuşak geçiş (sert çizgi yok).
+                    Slaytın İÇİNDE: böylece karartma da yazıyla birlikte soluyor. */}
+                <div className="hero-gradient pointer-events-none" />
+                {/* YAZI SLAYTIN İÇİNDE — kritik nokta bu. Eskiden içerik slaytların
+                    kardeşiydi ve slayt değişiminde anında değişiyordu; resim 1.2 sn
+                    solarken yeni yazı eski sahnenin üstünde beliriyordu. Artık
+                    slaytın parçası olduğu için resimle AYNI anda soluyor. */}
+                <div className={`hero-content ${contentCollapsed ? "is-video-playing" : ""}`}>
+                  <span className="hero-featured-badge">Öne çıkanlar</span>
+                  <ShowLogo slug={show.slug} title={show.title} className="hero-logo" />
+                  <div className="hero-details">
+                    <div className="hero-details-inner">
+                      {/* sonanime'deki "yıl · bölüm sayısı" satırının karşılığı. */}
+                      <div className="hero-meta">
+                        {show.year && <span>{show.year}</span>}
+                        {show.id && show.episode_count > 0 && (
+                          <span>{show.episode_count} bölüm</span>
+                        )}
+                      </div>
+                      {show.genre && (
+                        <div className="hero-genres">
+                          {show.genre
+                            .split(",")
+                            .map((part) => part.trim())
+                            .filter(Boolean)
+                            .slice(0, 4)
+                            .map((genreName) => (
+                              <span key={genreName} className="hero-genre-chip">
+                                {genreName}
+                              </span>
+                            ))}
+                        </div>
+                      )}
+                      <p className="hero-description">{show.description}</p>
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-4">
+                    <a
+                      href={show.id ? `/izle/${showSlug(show)}` : "#series"}
+                      className="home-cta-pill"
+                    >
+                      <Play size={17} fill="currentColor" /> Şimdi izle
+                    </a>
+                    <a
+                      href={show.id ? `/seri/${showSlug(show)}` : "#series"}
+                      className="ui-hover rounded-full border border-border bg-secondary px-5 py-3 text-sm font-bold text-foreground hover:border-accent hover:text-accent"
+                    >
+                      Seri detayı
+                    </a>
+                  </div>
+                </div>
               </div>
             );
           })}
-          {/* Karartma: soldan yatay + alttan yumuşak geçiş (sert çizgi yok). */}
-          <div className="hero-gradient pointer-events-none absolute inset-0 z-[2]" />
-          <div
-            className={`hero-content ${videoPlaying ? "is-video-playing" : ""}`}
-            style={contentDragStyle}
-            key={`content-${current.slug ?? current.title}`}
-          >
-            <span className="hero-featured-badge">Popüler animeler</span>
-            <ShowLogo slug={current.slug} title={current.title} className="hero-logo" />
-            <div className="hero-details">
-              <div className="hero-details-inner">
-                <div className="hero-meta">{current.year && <span>{current.year}</span>}</div>
-                {current.genre && (
-                  <div className="hero-genres">
-                    {current.genre
-                      .split(",")
-                      .map((part) => part.trim())
-                      .filter(Boolean)
-                      .slice(0, 4)
-                      .map((genreName) => (
-                        <span key={genreName} className="hero-genre-chip">
-                          {genreName}
-                        </span>
-                      ))}
-                  </div>
-                )}
-                <p className="hero-description">{current.description}</p>
-              </div>
-            </div>
-            <div className="flex flex-wrap items-center gap-4">
-              <a
-                href={
-                  current.id
-                    ? `/izle/${current.slug && current.slug.trim() ? current.slug : current.id}?b=1`
-                    : "#series"
-                }
-                className="home-cta-pill"
-              >
-                <Play size={17} fill="currentColor" /> Şimdi izle
-              </a>
-              <a
-                href={
-                  current.id
-                    ? `/seri/${current.slug && current.slug.trim() ? current.slug : current.id}`
-                    : "#series"
-                }
-                className="ui-hover rounded-full border border-border bg-secondary px-5 py-3 text-sm font-bold text-foreground hover:border-accent hover:text-accent"
-              >
-                Seri detayı
-              </a>
-            </div>
-          </div>
 
           {heroShows.length > 1 && (
             <>
@@ -731,15 +817,30 @@ function Index() {
             className="mx-auto grid max-w-4xl grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4"
           >
             {(isFiltering ? filtered : shows).map((show) => {
-              const href = show.id
-                ? `/seri/${show.slug && show.slug.trim() ? show.slug : show.id}`
-                : undefined;
+              const href = show.id ? `/seri/${showSlug(show)}` : undefined;
               return (
                 <a
                   key={show.slug ?? show.title}
                   href={href}
-                  className="group card-hover block overflow-hidden rounded-2xl bg-card shadow-2xl"
+                  // Fareyle üzerine gelindiğinde detay verisi önden çekilir:
+                  // tıklayınca sayfa beklemeden açılır.
+                  onMouseEnter={() => {
+                    if (!show.id) return;
+                    const slug = showSlug(show);
+                    void queryClient.prefetchQuery({
+                      queryKey: ["show-detail", slug],
+                      queryFn: () => fetchShowDetail(slug),
+                      staleTime: 5 * 60_000,
+                    });
+                  }}
+                  className="group card-hover relative block overflow-hidden rounded-2xl bg-card shadow-2xl"
                 >
+                  {/* Bölümü olmayan seriler ana sayfadan belli olsun. */}
+                  {show.id && show.episode_count === 0 && (
+                    <span className="absolute left-2 top-2 z-10 rounded-full bg-background/85 px-2.5 py-1 text-[11px] font-extrabold text-accent backdrop-blur">
+                      Yakında
+                    </span>
+                  )}
                   <div className="aspect-[2/3] overflow-hidden bg-muted">
                     <img
                       src={show.image}
@@ -835,14 +936,15 @@ function Index() {
           </div>
           <div>
             <p className="text-sm font-extrabold">Keşfet</p>
-            <div className="mt-4 flex flex-col gap-3 text-sm text-muted-foreground">
-              <a href="#season" className="link-hover w-fit">
+            <div className="mt-4 flex flex-col gap-1 text-sm text-muted-foreground">
+              {/* py-2: dokunmatikte en az ~36 px yükseklik (eskiden 20 px idi). */}
+              <a href="#season" className="link-hover w-fit py-2">
                 Bu sezon
               </a>
-              <a href="#series" className="link-hover w-fit">
+              <a href="#series" className="link-hover w-fit py-2">
                 Tüm seriler
               </a>
-              <a href="#genres" className="link-hover w-fit">
+              <a href="#genres" className="link-hover w-fit py-2">
                 Türler
               </a>
             </div>

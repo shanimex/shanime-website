@@ -2,7 +2,32 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
     <loc>https://shanime.xyz/</loc>
+    <lastmod>2026-09-22</lastmod>
     <changefreq>daily</changefreq>
     <priority>1.0</priority>
+  </url>
+  <url>
+    <loc>https://shanime.xyz/seri/re-zero</loc>
+    <lastmod>2026-09-22</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://shanime.xyz/seri/mushoku-tensei</loc>
+    <lastmod>2026-09-22</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://shanime.xyz/seri/jujutsu-kaisen</loc>
+    <lastmod>2026-09-22</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://shanime.xyz/seri/erased</loc>
+    <lastmod>2026-09-22</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
   </url>
 </urlset>

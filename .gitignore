@@ -8,6 +8,8 @@ pnpm-debug.log*
 lerna-debug.log*
 
 node_modules
+node-compile-cache
+*.tsbuildinfo
 dist
 dist-ssr
 .output
@@ -19,6 +21,14 @@ dist-ssr
 # Wrangler / Cloudflare
 .wrangler/
 .dev.vars
+
+# Supabase CLI (yerel bağlantı durumu — makineye özel, depoya girmez)
+supabase/.temp/
+
+# npm kilit dosyası: bu proje Bun kullanıyor (bkz. bun.lock + bunfig.toml).
+# npm ile bir komut çalıştırılırsa bu dosya üretilir; depoya girmemeli, yoksa
+# iki ayrı kilit dosyası sürüm sürprizi çıkarır.
+package-lock.json
 
 # Editor directories and files
 .vscode/*

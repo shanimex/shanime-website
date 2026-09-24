@@ -1,4 +1,3 @@
-@import url("https://fonts.googleapis.com/css2?family=Signika+Negative:wght@400;500;600;700&display=swap");
 @import "tailwindcss" source(none);
 @source "../src";
 
@@ -228,21 +227,66 @@
   .hero-section {
     position: relative;
     width: 100%;
-    height: clamp(60vh, 600px, 80vh);
+    /* Daha büyük vitrin: en az 560 px, tercihen ekranın %72'si, en fazla 880 px. */
+    height: clamp(560px, 72vh, 880px);
     overflow: hidden;
     background: #0f0f0f;
     user-select: none;
     touch-action: pan-y;
   }
 
-  .hero-section.is-dragging {
-    cursor: grabbing;
+  /* Bölüm paneli gibi kaydırılan listelerin kaydırma çubuğu.
+     Öncelik: tamamen gizlemek (kaydırma tekerlekle zaten çalışıyor). Tarayıcı
+     gizlemeyi desteklemiyorsa varsayılan BEYAZ/kalın/çerçeveli görünüm yerine
+     ince, koyu ve kenarlıksız bir çubuk gösterilir. */
+  .ince-kaydirma {
+    scrollbar-width: none; /* Firefox + Chromium 121+ */
+    -ms-overflow-style: none;
   }
 
-  /* Slayt: yumusak fade gecisi (opacity + visibility). */
+  .ince-kaydirma::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  .ince-kaydirma::-webkit-scrollbar-track {
+    background: transparent;
+    border: none;
+  }
+
+  .ince-kaydirma::-webkit-scrollbar-thumb {
+    background: #4a4a52;
+    border: none;
+    border-radius: 999px;
+  }
+
+  .ince-kaydirma::-webkit-scrollbar-thumb:hover {
+    background: #5f5f68;
+  }
+
+  .ince-kaydirma::-webkit-scrollbar-button {
+    display: none;
+    width: 0;
+    height: 0;
+  }
+
+  /* Sürükleme sırasında fare hangi öğenin üstüne gelirse gelsin el (grabbing)
+     kalsın. Bağlantı ve butonların kendi `cursor: pointer` değeri ile içerik
+     öğeleri, sürükleme ortasında el simgesini değiştiriyordu. */
+  .hero-section.is-dragging,
+  .hero-section.is-dragging * {
+    cursor: grabbing !important;
+  }
+
+  /* Slayt: sonanime.com ile BIREBIR — opacity FADE gecisi, 1.2s ease.
+     (Sitede olculdu: opacity 0 -> 1, 1.2s ease; kayma yok.)
+     overflow:hidden KRITIK: Ken Burns zoomu (scale 1.05) gorseli kendi
+     kutusundan tasiriyordu; tasan kenar komsu slayta binince "resimler
+     birbirine karisiyor" goruntusu olusuyordu. */
   .hero-slide {
     position: absolute;
     inset: 0;
+    overflow: hidden;
     opacity: 0;
     visibility: hidden;
     transition:
@@ -257,23 +301,35 @@
     z-index: 1;
   }
 
-  /* Foto + Ken Burns zoom: aktif slaytta 6 saniyede yerine oturur. */
+  /* Foto + Ken Burns zoom: aktif slaytın görseli 1.05 → 1'e 6 saniyede yaklaşır.
+     Burada ANIMATION kullanılıyor, transition DEĞİL: sayfa artık sunucuda render
+     edildiği için `active` sınıfı baştan geliyor ve transition hiç tetiklenmiyordu
+     — zoom bu yüzden durmuştu. Animasyon, sınıf baştan gelse de ilk yükte oynar. */
   .hero-image {
     width: 100%;
     height: 100%;
     object-fit: cover;
     object-position: center 20%;
     transform: scale(1.05);
-    transition: transform 6s ease-out;
   }
 
   .hero-slide.active .hero-image {
+    animation: hero-kenburns 6s ease-out forwards;
+  }
+
+  /* Sürükleme sırasında zoom sıfırlanır ve animasyon durur. */
+  .hero-section.hero-dragging .hero-image {
+    animation: none;
     transform: scale(1);
   }
 
-  .hero-section.hero-dragging .hero-image {
-    transition: none;
-    transform: scale(1);
+  @keyframes hero-kenburns {
+    from {
+      transform: scale(1.05);
+    }
+    to {
+      transform: scale(1);
+    }
   }
 
   /* Video: aktif slaytta oynamaya baslayinca gorunur. */
@@ -296,6 +352,8 @@
   .hero-gradient {
     position: absolute;
     inset: 0;
+    /* Slayt icinde: gorselin/videonun ustunde (z-1), yazinin altinda (z-2). */
+    z-index: 1;
     background:
       linear-gradient(90deg, #0f0f0ff2, #0f0f0f99, transparent 80%),
       linear-gradient(0deg, #0f0f0f, transparent 25%);
@@ -311,6 +369,7 @@
     letter-spacing: -1px;
     line-height: 1.05;
     text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+    text-align: left;
   }
 
   /* Icerik: header a mesafe buradan; sol hizali, dikeyde ortalanmis. */
@@ -343,11 +402,25 @@
   .hero-logo {
     display: block;
     width: min(100%, 480px);
-    max-height: clamp(72px, 16vh, 160px);
+    /* Geniş logolar (oran 3-4.7) zaten 480 px genişliğe takılıyor; bu sınır
+       yalnızca DAHA KARE logoları (örn. 600x320 Mushoku Tensei) etkiler.
+       160 px iken o logo 300 px'e sıkışıp diğerlerinden %37 küçük kalıyordu. */
+    max-height: clamp(72px, 20vh, 200px);
     margin-bottom: 0.75rem;
     object-fit: contain;
     object-position: left center;
     filter: drop-shadow(0 8px 24px rgba(0, 0, 0, 0.45));
+  }
+
+  /* Beyaz kontur YALNIZCA koyu renkli logolar icin (bkz. index.tsx
+     LOGO_NEEDS_OUTLINE). Koyu vitrinde harfleri kaybolan logolar icin
+     zincirlenmis drop-shadow, resmin ALFA siluetini izleyerek tek parca beyaz
+     kontur uretir; alttaki orijinal renkler korunur. Degeri bir SVG path'ine
+     stroke eklemek, birbirine gecen harflerin arasina beyaz cizgiler sokardi. */
+  .hero-logo--outline {
+    filter:
+      drop-shadow(1.5px 0 0 #fff) drop-shadow(-1.5px 0 0 #fff) drop-shadow(0 1.5px 0 #fff)
+      drop-shadow(0 -1.5px 0 #fff) drop-shadow(0 8px 24px rgba(0, 0, 0, 0.45));
   }
 
   /* Detaylar: video baslarken grid satiri kapanir (yukseklik animasyonu). */
@@ -489,33 +562,42 @@
     z-index: 3;
   }
 
+  /* Nokta gorseli 6px kalir; tiklama alani padding ile buyutulup negatif margin
+     ile geri cekilir. Yerlesim hic degismez ama parmakla basma alani 24x28 px
+     olur (eskiden 6x6 idi ve dokunmatikte basilamiyordu). */
   .hero-dot {
+    box-sizing: content-box;
     width: 6px;
     height: 6px;
+    padding: 11px 9px;
+    margin: -11px -9px;
     border-radius: 999px;
     background: #ffffff59;
+    background-clip: content-box;
     border: none;
-    padding: 0;
     cursor: pointer;
     transition: width 0.3s ease;
   }
 
   .hero-dot.active {
     width: 26px;
-    background: #ff3c64;
+    /* DİKKAT: `background` kısayolu background-clip'i border-box'a sıfırlar;
+       o yüzden burada sadece rengi değiştiriyoruz. Yoksa aktif nokta 44x28'lik
+       pembe bir bloğa dönüşür. */
+    background-color: #ff3c64;
   }
 
   /* Mobilde icerik ortalanir, logo biraz kuculur. */
   @media (max-width: 767px) {
     .hero-content {
       padding: 0 6% 5vh;
-      align-items: center;
-      text-align: center;
+      align-items: flex-start;
+      text-align: left;
     }
 
     .hero-logo {
       width: min(100%, 340px);
-      object-position: center;
+      object-position: left;
     }
 
     .hero-featured-badge {
@@ -583,4 +665,46 @@
       transition: none;
     }
   }
+}
+
+/*
+ * Panel kategori kartlari.
+ *
+ * Cerceve (stroke) yerine her kategori kendi hafif renk tonunu alir; amac
+ * kategori ayrimini bir bakista gostermek, renkleri civitmak degil.
+ * Ton, kart renginin kategori rengiyle %12 karisimidir — tema kimligi korunur.
+ */
+.admin-card {
+  border-radius: calc(var(--radius) + 12px);
+  background: var(--card);
+  padding: 1.5rem;
+}
+
+@media (min-width: 768px) {
+  .admin-card {
+    padding: 2rem;
+  }
+}
+
+/* Seriler: birincil (kirmizi) ton */
+.admin-card--series {
+  background: color-mix(in oklab, var(--card) 88%, var(--primary) 12%);
+}
+
+/* Reklam kodlari: vurgu (altin) ton */
+.admin-card--ads {
+  background: color-mix(in oklab, var(--card) 88%, var(--accent) 12%);
+}
+
+/* Kategori basliginin onundeki renk cubugu */
+.admin-card-label {
+  display: inline-block;
+  height: 1.5rem;
+  width: 0.375rem;
+  border-radius: 9999px;
+  background: var(--primary);
+}
+
+.admin-card--ads .admin-card-label {
+  background: var(--accent);
 }

@@ -1,10 +1,29 @@
 import { supabase } from "@/integrations/supabase/client";
+import EPISODE_POSTERS from "@/data/episode-posters.json";
+import { POSTER_SETTINGS_KEY } from "@/lib/episode-covers";
+
+/**
+ * Kapak haritası: dosyadaki tohum + veritabanındaki güncel kayıtlar.
+ * Anahtarlar `"<slug>-s<sezon>e<bölüm>"` biçiminde. `fetchShowDetail` veritabanı
+ * katmanını yükleyip buraya uygular; yeni bölümlerin kapakları böyle görünür.
+ */
+let posterMap: Record<string, string> = EPISODE_POSTERS as Record<string, string>;
+
+/** Veritabanından gelen kapak haritasını (dosya tohumunun üzerine) uygular. */
+export function applyPosterMap(map: Record<string, string>): void {
+  posterMap = { ...(EPISODE_POSTERS as Record<string, string>), ...map };
+}
 
 export type Show = {
   id: string;
   title: string;
   subtitle: string;
   image_path: string;
+  banner_image_path?: string | null;
+  /** Panelden yüklenen vitrin videosu (mp4). Boşsa koddaki statik video kullanılır. */
+  banner_video_path?: string | null;
+  /** Ana sayfa vitrininde (hero) dönecek seri mi? Panelden açılır. */
+  is_featured: boolean;
   sort_order: number;
   slug: string | null;
   description: string;
@@ -13,76 +32,164 @@ export type Show = {
   watch_url: string;
 };
 
+export type Season = {
+  id: string;
+  show_id: string;
+  number: number;
+  title: string;
+  sort_order: number;
+};
+
 export type Episode = {
   id: string;
   show_id: string;
+  season: number;
   number: number;
   title: string;
   summary: string;
   duration: string;
   watch_url: string;
+  /**
+   * Panelden yüklenen bölüm kapağı (Storage yolu). Kolon henüz eklenmemişse
+   * `undefined` gelir; arayüz bu durumda serinin vitrin görselini yedek kapak
+   * olarak kullanır.
+   */
+  thumbnail_path?: string | null;
+  /** Çözümlenmiş kapak adresi. Bölüme özel kapak yoksa boş string döner. */
+  thumbnail?: string;
 };
 
-export type Character = {
-  id: string;
-  show_id: string;
-  name: string;
-  role: string;
-  image_path: string;
-  sort_order: number;
+export type ShowStats = {
+  show_id: string | null;
+  season_count: number | null;
+  episode_count: number | null;
 };
 
-export type GalleryImage = {
-  id: string;
-  show_id: string;
-  image_path: string;
-  caption: string;
-  sort_order: number;
+export type ShowWithImage = Show & {
+  image: string;
+  banner_image: string;
+  banner_video: string;
+  /** Bölüm sayısı: kartlarda "Yakında" rozeti için gerekli. */
+  episode_count: number;
 };
+export type SeasonWithEpisodes = Season & { episodes: Episode[] };
 
-export type ShowWithImage = Show & { image: string };
+export type ShowDetail = {
+  show: ShowWithImage;
+  /** Tüm bölümler: önce sezon, sonra bölüm numarasına göre sıralı düz liste. */
+  episodes: Episode[];
+  /** Bölümlerin sezonlara göre gruplanmış hâli (tek sezonlu seride de tek elemanlı olur). */
+  seasons: SeasonWithEpisodes[];
+};
 
 const BUCKET = "images";
 const SIGNED_URL_TTL = 60 * 60; // 1 saat
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const db = supabase as any;
+
+// "static/" ile başlayan yollar sitenin kendi dosyalarıdır (public/static/),
+// imzalı URL gerekmez; doğrudan servis edilir.
+function isStaticPath(path: string): boolean {
+  return path.startsWith("static/") || path.startsWith("/");
+}
+
+function staticUrl(path: string): string {
+  return path.startsWith("static/") ? `/${path}` : path;
+}
+
 export async function signImagePath(path: string): Promise<string> {
-  // "static/" ile başlayan yollar sitenin kendi dosyalarıdır (public/static/),
-  // imzalı URL gerekmez; doğrudan döndürülür.
-  if (path.startsWith("static/")) return `/${path}`;
+  if (!path) return "";
+  if (isStaticPath(path)) return staticUrl(path);
   const { data } = await supabase.storage.from(BUCKET).createSignedUrl(path, SIGNED_URL_TTL);
   return data?.signedUrl ?? "";
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const db = supabase as any;
+/** Tek seferde imzalanacak en fazla yol sayısı (Storage üst sınırına karşı). */
+const SIGN_BATCH = 100;
+
+/**
+ * Birden çok görsel yolunu TOPLU imzalar. Kapak açılışında her görsel için
+ * ayrı ayrı istek atmak yerine tek istek yapılır; sayfa daha hızlı açılır.
+ */
+export async function signImagePaths(paths: string[]): Promise<Map<string, string>> {
+  const result = new Map<string, string>();
+  const toSign = new Set<string>();
+  for (const path of paths) {
+    if (!path) continue;
+    if (isStaticPath(path)) result.set(path, staticUrl(path));
+    else toSign.add(path);
+  }
+  const unique = [...toSign];
+  for (let i = 0; i < unique.length; i += SIGN_BATCH) {
+    const { data } = await supabase.storage
+      .from(BUCKET)
+      .createSignedUrls(unique.slice(i, i + SIGN_BATCH), SIGNED_URL_TTL);
+    for (const item of data ?? []) {
+      if (item.path && item.signedUrl) result.set(item.path, item.signedUrl);
+    }
+  }
+  return result;
+}
 
 export async function fetchShows(): Promise<ShowWithImage[]> {
-  const { data, error } = await db
-    .from("shows")
-    .select("*")
-    .order("sort_order", { ascending: true });
-  if (error || !data) return [];
-  const shows = data as Show[];
-  const urls = await Promise.all(shows.map((s) => signImagePath(s.image_path)));
-  return shows.map((s, i) => ({ ...s, image: urls[i] ?? "" }));
+  // Bölüm sayıları da gelsin: kartlardaki "Yakında" rozeti için gerekli.
+  const [showsRes, stats] = await Promise.all([
+    db.from("shows").select("*").order("sort_order", { ascending: true }),
+    fetchShowStats(),
+  ]);
+  if (showsRes.error || !showsRes.data) return [];
+  const shows = showsRes.data as Show[];
+
+  // Kapak + banner yolları tek imzalama isteğinde çözülür.
+  const urls = await signImagePaths(
+    shows.flatMap((s) => [s.image_path, s.banner_image_path ?? "", s.banner_video_path ?? ""]),
+  );
+
+  return shows.map((s) => ({
+    ...s,
+    image: urls.get(s.image_path) ?? "",
+    banner_image: urls.get(s.banner_image_path ?? "") ?? "",
+    banner_video: urls.get(s.banner_video_path ?? "") ?? "",
+    episode_count: stats.get(s.id)?.episode_count ?? 0,
+  }));
 }
 
-export async function fetchHeroImage(): Promise<string | null> {
-  const { data, error } = await db
-    .from("site_settings")
-    .select("value")
-    .eq("key", "hero_image")
-    .maybeSingle();
-  if (error || !data?.value) return null;
-  return signImagePath(data.value as string);
+/** Panel listesi için sezon/bölüm sayıları — tek sorgu (show_stats görünümü). */
+export async function fetchShowStats(): Promise<Map<string, ShowStats>> {
+  const { data } = await db.from("show_stats").select("*");
+  const map = new Map<string, ShowStats>();
+  for (const row of (data ?? []) as ShowStats[]) {
+    if (row.show_id) map.set(row.show_id, row);
+  }
+  return map;
 }
 
-export async function uploadImage(file: File, folder: string): Promise<string> {
-  const ext = file.name.split(".").pop() ?? "jpg";
+async function uploadToBucket(file: File, folder: string, fallbackExt: string): Promise<string> {
+  const ext = file.name.split(".").pop() ?? fallbackExt;
   const path = `${folder}/${crypto.randomUUID()}.${ext}`;
   const { error } = await supabase.storage.from(BUCKET).upload(path, file);
   if (error) throw error;
   return path;
+}
+
+export async function uploadImage(file: File, folder: string): Promise<string> {
+  return uploadToBucket(file, folder, "jpg");
+}
+
+/** Vitrin videosu yükleme (mp4/webm). */
+export async function uploadVideo(file: File, folder: string): Promise<string> {
+  return uploadToBucket(file, folder, "mp4");
+}
+
+/**
+ * Depodaki eski dosyayı siler. Yeni görsel eskisinin YERİNE geçsin diye
+ * yükleme sonrası çağrılır; aksi hâlde her değişiklikte depoda yeni bir
+ * kopya birikir ve hiçbiri silinmez.
+ */
+export async function deleteImage(path: string): Promise<void> {
+  if (!path || isStaticPath(path)) return;
+  await supabase.storage.from(BUCKET).remove([path]);
 }
 
 export async function isAdmin(userId: string): Promise<boolean> {
@@ -95,16 +202,136 @@ export async function isAdmin(userId: string): Promise<boolean> {
   return Boolean(data);
 }
 
-export function showSlug(show: Pick<Show, "id" | "slug">): string {
-  return show.slug && show.slug.trim() ? show.slug : show.id;
+/** Adreslerde kullanılacak seri kimliği: slug varsa slug, yoksa id. */
+export function showSlug(show: { id?: string | null; slug?: string | null }): string {
+  return show.slug && show.slug.trim() ? show.slug : (show.id ?? "");
 }
 
-export type ShowDetail = {
-  show: ShowWithImage;
-  episodes: Episode[];
-  characters: (Character & { image: string })[];
-  gallery: (GalleryImage & { image: string })[];
-};
+/**
+ * İzleme sayfası adresi. Sezon/bölüm verilmezse sayfa kendi ilk bölümüne düşer,
+ * bu yüzden sorgu parametresi olmadan da geçerli bir adrestir.
+ */
+export function watchHref(
+  show: Pick<Show, "id" | "slug">,
+  season?: number,
+  episodeNumber?: number,
+): string {
+  const base = `/izle/${showSlug(show)}`;
+  if (season === undefined || episodeNumber === undefined) return base;
+  return `${base}?sezon=${season}&b=${episodeNumber}`;
+}
+
+/** Embed adresinden video kodunu çıkarır (`embed-<kod>.html`, `embed/<kod>`, `<kod>`). */
+export function videoCodeFromWatchUrl(watchUrl?: string | null): string {
+  if (!watchUrl) return "";
+  const clean = (watchUrl.split(/[?#]/)[0] ?? "").replace(/\/+$/, "");
+  const last = clean.split("/").filter(Boolean).pop() ?? "";
+  const dashed = /^embed-([a-z0-9]{6,})\.html$/i.exec(last);
+  if (dashed) return dashed[1] ?? "";
+  const plain = /^([a-z0-9]{6,})\.html$/i.exec(last);
+  if (plain) return plain[1] ?? "";
+  return /^[a-z0-9]{6,}$/i.test(last) ? last : "";
+}
+
+/**
+ * Bölüm kapağını oynatıcının embed adresinden TÜRETİR — yalnızca türetmenin
+ * gerçekten geçerli olduğu sağlayıcı için.
+ *
+ *   https://morencius.com/embed/<kod>   →   https://pixibay.cc/<kod>.jpg
+ *
+ * ÖNEMLİ: aynı kodun `_xt.jpg` eki de var ama o 25 küçük kareden oluşan bir
+ * MOZAİK (storyboard); kapak olarak kullanılamaz. Kapak için eki olmayan
+ * `.jpg` kullanılır — tek, temiz, 16:9 sahne karesi verir.
+ *
+ * ALAN ADI KONTROLÜ ŞART: VidMoly kapakları `pixibay` üzerinden gelmez. Eskiden
+ * yalnızca son yol parçasına bakılıyordu; `vidmoly.org/embed/<kod>` biçiminde bir
+ * adres girilse kod geçerli sayılıp `pixibay.cc/<kod>.jpg` istenirdi — o da 404.
+ * Bu yüzden türetme yalnızca morencius adresleri için yapılır; VidMoly kapakları
+ * `posterCoverPath` üzerinden gelir.
+ */
+export function episodeCoverFromWatchUrl(watchUrl?: string | null): string {
+  if (!watchUrl) return "";
+  let host = "";
+  try {
+    host = new URL(watchUrl.split(/[?#]/)[0] ?? "").hostname.toLowerCase();
+  } catch {
+    return "";
+  }
+  if (!/(^|\.)morencius\.com$/.test(host)) return "";
+  const code = videoCodeFromWatchUrl(watchUrl);
+  return code ? `https://pixibay.cc/${code}.jpg` : "";
+}
+
+/**
+ * Sağlayıcıdan çekilmiş bölüm kapağı (`scripts/sync-episode-covers.mjs` yazar).
+ *
+ * Neden dosyadan: VidMoly kapak adresi KODDAN TÜRETİLEMEZ — CDN alan adı ve
+ * `01/02950` yolu sağlayıcıya özel, embed sayfasından okunması gerekiyor:
+ *
+ *   vidmoly.org/embed-<kod>.html  →  https://<cdn>.vmwesa.online/i/01/02950/<kod>.jpg
+ *
+ * Kapakları çalışma anında çekmek her sayfa açılışında dış istek demek olurdu
+ * (ayrıca tarayıcıda CORS'a takılırdı). Bunun yerine bir kez çekilip bu dosyaya
+ * yazılır. Yeni bölüm ekledikten sonra: `node scripts/sync-episode-covers.mjs`.
+ */
+export function posterCoverPath(slug: string, season: number, episodeNumber: number): string {
+  if (!slug) return "";
+  return posterMap[`${slug}-s${season}e${episodeNumber}`] ?? "";
+}
+
+/**
+ * Yerelde üretilmiş bölüm kapağının yolu.
+ *
+ * Sağlayıcı bazı bölümler için hiç görsel yayınlamıyor (o bölümlerin videosu da
+ * bozuk olabiliyor — DURUM-RAPORU §20.3). O bölümlerin karesi videodan alınıp
+ * `public/static/episode-covers/` altına konur ve arayüz bu yolu dener.
+ *
+ * `static/` ile başladığı için imzalı URL gerekmez, doğrudan servis edilir
+ * (bkz. `isStaticPath`). Dosya yoksa istek 404 döner ve kapak zinciri bir
+ * sonraki kaynağa geçer; bu yüzden bu yol ZİNCİRİN SONUNDA denenir.
+ */
+export function localCoverPath(slug: string, season: number, episodeNumber: number): string {
+  if (!slug) return "";
+  return `/static/episode-covers/${slug}-s${season}e${episodeNumber}.jpg`;
+}
+
+/**
+ * Bölümleri sezonlara göre gruplar.
+ * `show_seasons` kaydı olmayan bir sezon numarası görülürse (ör. migration
+ * öncesinden kalan veri) o sezon için sanal bir kayıt üretilir; böylece
+ * hiçbir bölüm arayüzde kaybolmaz.
+ */
+export function groupSeasons(
+  seasonRows: Season[],
+  episodes: Episode[],
+  showId: string,
+): SeasonWithEpisodes[] {
+  const map = new Map<number, SeasonWithEpisodes>();
+  for (const row of seasonRows) {
+    map.set(row.number, { ...row, episodes: [] });
+  }
+  for (const episode of episodes) {
+    let season = map.get(episode.season);
+    if (!season) {
+      season = {
+        id: `sanal-sezon-${showId}-${episode.season}`,
+        show_id: showId,
+        number: episode.season,
+        title: "",
+        sort_order: episode.season,
+        episodes: [],
+      };
+      map.set(episode.season, season);
+    }
+    season.episodes.push(episode);
+  }
+  return [...map.values()]
+    .sort((a, b) => a.sort_order - b.sort_order || a.number - b.number)
+    .map((season) => ({
+      ...season,
+      episodes: [...season.episodes].sort((a, b) => a.number - b.number),
+    }));
+}
 
 export async function fetchShowDetail(slug: string): Promise<ShowDetail | null> {
   const bySlug = await db.from("shows").select("*").eq("slug", slug).maybeSingle();
@@ -115,38 +342,53 @@ export async function fetchShowDetail(slug: string): Promise<ShowDetail | null> 
   }
   if (!show) return null;
 
-  const [episodesRes, charactersRes, galleryRes, cover] = await Promise.all([
-    db
-      .from("show_episodes")
-      .select("*")
-      .eq("show_id", show.id)
-      .order("number", { ascending: true }),
-    db
-      .from("show_characters")
-      .select("*")
-      .eq("show_id", show.id)
-      .order("sort_order", { ascending: true }),
-    db
-      .from("show_images")
-      .select("*")
-      .eq("show_id", show.id)
-      .order("sort_order", { ascending: true }),
-    signImagePath(show.image_path),
+  // Kapak haritası da paralel çekilir: sağlayıcıdan çözülmüş güncel kapaklar
+  // `site_settings` içinde durur (bkz. lib/episode-covers.ts). Yeni bölüm
+  // eklendiğinde kapak, yayına almaya gerek kalmadan buradan gelir.
+  const [episodesRes, seasonsRes, posterRes] = await Promise.all([
+    db.from("show_episodes").select("*").eq("show_id", show.id),
+    db.from("show_seasons").select("*").eq("show_id", show.id),
+    db.from("site_settings").select("value").eq("key", POSTER_SETTINGS_KEY).maybeSingle(),
   ]);
 
-  const characters = (charactersRes.data ?? []) as Character[];
-  const gallery = (galleryRes.data ?? []) as GalleryImage[];
-  const [charUrls, galleryUrls] = await Promise.all([
-    Promise.all(
-      characters.map((c) => (c.image_path ? signImagePath(c.image_path) : Promise.resolve(""))),
-    ),
-    Promise.all(gallery.map((g) => signImagePath(g.image_path))),
+  try {
+    const raw = ((posterRes?.data as { value?: string } | null)?.value ?? "").trim();
+    if (raw) applyPosterMap(JSON.parse(raw) as Record<string, string>);
+  } catch {
+    // Bozuk/eski kayıt kapakları bozmasın; dosyadaki tohum geçerli kalır.
+  }
+
+  const rawEpisodes = ((episodesRes.data ?? []) as (Episode & { season?: number })[])
+    .map((ep) => ({
+      ...ep,
+      season: typeof ep.season === "number" && ep.season > 0 ? ep.season : 1,
+    }))
+    .sort((a, b) => a.season - b.season || a.number - b.number);
+
+  // Bölüm kapakları da AYNI imzalama isteğine katılır: 300 bölüm için 300 ayrı
+  // istek atmak yerine tek çağrı yapılır. Kapağı olmayan bölümler atlanır
+  // (signImagePaths boş yolları zaten dışarıda bırakır).
+  const urls = await signImagePaths([
+    show.image_path,
+    show.banner_image_path ?? "",
+    show.banner_video_path ?? "",
+    ...rawEpisodes.map((ep) => ep.thumbnail_path ?? ""),
   ]);
+
+  const episodes: Episode[] = rawEpisodes.map((ep) => ({
+    ...ep,
+    thumbnail: ep.thumbnail_path ? (urls.get(ep.thumbnail_path) ?? "") : "",
+  }));
 
   return {
-    show: { ...show, image: cover },
-    episodes: (episodesRes.data ?? []) as Episode[],
-    characters: characters.map((c, i) => ({ ...c, image: charUrls[i] ?? "" })),
-    gallery: gallery.map((g, i) => ({ ...g, image: galleryUrls[i] ?? "" })),
+    show: {
+      ...show,
+      image: urls.get(show.image_path) ?? "",
+      banner_image: urls.get(show.banner_image_path ?? "") ?? "",
+      banner_video: urls.get(show.banner_video_path ?? "") ?? "",
+      episode_count: episodes.length,
+    },
+    episodes,
+    seasons: groupSeasons((seasonsRes.data ?? []) as Season[], episodes, show.id),
   };
 }

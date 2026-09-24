@@ -15,7 +15,7 @@ export const AD_SLOTS = [
   { key: "ad_preroll", label: "Video öncesi 5 sn (tek banner)" },
 ] as const;
 
-export async function fetchAdCode(key: string): Promise<string> {
+async function fetchAdCode(key: string): Promise<string> {
   const { data } = await db.from("site_settings").select("value").eq("key", key).maybeSingle();
   return (data?.value as string) ?? "";
 }

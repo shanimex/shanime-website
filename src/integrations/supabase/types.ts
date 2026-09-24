@@ -55,6 +55,7 @@ export type Database = {
           duration: string;
           id: string;
           number: number;
+          season: number;
           show_id: string;
           summary: string;
           title: string;
@@ -66,6 +67,7 @@ export type Database = {
           duration?: string;
           id?: string;
           number?: number;
+          season?: number;
           show_id: string;
           summary?: string;
           title?: string;
@@ -77,6 +79,7 @@ export type Database = {
           duration?: string;
           id?: string;
           number?: number;
+          season?: number;
           show_id?: string;
           summary?: string;
           title?: string;
@@ -128,13 +131,54 @@ export type Database = {
           },
         ];
       };
+      show_seasons: {
+        Row: {
+          created_at: string;
+          id: string;
+          number: number;
+          show_id: string;
+          sort_order: number;
+          title: string;
+          updated_at: string;
+        };
+        Insert: {
+          created_at?: string;
+          id?: string;
+          number: number;
+          show_id: string;
+          sort_order?: number;
+          title?: string;
+          updated_at?: string;
+        };
+        Update: {
+          created_at?: string;
+          id?: string;
+          number?: number;
+          show_id?: string;
+          sort_order?: number;
+          title?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "show_seasons_show_id_fkey";
+            columns: ["show_id"];
+            isOneToOne: false;
+            referencedRelation: "shows";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       shows: {
         Row: {
+          banner_image_path: string | null;
+          banner_video_path: string | null;
           created_at: string;
           description: string;
           genre: string;
           id: string;
           image_path: string;
+          is_featured: boolean;
           slug: string | null;
           sort_order: number;
           subtitle: string;
@@ -143,11 +187,14 @@ export type Database = {
           year: string;
         };
         Insert: {
+          banner_image_path?: string | null;
+          banner_video_path?: string | null;
           created_at?: string;
           description?: string;
           genre?: string;
           id?: string;
           image_path: string;
+          is_featured?: boolean;
           slug?: string | null;
           sort_order?: number;
           subtitle?: string;
@@ -156,11 +203,14 @@ export type Database = {
           year?: string;
         };
         Update: {
+          banner_image_path?: string | null;
+          banner_video_path?: string | null;
           created_at?: string;
           description?: string;
           genre?: string;
           id?: string;
           image_path?: string;
+          is_featured?: boolean;
           slug?: string | null;
           sort_order?: number;
           subtitle?: string;
@@ -205,7 +255,22 @@ export type Database = {
       };
     };
     Views: {
-      [_ in never]: never;
+      show_stats: {
+        Row: {
+          episode_count: number | null;
+          season_count: number | null;
+          show_id: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "shows_id_fkey";
+            columns: ["show_id"];
+            isOneToOne: true;
+            referencedRelation: "shows";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
     };
     Functions: {
       [_ in never]: never;

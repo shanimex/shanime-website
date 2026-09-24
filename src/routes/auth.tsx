@@ -55,14 +55,17 @@ function AuthPage() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-5">
       <div className="w-full max-w-sm rounded-3xl border border-border bg-card p-8 shadow-2xl">
-        <a
-          href="/"
-          className="mb-6 flex items-center justify-center gap-2 font-display text-2xl text-foreground"
-        >
-          <span className="grid size-9 place-items-center rounded-full border-2 border-accent text-sm text-primary">
-            ▶
-          </span>
-          shanime
+        <a href="/" className="mb-6 flex items-center justify-center">
+          <img
+            src="/shanime-logo.png"
+            alt="shanime logosu"
+            width={800}
+            height={187}
+            loading="eager"
+            decoding="async"
+            className="h-10 w-auto object-contain"
+          />
+          <span className="sr-only">shanime</span>
         </a>
         <h1 className="text-center text-lg font-extrabold text-foreground">
           {mode === "signin" ? "Yönetim girişi" : "Hesap oluştur"}
@@ -78,7 +81,7 @@ function AuthPage() {
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="h-11 w-full rounded-xl border border-border bg-background px-4 text-sm text-foreground outline-none focus:border-primary"
+              className="h-11 w-full rounded-xl border border-border bg-background px-4 text-base text-foreground outline-none focus:border-primary"
               placeholder="ornek@mail.com"
             />
           </div>
@@ -96,7 +99,7 @@ function AuthPage() {
               minLength={6}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="h-11 w-full rounded-xl border border-border bg-background px-4 text-sm text-foreground outline-none focus:border-primary"
+              className="h-11 w-full rounded-xl border border-border bg-background px-4 text-base text-foreground outline-none focus:border-primary"
               placeholder="••••••••"
             />
           </div>
@@ -111,7 +114,7 @@ function AuthPage() {
             </p>
           )}
           <Button type="submit" className="w-full rounded-full" disabled={loading}>
-            {loading ? "Bekle..." : mode === "signin" ? "Giriş yap" : "Kayıt ol"}
+            {loading ? "Lütfen bekleyin..." : mode === "signin" ? "Giriş yap" : "Kayıt ol"}
           </Button>
         </form>
         <button
