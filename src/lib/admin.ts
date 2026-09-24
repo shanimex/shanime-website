@@ -61,32 +61,10 @@ export async function moveAndPersist<T extends { id: string }>(
   return next;
 }
 
-/** Kabul edilen video host aileleri: alan adında bu kelimeler geçen linkler geçerlidir.
- *  StreamWish aynaları sık değiştiği için (hgcloud.to, hglink.to, awish.pro…) isim bazlı liste tutuyoruz. */
-export const VIDEO_HOST_KEYWORDS = [
-  "earnvids",
-  "earnvid",
-  "dood",
-  "vidmoly",
-  "streamwish",
-  "awish.",
-  "hgcloud",
-  "hglink",
-  "hgonline",
-  "hgwatch",
-  "hgplay",
-  "khcloud",
-  "filemoon",
-  "streamtape",
-  "strcloud",
-  "streamta",
-  "tapecontent",
-  "mp4upload",
-  "vidhide",
-  "oneupload",
-  "movhide",
-  "morencius",
-];
+/** NOT: Burada eskiden sabit bir "kabul edilen video host" listesi vardı
+ *  (VIDEO_HOST_KEYWORDS) ve listede olmayan sağlayıcılar reddediliyordu. Kullanıcı Voe
+ *  linki eklerken "bu video host tanınmıyor" hatası aldı; liste kaldırıldı. Artık her
+ *  embed linki kabul edilir (bkz. `watchUrlError`). */
 
 /** Yapıştırılan metinden video linkini ayıklar:
  *  - <IFRAME ...> embed kodu yapıştırılırsa src="..." içindeki linki döndürür
@@ -110,23 +88,23 @@ export function pasteEmbed(onSet: (value: string) => void) {
   };
 }
 
-/** Video linkini doğrular; sorun yoksa null, varsa kullanıcıya gösterilecek mesajı döndürür. */
+/**
+ * Video linkini doğrular; sorun yoksa null, varsa kullanıcıya gösterilecek mesajı döndürür.
+ *
+ * Host listesi YOK: her embed linki kabul edilir (Voe, Filemoon, kendi sunucun, bilinmeyen
+ * bir ayna…). Eskiden sabit bir liste vardı ve listede olmayan sağlayıcı reddediliyordu;
+ * kullanıcı Voe linki eklerken "bu video host tanınmıyor" hatası aldı. Artık yalnızca
+ * linkin gerçekten bir adres olup olmadığına bakılır.
+ */
 export function watchUrlError(url: string): string | null {
   const value = extractEmbedUrl(url);
   if (!value) return null;
-  if (value.length > 300) return "Video linki çok uzun.";
+  if (value.length > 500) return "Video linki çok uzun.";
   if (/["'<>\s]/.test(value))
     return "Link geçersiz karakter içeriyor. Embed kodunun içindeki link otomatik alınır, düz linki yapıştır.";
-  if (!value.startsWith("https://")) return "Link https:// ile başlamalı.";
-  const host =
-    value
-      .replace(/^https:\/\//i, "")
-      .split("/")[0]
-      ?.toLowerCase() ?? "";
-  if (!VIDEO_HOST_KEYWORDS.some((keyword) => host.includes(keyword)))
-    return "Bu video host tanınmıyor. Earnvids, VidMoly, Doodstream, StreamWish/hgcloud, Morencius aileleri kabul edilir.";
-  const path = value.replace(/^https:\/\/[^/]+/i, "");
-  if (!/^\/[\w/.~?=&%-]*$/.test(path)) return "Link yolu geçersiz görünüyor.";
+  // Alan adı olan bir https adresi yeterli; sağlayıcının kim olduğu önemli değil.
+  if (!/^https:\/\/[^\s/?#]+\.[^\s/?#]+/i.test(value))
+    return "Link https:// ile başlamalı ve bir alan adı içermeli (ör. https://voe.sx/e/xxxxxxx).";
   return null;
 }
 

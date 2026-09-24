@@ -512,8 +512,10 @@ function BulkAddForm({
     const invalid = parsed.filter((entry) => !entry.url || watchUrlError(entry.url));
     if (invalid.length > 0) {
       alert(
-        `${invalid.length} satır geçersiz (tanınmayan video host'u veya bozuk link).\n\n` +
-          "Geçerli örnek:\nhttps://vidmoly.to/embed-abc.html\n42 - https://dood.to/e/xyz | 42. Bölüm",
+        `${invalid.length} satır geçersiz (bozuk veya eksik link).\n\n` +
+          "Her link https:// ile başlamalı ve bir alan adı içermeli. Geçerli örnek:\n" +
+          "https://voe.sx/e/xxxxxxx\n" +
+          "42 - https://vidmoly.org/embed-abc.html | 42. Bölüm",
       );
       return;
     }
@@ -793,7 +795,7 @@ function AddEpisodeForm({
         value={watchUrl}
         onChange={(event) => setWatchUrl(event.target.value)}
         onPaste={pasteEmbed(setWatchUrl)}
-        placeholder="Video linki (Earnvids, VidMoly, Dood, StreamWish — embed kodu da olur)"
+        placeholder="Video linki (herhangi bir embed linki — Voe, VidMoly, Dood… veya iframe kodu)"
         aria-label="Video linki"
       />
       {/* Kırmızı dolu buton "Sil" ile karışıyordu; sakin bir buton yeterli. */}
@@ -878,7 +880,7 @@ function EpisodeRow({
         value={watchUrl}
         onChange={(event) => setWatchUrl(event.target.value)}
         onPaste={pasteEmbed(setWatchUrl)}
-        placeholder="Video linki (Earnvids, VidMoly, Dood, StreamWish — embed kodu da olur)"
+        placeholder="Video linki (herhangi bir embed linki — Voe, VidMoly, Dood… veya iframe kodu)"
         aria-label={`${episode.number}. bölüm video linki`}
       />
       {/* Kaydet / Sil her zaman satırın en sağ altında. */}
