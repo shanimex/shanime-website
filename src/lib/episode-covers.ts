@@ -65,12 +65,18 @@ export async function fetchVidmolyPoster(code: string): Promise<string> {
  */
 const VOE_HOSTS = /(^|\.)(voe\.sx|chuckle-tube\.com|goofy-banana\.com|jamesbornmain\.com)$/i;
 
-/** Link Voe'ya mı ait? (mirror alan adları döndüğü için `/e/<kod>` biçimi de sayılır.) */
+/**
+ * Link Voe'ya mı ait? Yalnızca **alan adı** listesine bakılır.
+ *
+ * Eskiden `/e/<kod>` biçimi de yeterli sayılıyordu; Filemoon gibi sağlayıcılar da
+ * aynı biçimi kullandığı için Filemoon linkli bölüm Voe sanılıyor ve var olmayan
+ * bir kapak adresi (`i.voe.sx/cache/<kod>_storyboard_L5.jpg`) üretiliyordu
+ * (kullanıcı bildirimi: Filemoon'a geçince 1. bölümün kapağı kırıldı).
+ * Yeni bir Voe mirror'ı çıkarsa `VOE_HOSTS` listesine eklenmeli.
+ */
 export function isVoeUrl(url: string): boolean {
   try {
-    const parsed = new URL(url.split(/[?#]/)[0] ?? "");
-    if (VOE_HOSTS.test(parsed.hostname)) return true;
-    return /\/e\/[a-z0-9]{6,}$/i.test(parsed.pathname);
+    return VOE_HOSTS.test(new URL(url.split(/[?#]/)[0] ?? "").hostname);
   } catch {
     return false;
   }
