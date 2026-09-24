@@ -1,11 +1,6 @@
 import { Play } from "lucide-react";
 import { EpisodeCover } from "@/components/EpisodeCover";
-import {
-  episodeCoverFromWatchUrl,
-  localCoverPath,
-  posterCoverPath,
-  type Episode,
-} from "@/lib/content";
+import { episodeCoverFromWatchUrl, localCoverPath, type Episode } from "@/lib/content";
 import { resolvePosterForEpisode } from "@/lib/episode-covers";
 
 type EpisodeCardProps = {
@@ -38,7 +33,9 @@ export function EpisodeCard({ slug, episode, variant = "row", href }: EpisodeCar
         // tutar, gereksiz istek olmaz.
         candidates={[
           episode.thumbnail ?? "",
-          posterCoverPath(slug, episode.season, episode.number),
+          // Sağlayıcı kapağı bölüm nesnesiyle gelir (sunucuda çözülür) — modül
+          // durumundan okunursa sunucu/istemci farkı hydration hatası veriyor.
+          episode.poster ?? "",
           episodeCoverFromWatchUrl(episode.watch_url),
           localCoverPath(slug, episode.season, episode.number),
         ]}

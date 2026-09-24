@@ -57,6 +57,14 @@ export type Episode = {
   thumbnail_path?: string | null;
   /** Çözümlenmiş kapak adresi. Bölüme özel kapak yoksa boş string döner. */
   thumbnail?: string;
+  /**
+   * Sağlayıcıdan çözülmüş bölüm kapağı (VidMoly karesi).
+   *
+   * Bölüm nesnesinin İÇİNDE taşınır: sunucuda üretilip istemciye serileştirilir,
+   * böylece ilk çizimde iki taraf aynı adresi kullanır. Modül durumundan
+   * okunsaydı sunucu/istemci farkı hydration hatasına yol açardı.
+   */
+  poster?: string;
 };
 
 export type ShowStats = {
@@ -247,7 +255,7 @@ export function videoCodeFromWatchUrl(watchUrl?: string | null): string {
  * yalnızca son yol parçasına bakılıyordu; `vidmoly.org/embed/<kod>` biçiminde bir
  * adres girilse kod geçerli sayılıp `pixibay.cc/<kod>.jpg` istenirdi — o da 404.
  * Bu yüzden türetme yalnızca morencius adresleri için yapılır; VidMoly kapakları
- * `posterCoverPath` üzerinden gelir.
+ * `fetchShowDetail` içinde çözülüp bölümün `poster` alanına yazılır.
  */
 export function episodeCoverFromWatchUrl(watchUrl?: string | null): string {
   if (!watchUrl) return "";
@@ -260,23 +268,6 @@ export function episodeCoverFromWatchUrl(watchUrl?: string | null): string {
   if (!/(^|\.)morencius\.com$/.test(host)) return "";
   const code = videoCodeFromWatchUrl(watchUrl);
   return code ? `https://pixibay.cc/${code}.jpg` : "";
-}
-
-/**
- * Sağlayıcıdan çekilmiş bölüm kapağı (`scripts/sync-episode-covers.mjs` yazar).
- *
- * Neden dosyadan: VidMoly kapak adresi KODDAN TÜRETİLEMEZ — CDN alan adı ve
- * `01/02950` yolu sağlayıcıya özel, embed sayfasından okunması gerekiyor:
- *
- *   vidmoly.org/embed-<kod>.html  →  https://<cdn>.vmwesa.online/i/01/02950/<kod>.jpg
- *
- * Kapakları çalışma anında çekmek her sayfa açılışında dış istek demek olurdu
- * (ayrıca tarayıcıda CORS'a takılırdı). Bunun yerine bir kez çekilip bu dosyaya
- * yazılır. Yeni bölüm ekledikten sonra: `node scripts/sync-episode-covers.mjs`.
- */
-export function posterCoverPath(slug: string, season: number, episodeNumber: number): string {
-  if (!slug) return "";
-  return posterMap[`${slug}-s${season}e${episodeNumber}`] ?? "";
 }
 
 /**
@@ -375,9 +366,15 @@ export async function fetchShowDetail(slug: string): Promise<ShowDetail | null> 
     ...rawEpisodes.map((ep) => ep.thumbnail_path ?? ""),
   ]);
 
+  // Sağlayıcıdan çözülmüş kapak, bölüm NESNESİNE yazılır (modül durumundan
+  // okunmaz). Sebep: bu nesne sunucuda üretilip istemciye serileştirilir; kapak
+  // ayrı bir modül durumundan okunursa sunucu ile tarayıcı farklı adres
+  // üretebiliyor ve React "hydration mismatch" hatası veriyordu.
+  const posterSlug = show.slug ?? slug;
   const episodes: Episode[] = rawEpisodes.map((ep) => ({
     ...ep,
     thumbnail: ep.thumbnail_path ? (urls.get(ep.thumbnail_path) ?? "") : "",
+    poster: posterMap[`${posterSlug}-s${ep.season}e${ep.number}`] ?? "",
   }));
 
   return {

@@ -9,7 +9,6 @@ import {
   episodeCoverFromWatchUrl,
   fetchShowDetail,
   localCoverPath,
-  posterCoverPath,
   showSlug,
   type Episode,
   type SeasonWithEpisodes,
@@ -436,7 +435,8 @@ function SidebarCover({ slug, episode }: { slug: string; episode: Episode }) {
         numberClassName="text-[11px] font-bold text-muted-foreground"
         candidates={[
           episode.thumbnail ?? "",
-          posterCoverPath(slug, episode.season, episode.number),
+          // Sağlayıcı kapağı bölüm nesnesiyle gelir (sunucuda çözülür).
+          episode.poster ?? "",
           episodeCoverFromWatchUrl(episode.watch_url),
           localCoverPath(slug, episode.season, episode.number),
         ]}
