@@ -1393,3 +1393,105 @@ paket kurulumu için geçerli.
 - `origin/main`'in **1 commit önünde** → push edilmeye hazır
 - Güvenlik: `.env` yok sayılıyor; commit içeriği tarandı, **gizli anahtar/parola yok**
   (işaretlenen iki satır `GRANT ALL ON ... TO service_role;` — standart SQL, sır değil)
+
+---
+
+## 27. Eski kalıntılar · kilit dosyası kararı · GitHub · CDN dönmesi · hydration
+
+### 27.1 Eski kalıntılar: veritabanı tertemiz
+
+| Kontrol | Sonuç |
+|---|---|
+| Bölüm video adresleri | **24/24 `vidmoly.org`** · eski sağlayıcı (`morencius`) **0 kayıt** |
+| Kullanılmayan bileşen/modül | **YOK** (tüm `src` tarandı) |
+| `src/components/ui/` | yalnızca `button.tsx` (gerisi daha önce temizlenmiş) |
+| `public/static/anime-data/` | **Kullanımda**: vitrin logosu, banner yedeği, seri kapakları (veritabanı `image_path` alanları burayı gösteriyor) |
+| Kalan tek kalıntı | `public/static/episode-covers/jujutsu-kaisen-s1e1.jpg` → **silindi** (eski sağlayıcıdan alınan kareydi, VidMoly kapağı çalışıyor) |
+| Boş klasör | `public/static/episode-covers/` kaldırıldı |
+
+Kaynak kodda görülen `morencius` / `pixibay` ifadeleri kalıntı **değil**: `lib/admin.ts`
+panelde birden çok video ailesini kabul ediyor (EarnVids, VidMoly, Doodstream,
+StreamWish, Morencius) ve `episode-covers.ts` eski kayıtlar için o adresleri de
+çözebiliyor. Bilinçli çok-sağlayıcı desteği.
+
+### 27.2 Kilit dosyası: karar Bun
+
+Makinede `bun` **kullanıcı kurulumu değil** — `…\AppData\Roaming\Accio\external-tools\…\bun.exe`
+(agent'ın yönetilen aracı, sürüm 1.1.0). `node_modules` ise **npm** ile kurulmuş.
+
+Karar: **Bun bildirimi korundu** (`bun.lock` izlenen tek kilit dosyası). Gerekçe:
+`bunfig.toml` bilinçli bir **tedarik zinciri koruması** taşıyor
+(`minimumReleaseAge = 86400` — 24 saatten yeni paket sürümleri kurulmaz) ve bu koruma
+npm'de yok. `package-lock.json` depodan çıkarıldı ve `.gitignore`'a eklendi, böylece
+depoda tek kilit dosyası kalıyor ve çakışma imkânsız.
+
+### 27.3 GitHub: gönderildi
+
+`https://github.com/shanimex/shanime-website` — 4 commit gönderildi:
+
+| Commit | İçerik |
+|---|---|
+| `7d2556d` | VidMoly geçişi, kapak otomasyonu, izleme sayfası düzeni |
+| `0ff8ae9` | Eski yerel kapak silindi, "Kapakları güncelle" tazeleme modu |
+| `ae7b074` | Kendini onaran kapak (CDN dönmesi) |
+| `04b83b5` | Hydration hatası düzeltmesi |
+
+Çalışma alanı temiz · gizli anahtar/parola yok (`.env` yok sayılıyor).
+
+### 27.4 KRİTİK: push canlı siteyi güncellemiyor
+
+`shanime.xyz` **push'tan sonra da eski derlemeyi** sunuyor:
+
+| | Canlı | Yerel derleme |
+|---|---|---|
+| CSS | `styles-eXZ52L23.css` | `styles-Ky76RRy5.css` |
+| JS | `seri._slug-BVcWMqjS.js` | `seri._slug-B-wjlzp9.js` |
+
+Kanıt: canlı CSS varlığının `Age` başlığı **96445 sn (~27 saat)**; sayfalarda
+"Anasayfa" bağlantısı yok. 10 dakika beklendi, değişmedi.
+
+Depoda `.github/workflows` **yok**, `wrangler` **kurulu değil**, Cloudflare oturumu
+**yok** → yerelden yayın yapılamıyor. Yayın hedefi Cloudflare
+(`.output/server/wrangler.json` → worker adı `shanimex-shanime-website`).
+
+**Yapılması gereken (tek seferlik):** Cloudflare panelinden bu depoyu bağlayıp
+otomatik yayını açmak. Sonrasında her `git push` siteyi günceller. Alternatif: bir kez
+`npx wrangler login` yapılıp `npm run build` + `npx wrangler deploy`.
+
+### 27.5 Kapaklar: CDN dönmesi ve kendini onarma
+
+Yeni bir sorun bulundu ve çözüldü. Sağlayıcının CDN adresi **dönüyor**:
+
+```
+transit-up-1170-i.vmwesa.online/i/01/02950/<kod>.jpg   → 404
+box-1659-u.vmbox.space/i/03/02950/<kod>.jpg            → 200
+```
+
+Yani kayıtlı kapak adresi gün içinde geçersiz kalıyor (1., 2., 3. bölüm 404 oldu;
+24 kapak 6 ayrı CDN alanına dağılmış durumda). Çözüm iki katmanlı:
+
+1. **Kendini onarma** (`resolvePosterForEpisode`): görsel yüklenemezse embed
+   sayfasından GÜNCEL adres okunur (CORS açık) ve oturum boyunca `sessionStorage`'da
+   tutulur. Kullanıcı hiçbir şey yapmaz.
+2. **"Kapakları güncelle"** düğmesi artık TÜMÜnü tazeler (`force`); bölüm eklenince
+   otomatik çalışan yol yalnızca eksikleri çözer.
+
+### 27.6 Hydration hatası (bulundu ve düzeltildi)
+
+Kapak adresi modül durumundan okunduğu için sunucu veritabanı haritasını, istemci ise
+dosyadaki tohumu kullanıyordu → React "hydration mismatch" uyarısı. Artık kapak
+`fetchShowDetail` içinde çözülüp **bölüm nesnesinin `poster` alanına** yazılıyor;
+nesne serileştirildiği için ilk çizimde iki taraf aynı adresi kullanıyor.
+
+### 27.7 Uçtan uca doğrulama
+
+| Test | Sonuç |
+|---|---|
+| **Otomatik kapak**: panele test bölümü eklendi | Bildirim *"1. sezonun 25. bölümü eklendi."* → 8 sn sonra kartta **gerçek kapak** (butona basmadan) ✅ |
+| Test bölümü silindi | *"25. bölüm silindi."* · veritabanında 24 bölüm ✅ |
+| "Kapakları güncelle" | *"24 bölüm kapağı tazelendi."* ✅ |
+| Detay sayfası | **24/24 kapak** ✅ |
+| İzleme paneli | **24/24 kapak** ✅ |
+| Hydration uyarısı | detay + izle + ana sayfa → **0** ✅ |
+| Konsol hatası | **0** ✅ |
+| Derleme · `tsc` · `eslint` | temiz ✅ |
