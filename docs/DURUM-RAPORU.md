@@ -2166,3 +2166,61 @@ Yani L2 kapak olarak kullanılsa bölüm kapağı ızgara gibi görünürdü. He
 - **API anahtarı** yalnızca tarayıcıda (`localStorage`); repoya, dokümana veya veritabanına
   YAZILMADI. Farklı cihaz/tarayıcıda bir kez daha girilmesi gerekir (alan hatırlar).
 - Voe'nun `subtitles[]` alanı altyazı desteğini API'de de gösteriyor (`/vtt/<kod>_tr.srt`).
+
+---
+
+## 38. Filemoon'a geçiş: yanlış link biçimi + otomatik düzeltme
+
+### 38.1 Şikâyet
+
+Kullanıcı Filemoon'a geçti, 1. bölümde oynatıcının "bozuk" göründüğünü ve linki yanlış koyup
+koymadığını sordu. Girdiği link: `https://filemoon.org/e/qw1zeDk03Xyn`
+
+### 38.2 Teşhis (ölçüm)
+
+| Kontrol | Sonuç |
+| --- | --- |
+| `filemoon.org/e/<kod>` | **ana sayfaya yönlendiriyor** (`/en`) → oynatıcıda Filemoon'un **tanıtım sayfası** görünüyordu |
+| `filemoon.sx/e/<kod>` · `filemoon.to/e/<kod>` | **404 Not Found** |
+| `filemoon.org/<kod>/embed` | **gerçek oynatıcı açılıyor** ✅ |
+| Kullanıcının paneli (filemoon.org) | Dosya var: `JujutsuKaisen-1080p-S1B1.mp4` · 789 MB · kod **qw1zeDk03Xyn** (yani kod doğru, **yol biçimi yanlış**) |
+| Doğru biçim (API dokümanı + panel) | `https://filemoon.org/<kod>/embed` (`urls.embed` alanı) |
+
+**Sonuç:** Kod doğruydu, `/e/<kod>` biçimi yanlıştı; Filemoon o yolu ana sayfaya düşürüyor.
+
+### 38.3 Yapılan düzeltmeler
+
+| Ne | Yer | Etki |
+| --- | --- | --- |
+| `canonicalEmbedUrl()` eklendi | `lib/admin.ts` | Kaydetme, toplu ekleme ve yapıştırma yollarının tamamı `extractEmbedUrl` üzerinden geçtiği için **her girişte** otomatik düzeltme |
+| Filemoon/Byse kuralları | aynı dosya | `/e/<kod>`, `/<kod>/watch`, `/<kod>/file`, çıplak `<kod>` → `https://filemoon.org/<kod>/embed` |
+| Voe kuralı | aynı dosya | `/d/<kod>`, çıplak `<kod>` → `https://voe.sx/e/<kod>` |
+| **1. bölümün linki düzeltildi** | veritabanı (panelden kaydedildi) | `…/e/qw1zeDk03Xyn` → `…/qw1zeDk03Xyn/embed` |
+| `isVoeUrl` daraltıldı | `lib/episode-covers.ts` | `/e/<kod>` biçim sezgisi kaldırıldı; Filemoon linki Voe sanılıp **var olmayan kapak adresi** üretiyordu |
+| Ölü kapak kaydı temizlendi | veritabanı ("Kapakları güncelle") | `i.voe.sx/cache/qw1zeDk03Xyn_…` kaydı silindi; 1. bölüm kapağı geçerli bir thumbnail'e döndü |
+
+### 38.4 Doğrulama
+
+| Kontrol | Sonuç |
+| --- | --- |
+| Panelde kaydetme sonrası saklanan link | `https://filemoon.org/qw1zeDk03Xyn/embed` ✅ (otomatik düzeltildi) |
+| Ağ kanıtı | `PATCH /show_episodes?id=eq.378e4e81…` → **204** ✅ |
+| Oynatıcı (izleme sayfası) | iframe `src` = `/embed`; **gerçek Filemoon oynatıcısı** (oynat düğmesi + kontrol çubuğu + kare önizlemeleri) ✅ |
+| Pazarlama/404 sayfası | **yok** ✅ |
+| Kırık görsel · konsol hatası | **0 · 0** ✅ |
+| `i.voe.sx/…qw1zeDk03Xyn…` kaydı | iki sayfada da **geçmiyor** ✅ |
+| `build` · `tsc` · `eslint` | temiz ✅ |
+
+### 38.5 Filemoon panelinden öğrenilenler (ileride gerekirse)
+
+- **API VAR:** taban `https://filemoon.org/api/v1`, kimlik doğrulama **`Authorization: Bearer <token>`**,
+  limit ~**60 istek/dk**. Uçlar: `GET /account`, `GET /files`, `GET /files/{id}` (yanıtında
+  `urls.page` / `urls.watch` / `urls.embed` alanları), `PATCH /files/{id}`, `POST /files/upload`,
+  `POST /remote-uploads` vb. Token: **Developer → API & Remote Upload → Create API Token**
+  (`files:read`, `files:write`, `remote:write` izinleri; token bir kez gösterilir).
+  → İstenirse "Voe'dan çek" özelliğinin bir **Filemoon karşılığı** yazılabilir (aynı akış, farklı istemci).
+- **Reklam seviyesi ayarı YOK** (VidMoly/Voe'daki gibi izleyici-reklam kademesi bulunamadı); paneldeki
+  "Advertise" bölümü reklam **satın alma** paneli (CPM $15). Premium bölümler: Creator Pro, Creator Page,
+  Geo Blocking, Team & Business.
+- **Not:** `filemoon.sx` / `filemoon.to` / `byse.sx` artık "Byse" tanıtım sayfasına çıkıyor; kullanıcının
+  hesabı ve dosyaları **`filemoon.org`** üzerinde. Alan adı karışıklığına dikkat.
