@@ -360,3 +360,82 @@ Voe'da reklam yok ama izlenme başına gelir de yok (yalnız kendi bannerların)
 - Voe'nun altyazı desteği, ödeme yöntemleri ve TR'ye özel hız bilgisi: **doğrulanamadı**.
 - Voe Premium Traffic tükendiğinde reklamların geri gelip gelmediği: **doğrulanamadı**.
 - Domain (~130) bir kerelik giderdir; yukarıdaki tabloları değiştirmez, aylık maliyet değildir.
+
+---
+
+# BÖLÜM 5 — Voe panelinden doğrulananlar (kullanıcı ekran görüntüleri, 24.09.2026)
+
+Kaynak: kullanıcının Voe hesabı ekran görüntüleri (`voe.sx/payouts`, `/custom-domain`, hesap, para kazanma, oyuncu, kodlama, plan karşılaştırması).
+
+## 5.1 Ödeme seçenekleri (ödeme sayfasından)
+
+| Yöntem | Ücret | Alman gereken minimum | İşlem süresi |
+| --- | --- | --- | --- |
+| Bitcoin (BTC) | $2,00 | **$15+** | 24 saat |
+| Litecoin (LTC) | $0,25 | **$10+** | 24 saat |
+| PayPal | %15 | $105+ | 2 haftada bir |
+| USD ETH | $0,25 | $11+ | Haftalık |
+| **USDT TRC20** | **$0,00** | **$50+** | Haftalık |
+
+Not: "Otomatik yapılmayan ödemeler haftada bir elle kontrol edilir."
+Hesap "Ödeme Detayları" alanı ekran görüntüsünde **boştu** — doldurulmadan ödeme gelmez.
+
+**Sonuç:** USDT TRC20 çalışır ama **efektif eşik $50** ve haftalık. Küçük ve sık çekim için **LTC**
+(eşik $10, ücret $0,25, 24 saat) daha uygun; $50'yı geçince TRC20 ücretsiz olduğu için avantajlı.
+
+## 5.2 Plan karşılaştırması (Voe panelindeki tablo)
+
+| Özellik | Ücretsiz 0$/ay | Premium $9,99/ay | Premium Plus $12,00/ay |
+| --- | --- | --- | --- |
+| Oynatma / kodlama kalitesi | 480p **veya 720p** | 480p, 720p, 1080p | 480p, 720p, 1080p |
+| Ad-free for you | ✗ | ✓ | ✓ |
+| **Ad-free for everyone** | ✗ | ✗ | ✓ (yalnız Premium Traffic ile) |
+| Depolama | 3 TB | 5 TB | 6 TB |
+| **Depolama süresi** | **60 gün** | 60 gün | **Sınırsız** |
+| **Premium Trafik dahil** | ✗ | ✗ | **1 TB** (sonrası $2/TB) |
+| İndirme | ✗ | ✓ | ✓ |
+| **İndirme & izleme hızı** | **Sınırlı** | Sınırsız | Sınırsız |
+| Eşzamanlı uzak yükleme | 10 | 40 | 40 |
+| Öncelikli destek | ✗ | ✓ | ✓ |
+
+**Kritik iki satır:**
+1. **Ücretsiz planda izleme hızı "Sınırlı"** → ziyaretçide donma/takılma olabilir.
+2. **Ücretsiz planda depolama süresi 60 gün** → uzun süre izlenmeyen dosya silinebilir. Arşiv için
+   Premium Plus (sınırsız süre) gerekir.
+
+## 5.3 Reklam seviyesi kademesi (Voe'nun VidMoly'de OLMAYAN ayarı)
+
+Voe'da iki ayrı kademe var — "Doğrudan video sayfası" ve "Video sayfası yerleştirme" (embed) — ve her biri
+şu basamaklara ayrılıyor: **Düşük reklamlar (0% kazanç) → Küçük (25%) → Orta ölçekli (50%) → Tam ilanlar
+(75%) → Maksimum (100%)**. Kullanıcının hesabı şu an **her ikisinde de Maksimum (100%)** — yani en yoğun
+reklam ayarı. "Az reklam" isteniyorsa buradan düşürülür (kazanç payı da düşer).
+Ayrıca "Adblock erişimini reddetme" ayarı **kapalı** (kapalı kalması önerilir; açılırsa reklam engelleyici
+kullanan ziyaretçi siteyi hiç kullanamaz).
+
+## 5.4 Custom Domains — UYARI
+
+Voe'ya özel alan adı eklemek **o alanın ad sunucularını (nameserver) Voe'ya çevirmeyi** gerektiriyor.
+`shanime.xyz` bu amaca **KULLANILMAMALI**: ad sunucuları Cloudflare'de olduğu için değiştirilirse site
+ve DNS çöker. İstenirse **ikinci bir alan adı** (ör. `shanimevideo.com`) alınıp Voe'ya bağlanabilir.
+Faydası: embed'ler kendi alan adından servis edilir → güven + reklam engelleyici/ISP engeli aşma
+(Voe zaten bu yüzden mirror alan adları döndürüyor). Zorunlu değil, site büyüyünce düşünülebilir.
+
+## 5.5 Oyuncu ayarları (mevcut durum → öneri)
+
+| Ayar | Şu an | Değerlendirme |
+| --- | --- | --- |
+| Doğrudan video sayfası | **devre dışı** | Doğru — video voe.sx üzerinde gezilemez |
+| Gömülü video sayfası | açık | Doğru — sitemizde oynatmak için şart |
+| İndirme sayfası | **devre dışı** | Doğru |
+| URL klonlamayı devre dışı bırak | **işaretli** | Doğru — başka Voe hesapları videoyu kopyalayamaz |
+| Paylaşım widget'ı | devre dışı | Doğru |
+| Video başlığını görüntüle | kapalı | Doğru |
+| İmzalı Video URL'si | kapalı | Şart değil; açılırsa link 6 saatte dolar (anti-scraping). Şimdilik kapalı kalsın. |
+| İzin verilen görüntüleme alanları | **boş** (tüm siteler) | İstenirse `shanime.xyz` yazılır (başkası embed edemez) — **not: bu kısıtlama "yalnız premium trafikte teknik olarak mümkün"** |
+| Yasaklı ülkeler / IP'ler | boş | **Boş kalsın** — izleyici kitlesi Türkiye; ülke yasağı trafiği ve kazancı keser, telif riskini çözmez |
+
+## 5.6 Doğrulama durumu
+
+Yukarıdaki tüm sayılar ve ayarlar kullanıcının gönderdiği Voe paneli ekran görüntülerinden okundu
+(birinci elden kanıt). Voe'nun TR'ye özel izlenme oranı ve "Premium Traffic tükendiğinde ne olur"
+hâlâ **doğrulanamadı**.
