@@ -307,3 +307,56 @@ TR banner CPM'i (raporun 1. bölümünde tahmin olarak işaretlendi).
 
 Bu hostların tamamı DMCA bildirimlerine uyduğunu beyan ediyor; hiçbiri "görmezden geliyor" demiyor.
 Lisanssız anime yayınlamak telif ihlalidir; host seçimi bu hukuki riski ortadan kaldırmaz.
+
+---
+
+# BÖLÜM 4 — Reklamsız oynatıcının tek gerçek yolu (doğrulandı)
+
+## 4.1 VidMoly'de reklamsız seçenek YOK
+
+- `vidmoly.me/upgrade` → **404**, `vidmoly.me/premium` → normal tanıtım sayfası (yükseltme sayfası değil).
+- Reklam modları yalnızca **Full / Medium / Low** ($10 / $5 / $3 per 10k izlenme, TIER 5 = Türkiye).
+  "Kapalı" diye bir mod yok → **"kazancı sıfırla, reklamı kaldır" mümkün değil.**
+- Kural (resmî): AdBlock'lu izlenme **ödeme üretmez**, çünkü reklam gösterilmez. Yani reklamı gösteren
+  host, parayı ödeyen host'tur.
+
+## 4.2 Voe'da site sahibi reklamları HERKESE kapatabiliyor
+
+`voe.sx/premium` sayfasındaki **"Premium Traffic"** bölümü (Premium Plus paketine bağlı):
+
+| Ürün | Fiyat | Not |
+| --- | --- | --- |
+| Premium Plus | **$12/ay** (12 ay peşin $144) | 6 TB depolama, **1080p**, dosya süresi sınırsız, Premium Traffic kilidini açar |
+| Premium (yalnız izleyici) | $9.99/ay | Sadece kendi hesabında reklam kapatır — site ziyaretçisine faydası YOK |
+| **Premium Traffic** | **$2/TB** (10 TB $20 · 20 TB $40 · 50 TB $100 · 100 TB $200) | **"Advertising-free videos for everyone"** — satın alınan trafik kadar izlenme reklamsız oynar |
+
+**Ekonomi:** 300 MB'lık bölüm → 1 TB ≈ 3.400 izlenme. 10 TB ($20) ≈ **33.000 reklamsız izlenme**.
+
+## 4.3 Üç yolun karşılaştırması (ayda 10.000 bölüm izlenmesi varsayımı)
+
+| Yol | Oynatıcıda reklam | Aylık maliyet | Gelir | Net | Not |
+| --- | --- | --- | --- | --- | --- |
+| VidMoly (mevcut) | Çok yoğun | **$0** | ~$10 (Full Ads) | **+$10** | Kullanıcı kaçıyor, mobilde döngü |
+| Voe + reklamsız trafik | **Sıfır** | $12 + ~$6 trafik = **~$18** | yalnız kendi bannerları | **~−$12 … +$20** | 10 TB ≈ 33k izlenme; ölçek büyüdükçe trafik gideri doğrusal artar |
+| Kendi sunucu + kendi oynatıcı | **Sıfır** | $0 (donanım sabit) | yalnız kendi bannerları | pozitif | **Sunucu YOK** (kullanıcı 300'ü domain'e vermiş) → şu an mümkün değil |
+
+**Sonuç:** Reklamsızlık, küçük trafikte cepten çıkan paradigmadır. VidMoly'de para var ama reklam var;
+Voe'da reklam yok ama izlenme başına gelir de yok (yalnız kendi bannerların).
+
+## 4.4 Sırayla yapılacaklar (öneri)
+
+1. **Şimdi (maliyetsiz):** VidMoly'de kal. Paneldeki **6 boş reklam slotuna** Adsterra **Native Banner +
+   Social Bar** kodlarını koy (popunder koyma — oynatıcıda zaten var, üst üste binmesin). Eksik geliri
+   buradan kapat.
+2. **VidMoly panelinden reklam modu:** Full → **Medium** ($10 → $5/10k). Reklam yoğunluğu düşer,
+   gelirin yarısı kalır. (Sıfır reklam seçeneği yok.)
+3. **Trafik büyüdüğünde (aylık ~50.000+ izlenme):** Voe Premium Plus + reklamsız trafik ile oynatıcıyı
+   tamamen reklamsız yap. O noktada kendi banner gelirin bu gideri karşılar.
+4. **Voe'ya geçmeden önce test edilecek:** altyazı (SRT/VTT) desteği — Voe'nun resmî kaynaklarında
+   **doğrulanamadı**; VidMoly'de var. Altyazı yoksa geçiş, bölümlerin üzerine gömülü altyazı gerektirir.
+
+## 4.5 Doğrulanamayan / dikkat
+
+- Voe'nun altyazı desteği, ödeme yöntemleri ve TR'ye özel hız bilgisi: **doğrulanamadı**.
+- Voe Premium Traffic tükendiğinde reklamların geri gelip gelmediği: **doğrulanamadı**.
+- Domain (~130) bir kerelik giderdir; yukarıdaki tabloları değiştirmez, aylık maliyet değildir.
