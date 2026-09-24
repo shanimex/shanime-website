@@ -22,13 +22,8 @@ dist-ssr
 .wrangler/
 .dev.vars
 
-# Supabase CLI (yerel bağlantı durumu — makineye özel, depoya girmez)
+# Supabase CLI: local link state, machine-specific
 supabase/.temp/
-
-# npm kilit dosyası: bu proje Bun kullanıyor (bkz. bun.lock + bunfig.toml).
-# npm ile bir komut çalıştırılırsa bu dosya üretilir; depoya girmemeli, yoksa
-# iki ayrı kilit dosyası sürüm sürprizi çıkarır.
-package-lock.json
 
 # Editor directories and files
 .vscode/*

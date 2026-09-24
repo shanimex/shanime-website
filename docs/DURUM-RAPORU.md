@@ -353,7 +353,7 @@ JS çalıştırmadan görüyor. Loader önbelleği 5 dakika; gereksiz yeniden is
 | `supabase/config.toml` | **Yanlış proje ref'i** taşıyor (`qcmyivkqrwjkccrtcyqo`) — CLI kullanırsan yanlış DB'ye yazar |
 | `C:\Users\shant\.supabase-token` | Geçici erişim token'ı; iş bitince iptal edilmeli |
 | `bun.lock` | Proje npm ile çalışıyor; bun kullanılmıyorsa gereksiz |
-| `src/lib/error-page.ts`, `error-capture.ts`, `lovable-error-reporting.ts` | Lovable altyapısı, **kullanılıyor** — dokunmamak daha güvenli |
+| `src/lib/error-page.ts`, `error-capture.ts` | Kendi hata yakalama katmanımız, **kullanılıyor** (bkz. §28) |
 
 ### D. Öneri sırası
 
