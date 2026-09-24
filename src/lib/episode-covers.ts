@@ -79,10 +79,11 @@ export function isVoeUrl(url: string): boolean {
 /**
  * Bir video linkinin kapak adresi.
  *
- * - **Voe:** adres DETERMİNİSTİK: `https://voe.sx/cache/<kod>_storyboard_L2.jpg`
- *   (embed sayfasının `og:image` alanıyla aynı adres; 1279×719 tek kare). Voe
- *   sayfası CORS başlığı göndermediği için tarayıcıdan okunamıyor — ama zaten
- *   okumaya gerek yok, adres koddan türetilebiliyor.
+ * - **Voe:** adres DETERMİNİSTİK ve API'nin verdiğiyle aynı:
+ *   `https://i.voe.sx/cache/<kod>_storyboard_L5.jpg`. Kademe önemli:
+ *   **L5 = 1x1 → tek kare**; L2 (4x4), L1 (5x5) gibi kademeler 16-25 kareli
+ *   mozaik görsellerdir ve kapak olarak ızgara gibi görünür. Voe sayfası CORS
+ *   başlığı göndermediği için tarayıcıdan okunamıyor — adres koddan türetiliyor.
  * - **VidMoly:** adres CDN'e özel ve koddan türetilemez, embed sayfasından
  *   okunur (`fetchVidmolyPoster`).
  * - **Morencius:** `https://pixibay.cc/<kod>.jpg`
@@ -90,7 +91,7 @@ export function isVoeUrl(url: string): boolean {
 export async function posterForWatchUrl(url: string, code?: string): Promise<string> {
   const videoCode = code ?? videoCodeFromUrl(url);
   if (!videoCode || !url) return "";
-  if (isVoeUrl(url)) return `https://voe.sx/cache/${videoCode}_storyboard_L2.jpg`;
+  if (isVoeUrl(url)) return `https://i.voe.sx/cache/${videoCode}_storyboard_L5.jpg`;
   if (/vidmoly/i.test(url)) return fetchVidmolyPoster(videoCode);
   if (/morencius/i.test(url)) return `https://pixibay.cc/${videoCode}.jpg`;
   return "";

@@ -279,7 +279,8 @@ export function episodeCoverFromWatchUrl(watchUrl?: string | null): string {
   // başlığı göndermediği için tarayıcıdan okunamaz; türetme bu yüzden tek yol.
   if (isVoeUrl(watchUrl)) {
     const voeCode = videoCodeFromWatchUrl(watchUrl);
-    return voeCode ? `https://voe.sx/cache/${voeCode}_storyboard_L2.jpg` : "";
+    // `_L5` = 1x1 → TEK KARE (L2/L1 gibi kademeler çok kareli mozaiktir).
+    return voeCode ? `https://i.voe.sx/cache/${voeCode}_storyboard_L5.jpg` : "";
   }
   if (!/(^|\.)morencius\.com$/.test(host)) return "";
   const code = videoCodeFromWatchUrl(watchUrl);

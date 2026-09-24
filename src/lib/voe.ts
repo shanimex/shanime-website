@@ -160,24 +160,33 @@ export type ParsedEpisodeName = {
   title: string;
 };
 
-/** Uzantı ve teknik etiketleri temizler: `[1080p]`, `(SubsPlease)`, `_`, `.` … */
+/** Kalite/kaynak etiketleri: dosya adına karışmasın diye atılır (`-1080p-`, `x265`, `WEB-DL`…). */
+const QUALITY_TAGS =
+  /(^|[\s\-_.])(\d{3,4}p|4k|uhd|hdr|x26[45]|h\.?26[45]|hevc|avc|aac|ac3|eac3|dts|web[\s\-_.]?dl|web[\s\-_.]?rip|blu[\s\-_.]?ray|brrip|bdrip|hdrip|dvdrip|hdtv|remux|10bit|8bit|dual|multi|subbed|dubbed|t[uü]rk[cç]e)(?=$|[\s\-_.])/gi;
+
+/** Uzantı ve teknik etiketleri temizler: `[1080p]`, `(SubsPlease)`, `-1080p-`, `_`, `.` … */
 function cleanFileName(raw: string): string {
   return raw
     .replace(/\.[a-z0-9]{2,4}$/i, "")
     .replace(/[[(][^\])]{1,60}[\])]/g, " ")
+    .replace(QUALITY_TAGS, " ")
     .replace(/[_.]+/g, " ")
-    .replace(/\s{2,}/g, " ")
+    .replace(/[\s-]{2,}/g, " ")
     .trim();
 }
 
-/** Desteklenen ad biçimleri (sırayla denenir). */
+/** Desteklenen ad biçimleri (sırayla denenir — özelden genele). */
 const NAME_PATTERNS: RegExp[] = [
+  // JujutsuKaisen-S1B1-Ryomen Sukuna   (S = sezon, B = bölüm)
+  /^(?<series>.+?)[\s-]*s(?:eason)?[\s-]*(?<s>\d{1,2})[\s-]*b(?:o?l[uü]m)?[\s-]*(?<e>\d{1,3})(?:[\s-]+(?<title>.+))?$/i,
   // Jujutsu Kaisen S01E05 - Ad
   /^(?<series>.+?)[\s-]*s(?:eason)?[\s-]*(?<s>\d{1,2})[\s-]*e(?:p|pisode)?[\s-]*(?<e>\d{1,3})(?:[\s-]+(?<title>.+))?$/i,
   // Jujutsu Kaisen 1x05 Ad
   /^(?<series>.+?)[\s-]*(?<s>\d{1,2})x(?<e>\d{1,3})(?:[\s-]+(?<title>.+))?$/i,
   // Jujutsu Kaisen 1. Sezon 5. Bölüm Ad
   /^(?<series>.+?)[\s-]*(?<s>\d{1,2})[\s-]*(?:sezon|season)[\s-]*(?<e>\d{1,3})[\s-]*b[oö]l[uü]m(?:[\s-]+(?<title>.+))?$/i,
+  // JujutsuKaisen-B5-Ad   (yalnız bölüm numarası)
+  /^(?<series>.+?)[\s-]*b(?:o?l[uü]m)?[\s-]*(?<e>\d{1,3})(?:[\s-]+(?<title>.+))?$/i,
   // Jujutsu Kaisen 05 - Ad   (sezon yazılmamışsa 1. sezon sayılır)
   /^(?<series>.+?)[\s-]+(?:b[oö]l[uü]m|e|ep|episode|part)?[\s-]*(?<e>\d{1,3})(?:[\s-]+(?<title>.+))?$/i,
 ];
@@ -216,12 +225,13 @@ export function parseEpisodeName(rawName: string): ParsedEpisodeName | null {
   return null;
 }
 
-/** Türkçe karakter/ayraç farkını yok sayarak metni karşılaştırmaya hazırlar. */
+/**
+ * Türkçe karakter, boşluk ve ayraç farkını yok sayarak metni karşılaştırmaya hazırlar.
+ * Boşluklar da atılır: "Jujutsu Kaisen" filtresi, dosya adı "JujutsuKaisen-S1B1…"
+ * olan videoyu da yakalar (dosya adlarında boşluk yerine tire kullanılıyor).
+ */
 function normalizeText(value: string): string {
-  return value
-    .toLocaleLowerCase("tr")
-    .replace(/[^a-z0-9]+/g, " ")
-    .trim();
+  return value.toLocaleLowerCase("tr").replace(/[^a-z0-9]+/g, "");
 }
 
 /** Dosya adı verilen seri adıyla eşleşiyor mu? (boş arama → hepsi) */

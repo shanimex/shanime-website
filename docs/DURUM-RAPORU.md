@@ -2095,3 +2095,74 @@ Uzantı (`mp4/mkv`) ve teknik etiketler (`[1080p]`, `(SubsPlease)`) temizlenir.
 | `build` · `tsc` · `eslint` | temiz ✅ |
 
 **Not:** Gerçek anahtarla uçtan uca test (liste + ekleme) kullanıcı anahtarı ürettikten sonra yapılacak.
+
+---
+
+## 37. Voe otomasyonu: gerçek dosya adı biçimi + kapak kademesi düzeltmesi
+
+Gerçek Voe API anahtarıyla uçtan uca test edildi; iki önemli kusur çıktı ve düzeltildi.
+
+### 37.1 Gerçek API cevabı (doğrulandı)
+
+`GET /api/file/list` → `result.data[]`; her satırda `filecode, name, title, uploaded, size,
+length` **ve `thumbnails[]`** ile `subtitles[]` geliyor. Kullanıcının dosyası:
+
+```
+filecode: oimwqt5lzhps
+name/title: JujutsuKaisen-1080p-S1B1.mp4
+length: 1435 sn (23:55)
+thumbnails: L0 "100x100" · L1 "5x5" · L2 "4x4" · L3 "3x3" · L4 "2x4" · L5 "1x1"
+subtitles: [{ path: "/vtt/oimwqt5lzhps_tr.srt", language: "Turkish" }]
+```
+
+### 37.2 Kusur 1 — dosya adı biçimi desteklenmiyordu
+
+Kullanıcının biçimi `JujutsuKaisen-1080p-S1B1.mp4` (boşluksuz seri adı, `S1B1`, arada kalite
+etiketi). Eski desenler bunu çözemiyordu (`S..E..` bekliyordu, `1080p` seri adına karışıyordu) →
+dosya **atlanacaktı**.
+
+Düzeltmeler (`lib/voe.ts`):
+
+| Ne | Sonuç |
+| --- | --- |
+| `S1B1` deseni eklendi (`S<sezon>B<bölüm>`, `B` = bölüm) | `JujutsuKaisen-S1B1` → 1. sezon 1. bölüm ✅ |
+| Yalnız bölüm deseni eklendi (`...-B5-Ad`) | `JujutsuKaisen-B5-Ad` → 1. sezon 5. bölüm |
+| Kalite etiketi temizliği (`QUALITY_TAGS`) | `-1080p-`, `x265`, `WEB-DL`, `1080p`, `türkçe`… ada karışmaz |
+| `normalizeText` artık boşlukları da atıyor | "Jujutsu Kaisen" filtresi `JujutsuKaisen-…` dosyasını **yakalar** |
+
+**Doğrulama (gerçek anahtar):** `JujutsuKaisen-1080p-S1B1.mp4` → önizlemede **`S1 B1 · 1. Bölüm`**
+ve **"kayıtlı"** etiketi (mükerrer eklenmiyor) ✅
+
+### 37.3 Kusur 2 — yanlış kapak kademesi (mozaik görsel)
+
+Kapak için `_storyboard_L2.jpg` kullanılıyordu. Ölçüm + görsel inceleme:
+
+| Kademe | Ölçü | İçerik |
+| --- | --- | --- |
+| `L0` | 1250×700 | tek kare (küçük) |
+| `L2` | 1279×719 | **4×4 = 16 kareli MOZAİK** ✗ |
+| `L5` | **1280×720** | **1×1 = TEK KARE** ✅ |
+
+Yani L2 kapak olarak kullanılsa bölüm kapağı ızgara gibi görünürdü. Hem `lib/voe.ts` hem
+`lib/content.ts` artık **`https://i.voe.sx/cache/<kod>_storyboard_L5.jpg`** üretiyor
+(API'nin `thumbnails[]` alanındaki adresin aynısı).
+
+### 37.4 Doğrulama (yerel, gerçek anahtar, salt okuma + kapak tazeleme)
+
+| Kontrol | Sonuç |
+| --- | --- |
+| Voe listesi | "1 dosya tarandı · 1 bölüm çözüldü (0 yeni, 1 zaten kayıtlı)" ✅ |
+| Önizleme satırı | `S1 B1 · 1. Bölüm` · dosya: `JujutsuKaisen-1080p-S1B1.mp4` · etiket: **kayıtlı** ✅ |
+| "Kapakları güncelle" | "24 bölüm kapağı tazelendi." ✅ |
+| 1. bölüm kapağı | `i.voe.sx/cache/oimwqt5lzhps_storyboard_L5.jpg` · **1280×720** ✅ |
+| Kapak görünümü | **tek kare** (mozaik DEĞİL) — ekran görüntüsüyle doğrulandı ✅ |
+| Kırık kapak | **0** ✅ |
+| Konsol hatası | **0** (tüm adımlar) ✅ |
+
+### 37.5 Notlar
+
+- **Başlık girilmezse**: çözümleyici `<n>. Bölüm` yazar (rastgele değil). İstenirse panelde
+  satır içi düzenlenebilir; farklı bir varsayılan (ör. "Belirtilmemiş") tek satırda değiştirilir.
+- **API anahtarı** yalnızca tarayıcıda (`localStorage`); repoya, dokümana veya veritabanına
+  YAZILMADI. Farklı cihaz/tarayıcıda bir kez daha girilmesi gerekir (alan hatırlar).
+- Voe'nun `subtitles[]` alanı altyazı desteğini API'de de gösteriyor (`/vtt/<kod>_tr.srt`).
