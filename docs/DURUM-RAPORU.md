@@ -1956,3 +1956,69 @@ Minimum trafik şartı yok, onay ~5-10 dk. **Karar: 2× Native Banner + 1× Soci
 | `color-scheme: dark` (derleme çıktısı `dist/*.css`) | **var** ✅ |
 | `aspect-video w-full bg-black` (izle chunk'ı) | **var** ✅ |
 | `build` · `tsc` · `eslint` | temiz ✅ |
+
+---
+
+## 35. Bölüm kapaklarının otomatik çözümü: Voe desteği + bayat kapak sorunu
+
+### 35.1 Şikâyet ve kök neden
+
+Kullanıcı: "video kapakları otomatik ekleniyor mu, hiç değişmedi hep eski kapaklar; normalde kapağı
+embed linkten otomatik çekiyordu". İki ayrı kusur bulundu:
+
+| Kusur | Kök neden |
+| --- | --- |
+| **Voe linkli bölümün kapağı hiç çözülmüyor** | `resolvePosterForEpisode` ve `syncAllEpisodePosters` yalnız `vidmoly` (ve `morencius`) dallarını biliyordu; Voe için hiçbir yol kapak üretmiyordu |
+| **Link değişince eski kapak kalıyor** | Kapak haritası yalnız bölüm anahtarına bağlıydı (`jujutsu-kaisen-s1e1`). `syncAllEpisodePosters(false)` "kapak zaten var" diyip atlıyordu → bölümün videosu değişse bile eski kapak gösteriliyordu |
+
+### 35.2 Voe kapağı neden/nereden geliyor
+
+Voe'nun embed sayfası `voe.sx/e/<kod>` → JS ile bir **mirror alan adına** yönlendiriyor
+(`jamesbornmain.com`, `chuckle-tube.com`, `goofy-banana.com`…). Mirror sayfasında `og:image` şu:
+
+```
+https://jamesbornmain.com/cache/<kod>_storyboard_L2.jpg
+```
+
+Ölçüm: `https://voe.sx/cache/<kod>_storyboard_L2.jpg` de **HTTP 200**, `image/jpeg`, **1279×719**
+(tek kare — VidMoly/Morencius'taki `_xt` mozaiği gibi 25'li ızgara DEĞİL). Yani adres koddan
+**deterministik** türetilebiliyor; mirror dönse bile `voe.sx` sabit kalıyor. Voe sayfası CORS başlığı
+**göndermiyor**, ama türetme sayesinde tarayıcıdan okumaya gerek kalmıyor.
+
+### 35.3 Yapılan değişiklikler
+
+| Ne | Yer | Etki |
+| --- | --- | --- |
+| `posterForWatchUrl(url, code)` — tüm sağlayıcıların kapak mantığı tek yerde | `lib/episode-covers.ts` | Voe: deterministik adres · VidMoly: embed'den okuma · Morencius: `pixibay.cc/<kod>.jpg` |
+| `isVoeUrl(url)` | aynı dosya | `voe.sx` + bilinen mirror alan adları + `/e/<kod>` biçimi |
+| Harita kaydı artık `{ p: kapak, c: çözüldüğü video kodu }` | aynı dosya | `syncAllEpisodePosters` kodu uyuşmayan kaydı (link değişmiş) **yeniden çözer** |
+| `posterFromMap(raw, watchUrl)` | aynı dosya | Kod uyuşmuyorsa eski kapak gösterilmez; zincir yeni kapağı çözer |
+| `episodeCoverFromWatchUrl` Voe dalı | `lib/content.ts` | Senkron ve deterministik → SSR ile istemci aynı adresi üretir (hydration riski yok) |
+| `resolvePosterForEpisode` tüm sağlayıcıları kapsıyor | `lib/episode-covers.ts` | İstemci tarafı yedek çözüm de Voe'da çalışıyor |
+
+Geriye dönük uyum: eski kayıtlar düz metindi; `posterEntryOf` ikisini de okur. Eski kayıtların kaynak
+kodu bilinmediği için "Kapakları güncelle" bir kez çalıştırıldı → kayıtlar `{p,c}` biçimine geçti.
+
+### 35.4 Oynatıcı sayfasında bizden kalan reklam var mı? (kullanıcı sorusu)
+
+Kod taraması (`adsbygoogle|adsterra|popunder|googlesyndication`):
+
+- Projede **3. taraf reklam script'i, gömülü reklam kodu veya eski embed kalıntısı YOK.** Tek reklam
+  kaynağı `AdSlot` bileşeni; kodu `site_settings`'ten okur ve orada hiç `ad_*` kaydı olmadığı için
+  **hiçbir şey çizmez**.
+- Oynatıcı sayfası komşu bölümleri **önden yüklemiyor** (gizli iframe / preload yok) → eski VidMoly
+  embed'i arka planda yüklenip reklam üretemez.
+- Yani oynatıcıdaki reklamlar tamamen **video sağlayıcısının** (VidMoly/Voe) kendi belgesinden.
+
+### 35.5 Doğrulama (yerel, gerçek tarayıcı; panel oturumu açık)
+
+| Kontrol | Sonuç |
+| --- | --- |
+| "Kapakları güncelle" mesajı | **"24 bölüm kapağı tazelendi."** (24 çözüldü, 0 başarısız) ✅ |
+| 1. bölüm kapağı (`/seri/jujutsu-kaisen`) | `https://voe.sx/cache/oimwqt5lzhps_storyboard_L2.jpg` · **1279×719** · yüklendi ✅ |
+| 2. bölüm kapağı | `https://box-1409-t10.vmbox.space/i/03/02950/qrcnrp6fz0g1.jpg` · 720×405 · yüklendi ✅ |
+| Kapak yüklenen bölüm | **24 / 24**, kırık **0** ✅ |
+| `/izle/…?sezon=1&b=1` panel kapağı | aynı `voe.sx/cache/…` adresi ✅ |
+| 1. bölüm için bayat (VidMoly/pixibay) kayıt kullanımı | **yok** ✅ |
+| Konsol hatası (3 sayfa) | **0** ✅ |
+| `build` · `tsc` · `eslint` | temiz ✅ |

@@ -59,16 +59,91 @@ export async function fetchVidmolyPoster(code: string): Promise<string> {
 }
 
 /**
+ * Voe alan adları. Voe linkleri bir mirror alan adına JS ile yönlendiriyor
+ * (jamesbornmain.com, chuckle-tube.com, goofy-banana.com…) ve bunlar dönüyor;
+ * ek olarak `/e/<kod>` biçimi de Voe sayılır (bkz. isVoeUrl).
+ */
+const VOE_HOSTS = /(^|\.)(voe\.sx|chuckle-tube\.com|goofy-banana\.com|jamesbornmain\.com)$/i;
+
+/** Link Voe'ya mı ait? (mirror alan adları döndüğü için `/e/<kod>` biçimi de sayılır.) */
+export function isVoeUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url.split(/[?#]/)[0] ?? "");
+    if (VOE_HOSTS.test(parsed.hostname)) return true;
+    return /\/e\/[a-z0-9]{6,}$/i.test(parsed.pathname);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Bir video linkinin kapak adresi.
+ *
+ * - **Voe:** adres DETERMİNİSTİK: `https://voe.sx/cache/<kod>_storyboard_L2.jpg`
+ *   (embed sayfasının `og:image` alanıyla aynı adres; 1279×719 tek kare). Voe
+ *   sayfası CORS başlığı göndermediği için tarayıcıdan okunamıyor — ama zaten
+ *   okumaya gerek yok, adres koddan türetilebiliyor.
+ * - **VidMoly:** adres CDN'e özel ve koddan türetilemez, embed sayfasından
+ *   okunur (`fetchVidmolyPoster`).
+ * - **Morencius:** `https://pixibay.cc/<kod>.jpg`
+ */
+export async function posterForWatchUrl(url: string, code?: string): Promise<string> {
+  const videoCode = code ?? videoCodeFromUrl(url);
+  if (!videoCode || !url) return "";
+  if (isVoeUrl(url)) return `https://voe.sx/cache/${videoCode}_storyboard_L2.jpg`;
+  if (/vidmoly/i.test(url)) return fetchVidmolyPoster(videoCode);
+  if (/morencius/i.test(url)) return `https://pixibay.cc/${videoCode}.jpg`;
+  return "";
+}
+
+/** Kapak haritasındaki kayıt: kapak adresi + çözüldüğü video kodu. */
+export type PosterEntry = { p: string; c: string };
+
+/**
+ * Kaydı okur. Eski kayıtlar düz metindi (`"<kapak>"`), yenileri nesne
+ * (`{p, c}`). İkisi de desteklenir; düz metinlerin kaynak kodu bilinmez.
+ */
+export function posterEntryOf(raw: unknown): PosterEntry {
+  if (typeof raw === "string") return { p: raw, c: "" };
+  if (raw && typeof raw === "object") {
+    const value = raw as { p?: unknown; c?: unknown };
+    return {
+      p: typeof value.p === "string" ? value.p : "",
+      c: typeof value.c === "string" ? value.c : "",
+    };
+  }
+  return { p: "", c: "" };
+}
+
+/**
+ * Haritadaki kapağı döndürür — ama yalnızca kayıt GÜNCEL video için çözülmüşse.
+ *
+ * Neden: kayıt eskiden yalnızca bölüm anahtarına (`slug-s1e1`) bağlıydı; bölümün
+ * video linki değiştirilince eski kapağın kalmasına yol açıyordu ("hep eski
+ * kapaklar"). Artık kayıt, çözüldüğü video kodunu da taşıyor; kod uyuşmuyorsa
+ * boş dönülür ve kapak zinciri yeni videonun kapağını çözer.
+ */
+export function posterFromMap(raw: unknown, watchUrl?: string | null): string {
+  const entry = posterEntryOf(raw);
+  if (!entry.p) return "";
+  const code = videoCodeFromUrl(watchUrl);
+  // Kaynak kodu bilinmeyen (eski) kayıtlar kullanılır; kod biliyorsak eşleşmeli.
+  if (entry.c && code && entry.c !== code) return "";
+  return entry.p;
+}
+
+/**
  * Kapak adresini ÇALIŞMA ANINDA yeniden çözer.
  *
  * Neden gerekli: sağlayıcının CDN alan adı ve yol öneki dönüyor
  * (`transit-up-1170-i.vmwesa.online/i/01/…` → `box-1659-u.vmbox.space/i/03/…`).
  * Bu yüzden bir gün önce doğru olan adres bugün 404 dönebiliyor. Görsel
- * yüklenemezse bu fonksiyon embed sayfasından GÜNCEL adresi okur ve sonucu
- * oturum boyunca `sessionStorage`'da tutar — aynı bölüm için tekrar sorulmaz.
+ * yüklenemezse bu fonksiyon güncel adresi üretir/okur ve sonucu oturum boyunca
+ * `sessionStorage`'da tutar — aynı bölüm için tekrar sorulmaz.
  *
- * CORS: VidMoly embed sayfası `Access-Control-Allow-Origin` gönderdiği için
- * tarayıcıdan doğrudan okunabiliyor (bkz. DURUM-RAPORU §26).
+ * Voe ve morencius adresleri koddan türetilir (istek gerekmez); VidMoly adresi
+ * embed sayfasından okunur — o sayfa CORS başlığı gönderdiği için tarayıcıdan
+ * doğrudan okunabiliyor (bkz. DURUM-RAPORU §26).
  */
 export async function resolvePosterForEpisode(watchUrl?: string | null): Promise<string> {
   if (!watchUrl || typeof window === "undefined") return "";
@@ -78,9 +153,7 @@ export async function resolvePosterForEpisode(watchUrl?: string | null): Promise
   try {
     const cached = window.sessionStorage.getItem(cacheKey);
     if (cached) return cached;
-    // Yalnızca VidMoly adresleri bu yolla çözülebiliyor.
-    if (!/vidmoly/i.test(watchUrl)) return "";
-    const fresh = await fetchVidmolyPoster(code);
+    const fresh = await posterForWatchUrl(watchUrl, code);
     if (fresh) window.sessionStorage.setItem(cacheKey, fresh);
     return fresh;
   } catch {
@@ -92,7 +165,7 @@ export async function resolvePosterForEpisode(watchUrl?: string | null): Promise
  * Geçerli kapak haritası: dosyadaki tohum + veritabanındaki güncel kayıtlar.
  * Veritabanı kazanır (yeni çözülen kapaklar orada).
  */
-export async function loadPosterMap(): Promise<Record<string, string>> {
+export async function loadPosterMap(): Promise<Record<string, unknown>> {
   try {
     const { data } = await db
       .from("site_settings")
@@ -123,7 +196,7 @@ export async function syncAllEpisodePosters(force = false): Promise<{
   total: number;
 }> {
   const map = await loadPosterMap();
-  const next = force ? {} : { ...map };
+  const next: Record<string, unknown> = force ? {} : { ...map };
   let resolved = 0;
   let failed = 0;
   let total = 0;
@@ -143,23 +216,21 @@ export async function syncAllEpisodePosters(force = false): Promise<{
     }[]) {
       total += 1;
       const key = `${show.slug}-s${ep.season}e${ep.number}`;
-      if (!force && next[key]) continue; // kapak zaten var
-
       const url = ep.watch_url ?? "";
       const code = videoCodeFromUrl(url);
+      const entry = posterEntryOf(next[key]);
+      // Kayıt bu videonun koduyla çözülmüşse dokunma. Link DEĞİŞTİYSE (kod
+      // uyuşmuyorsa) kapak yeniden çözülür — "hep eski kapak kalıyor"
+      // sorununun sebebi buydu.
+      if (!force && entry.p && (!code || entry.c === code)) continue;
       if (!code) {
         failed += 1;
         continue;
       }
       try {
-        // VidMoly dışındaki sağlayıcılar (eski morencius kayıtları) türetilebilir.
-        const poster = /vidmoly/i.test(url)
-          ? await fetchVidmolyPoster(code)
-          : /morencius/i.test(url)
-            ? `https://pixibay.cc/${code}.jpg`
-            : "";
+        const poster = await posterForWatchUrl(url, code);
         if (poster) {
-          next[key] = poster;
+          next[key] = { p: poster, c: code };
           resolved += 1;
         } else {
           failed += 1;

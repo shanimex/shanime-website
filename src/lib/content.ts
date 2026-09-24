@@ -1,16 +1,16 @@
 import { supabase } from "@/integrations/supabase/client";
 import EPISODE_POSTERS from "@/data/episode-posters.json";
-import { POSTER_SETTINGS_KEY } from "@/lib/episode-covers";
+import { isVoeUrl, posterFromMap, POSTER_SETTINGS_KEY } from "@/lib/episode-covers";
 
 /**
  * Kapak haritası: dosyadaki tohum + veritabanındaki güncel kayıtlar.
  * Anahtarlar `"<slug>-s<sezon>e<bölüm>"` biçiminde. `fetchShowDetail` veritabanı
  * katmanını yükleyip buraya uygular; yeni bölümlerin kapakları böyle görünür.
  */
-let posterMap: Record<string, string> = EPISODE_POSTERS as Record<string, string>;
+let posterMap: Record<string, unknown> = EPISODE_POSTERS as Record<string, string>;
 
 /** Veritabanından gelen kapak haritasını (dosya tohumunun üzerine) uygular. */
-export function applyPosterMap(map: Record<string, string>): void {
+export function applyPosterMap(map: Record<string, unknown>): void {
   posterMap = { ...(EPISODE_POSTERS as Record<string, string>), ...map };
 }
 
@@ -274,6 +274,13 @@ export function episodeCoverFromWatchUrl(watchUrl?: string | null): string {
   } catch {
     return "";
   }
+  // Voe: kapak adresi KODDAN TÜRETİLEBİLİR — embed sayfasının `og:image` alanıyla
+  // aynı adres (`<kod>_storyboard_L2.jpg`, 1279×719 tek kare). Voe sayfası CORS
+  // başlığı göndermediği için tarayıcıdan okunamaz; türetme bu yüzden tek yol.
+  if (isVoeUrl(watchUrl)) {
+    const voeCode = videoCodeFromWatchUrl(watchUrl);
+    return voeCode ? `https://voe.sx/cache/${voeCode}_storyboard_L2.jpg` : "";
+  }
   if (!/(^|\.)morencius\.com$/.test(host)) return "";
   const code = videoCodeFromWatchUrl(watchUrl);
   return code ? `https://pixibay.cc/${code}.jpg` : "";
@@ -353,7 +360,7 @@ export async function fetchShowDetail(slug: string): Promise<ShowDetail | null> 
 
   try {
     const raw = ((posterRes?.data as { value?: string } | null)?.value ?? "").trim();
-    if (raw) applyPosterMap(JSON.parse(raw) as Record<string, string>);
+    if (raw) applyPosterMap(JSON.parse(raw) as Record<string, unknown>);
   } catch {
     // Bozuk/eski kayıt kapakları bozmasın; dosyadaki tohum geçerli kalır.
   }
@@ -383,7 +390,9 @@ export async function fetchShowDetail(slug: string): Promise<ShowDetail | null> 
   const episodes: Episode[] = rawEpisodes.map((ep) => ({
     ...ep,
     thumbnail: ep.thumbnail_path ? (urls.get(ep.thumbnail_path) ?? "") : "",
-    poster: posterMap[`${posterSlug}-s${ep.season}e${ep.number}`] ?? "",
+    // `posterFromMap`: kayıt, bölümün GÜNCEL videosunun koduyla çözülmüşse kullanılır.
+    // Link değiştirildiğinde eski kapak gösterilmez (bkz. lib/episode-covers.ts).
+    poster: posterFromMap(posterMap[`${posterSlug}-s${ep.season}e${ep.number}`], ep.watch_url),
   }));
 
   // Sezon gruplaması bir kez yapılır: hem sayfa verisinde hem sezon sayısında kullanılır.
