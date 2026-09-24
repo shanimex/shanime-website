@@ -59,6 +59,36 @@ export async function fetchVidmolyPoster(code: string): Promise<string> {
 }
 
 /**
+ * Kapak adresini ÇALIŞMA ANINDA yeniden çözer.
+ *
+ * Neden gerekli: sağlayıcının CDN alan adı ve yol öneki dönüyor
+ * (`transit-up-1170-i.vmwesa.online/i/01/…` → `box-1659-u.vmbox.space/i/03/…`).
+ * Bu yüzden bir gün önce doğru olan adres bugün 404 dönebiliyor. Görsel
+ * yüklenemezse bu fonksiyon embed sayfasından GÜNCEL adresi okur ve sonucu
+ * oturum boyunca `sessionStorage`'da tutar — aynı bölüm için tekrar sorulmaz.
+ *
+ * CORS: VidMoly embed sayfası `Access-Control-Allow-Origin` gönderdiği için
+ * tarayıcıdan doğrudan okunabiliyor (bkz. DURUM-RAPORU §26).
+ */
+export async function resolvePosterForEpisode(watchUrl?: string | null): Promise<string> {
+  if (!watchUrl || typeof window === "undefined") return "";
+  const code = videoCodeFromUrl(watchUrl);
+  if (!code) return "";
+  const cacheKey = `shanime:poster:${code}`;
+  try {
+    const cached = window.sessionStorage.getItem(cacheKey);
+    if (cached) return cached;
+    // Yalnızca VidMoly adresleri bu yolla çözülebiliyor.
+    if (!/vidmoly/i.test(watchUrl)) return "";
+    const fresh = await fetchVidmolyPoster(code);
+    if (fresh) window.sessionStorage.setItem(cacheKey, fresh);
+    return fresh;
+  } catch {
+    return "";
+  }
+}
+
+/**
  * Geçerli kapak haritası: dosyadaki tohum + veritabanındaki güncel kayıtlar.
  * Veritabanı kazanır (yeni çözülen kapaklar orada).
  */

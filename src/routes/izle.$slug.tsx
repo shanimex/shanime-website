@@ -14,6 +14,7 @@ import {
   type Episode,
   type SeasonWithEpisodes,
 } from "@/lib/content";
+import { resolvePosterForEpisode } from "@/lib/episode-covers";
 
 type WatchSearch = { sezon?: number | undefined; b?: number | undefined };
 
@@ -439,6 +440,8 @@ function SidebarCover({ slug, episode }: { slug: string; episode: Episode }) {
           episodeCoverFromWatchUrl(episode.watch_url),
           localCoverPath(slug, episode.season, episode.number),
         ]}
+        // Kayıtlı adres bayatlamışsa (sağlayıcı CDN'i dönüyor) güncelini çeker.
+        resolveFallback={() => resolvePosterForEpisode(episode.watch_url)}
       />
       <span
         aria-hidden

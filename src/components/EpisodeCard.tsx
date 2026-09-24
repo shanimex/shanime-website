@@ -6,6 +6,7 @@ import {
   posterCoverPath,
   type Episode,
 } from "@/lib/content";
+import { resolvePosterForEpisode } from "@/lib/episode-covers";
 
 type EpisodeCardProps = {
   /** Serinin slug'ı; yerel kapak yolunu üretmek için gerekir. */
@@ -41,6 +42,8 @@ export function EpisodeCard({ slug, episode, variant = "row", href }: EpisodeCar
           episodeCoverFromWatchUrl(episode.watch_url),
           localCoverPath(slug, episode.season, episode.number),
         ]}
+        // Kayıtlı adres bayatlamışsa (sağlayıcı CDN'i dönüyor) güncelini çeker.
+        resolveFallback={() => resolvePosterForEpisode(episode.watch_url)}
       />
 
       {/* Karartma: etiket ve oynat düğmesi okunur kalsın. */}
