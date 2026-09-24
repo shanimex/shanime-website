@@ -4,6 +4,7 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
+  CloudDownload,
   ListPlus,
   Loader2,
   Plus,
@@ -22,6 +23,7 @@ import {
   pasteEmbed,
   watchUrlError,
 } from "@/lib/admin";
+import { VoeSyncPanel } from "@/components/admin/VoeSyncPanel";
 import type { Episode, Season } from "@/lib/content";
 import { syncAllEpisodePosters } from "@/lib/episode-covers";
 
@@ -100,6 +102,8 @@ export function SeasonsPanel({
   // serilerde (ör. One Piece) liste ve DOM şişmesin.
   const [openSeason, setOpenSeason] = useState<number | null>(null);
   const [page, setPage] = useState(1);
+  // Voe'dan otomatik bölüm çekme paneli açık mı (bkz. components/admin/VoeSyncPanel.tsx).
+  const [voeOpen, setVoeOpen] = useState(false);
 
   const reload = useCallback(async () => {
     const [seasonRes, episodeRes] = await Promise.all([
@@ -256,6 +260,16 @@ export function SeasonsPanel({
           </Button>
           <Button
             size="sm"
+            variant="outline"
+            className="rounded-full"
+            onClick={() => setVoeOpen((open) => !open)}
+            disabled={!schemaReady}
+            title="Voe hesabındaki videoları dosya adından çözüp bölümleri otomatik ekler"
+          >
+            <CloudDownload size={14} /> {"Voe'dan çek"}
+          </Button>
+          <Button
+            size="sm"
             className="rounded-full"
             onClick={() => void addSeason()}
             disabled={busy || !schemaReady}
@@ -266,6 +280,20 @@ export function SeasonsPanel({
           </Button>
         </div>
       </div>
+
+      {voeOpen ? (
+        <VoeSyncPanel
+          showId={showId}
+          existing={(episodes ?? []).map((episode) => ({
+            season: episode.season,
+            number: episode.number,
+          }))}
+          onDone={async (message) => {
+            onNotice(message);
+            await reload();
+          }}
+        />
+      ) : null}
 
       {rows.length === 0 && (
         <p className="rounded-2xl border border-dashed border-border p-4 text-sm text-muted-foreground">

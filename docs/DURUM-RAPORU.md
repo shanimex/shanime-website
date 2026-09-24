@@ -2022,3 +2022,76 @@ Kod taraması (`adsbygoogle|adsterra|popunder|googlesyndication`):
 | 1. bölüm için bayat (VidMoly/pixibay) kayıt kullanımı | **yok** ✅ |
 | Konsol hatası (3 sayfa) | **0** ✅ |
 | `build` · `tsc` · `eslint` | temiz ✅ |
+
+---
+
+## 36. Voe'dan otomatik bölüm ekleme (panel özelliği)
+
+### 36.1 İstek
+
+Kullanıcı: "Voe'ya video yükleyince isme göre sezon/bölüm otomatik eklensin; tek tek embed linki kopyalayıp
+panele yapıştırmak istemiyorum." → Panelden tek tuşla, dosya adından çözüp ekleyen bir akış kuruldu.
+
+### 36.2 Ön koşul: Voe API'si (araştırıldı)
+
+Voe'nun tam bir REST API'si var: doküman `https://voe.sx/api-1-reference-index` (v1, 23/06/2026),
+taban `https://voe.sx/api/...`, yetkilendirme **`?key=...`** query parametresi (Bearer YOK),
+limit **3-4 istek/sn**. Anahtar: **Ayarlar → Hesap → API Ayrıntıları → "Geliştirici API anahtarı"**
+(kullanıcı hesabında şu an **boş** — üretmesi gerekiyor).
+
+Kullanılan uç nokta: `GET /api/file/list?key=&page=&per_page=&fld_id=0` → `result.data[]` içinde
+`filecode, name, title, uploaded…` ve sayfalama `last_page`.
+
+**Kritik ölçüm (CORS):** `OPTIONS /api/file/list` → **204** ve
+`Access-Control-Allow-Origin: *`, `Access-Control-Allow-Methods: GET`. Yani tarayıcıdan **doğrudan**
+çağrılabiliyor; sunucu/proxy GEREKMEDİ. (Canlı test: panelden `key=test` → Voe'ya giden gerçek istek
+`HTTP 401` döndü, konsolda CORS hatası yok.)
+
+### 36.3 Anahtar nerede saklanıyor?
+
+**Yalnızca paneli kullanan tarayıcıda (`localStorage`).** Veritabanına YAZILMAZ: `site_settings`
+anon anahtarla okunabildiği için anahtarı oraya koymak onu herkese açık ederdi.
+
+### 36.4 Akış
+
+| Adım | Ne olur |
+| --- | --- |
+| 1 | Panel → seri → **Düzenle** → "Sezonlar ve bölümler" → **"Voe'dan çek"** |
+| 2 | API anahtarı + dosya adı filtresi (ör. "Jujutsu Kaisen") girilir; ikisi de tarayıcıda hatırlanır |
+| 3 | "Voe listesini al" → tüm dosyalar sayfa sayfa çekilir (400 ms aralıkla, limit için) |
+| 4 | Dosya adları çözülür, **önizleme** gösterilir: `S1 B5 · Bölüm adı` + "yeni"/"kayıtlı" etiketi |
+| 5 | "Seçilen N bölümü ekle" → kayıtlı olanlar atlanır, yeniler eklenir (`watch_url = https://voe.sx/e/<kod>`) |
+| 6 | Kapaklar otomatik: Voe kapağı koddan türetilir (bkz. §35) |
+
+**Kabul edilen dosya adı biçimleri** (`lib/voe.ts` → `parseEpisodeName`):
+
+```
+Jujutsu Kaisen S01E05 - Ryomen Sukuna      → 1. sezon 5. bölüm
+Jujutsu Kaisen s1e5                        → 1. sezon 5. bölüm
+Jujutsu Kaisen 1x05 Ad                     → 1. sezon 5. bölüm
+Jujutsu Kaisen 1. Sezon 5. Bölüm Ad        → 1. sezon 5. bölüm
+Jujutsu Kaisen 05 - Ad                     → 1. sezon 5. bölüm (sezon yazılmamışsa 1)
+```
+Uzantı (`mp4/mkv`) ve teknik etiketler (`[1080p]`, `(SubsPlease)`) temizlenir.
+
+### 36.5 Güvenlik / davranış notları
+
+- **Önizleme zorunlu:** dosya adı çözümü bir tahmindir; kullanıcı onaylamadan hiçbir bölüm eklenmez.
+- Zaten kayıtlı sezon/bölüm numaraları **atlanır** (mükerrer oluşmaz).
+- Silme/güncelleme YAPMAZ — yalnızca eksik bölümleri ekler.
+- Eklemeler 200'lük parçalar hâlinde gönderilir.
+
+### 36.6 Doğrulama
+
+| Kontrol | Sonuç |
+| --- | --- |
+| "Voe'dan çek" butonu / panel | açılıyor, 3 alan (şifreli anahtar, filtre, liste al) ✅ |
+| Boş anahtar | "Önce Voe API anahtarını gir…" ✅ |
+| Yanlış anahtar (`test`) | "Liste alınamadı: Authentication failed." ✅ |
+| Ağ kanıtı | `GET https://voe.sx/api/file/list?key=test…` → **HTTP 401** (gerçek çağrı) ✅ |
+| CORS hatası | **yok** ✅ |
+| Mobil 390×844 | taşma yok (375=375), alanlar sığıyor ✅ |
+| Konsol hatası | **0** (tüm adımlar) ✅ |
+| `build` · `tsc` · `eslint` | temiz ✅ |
+
+**Not:** Gerçek anahtarla uçtan uca test (liste + ekleme) kullanıcı anahtarı ürettikten sonra yapılacak.
