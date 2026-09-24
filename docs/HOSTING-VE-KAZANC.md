@@ -547,3 +547,95 @@ ayrıca "Visit advertiser", "Sponsored", "Preparing advertisement…", "Loading 
 
 Sonuç: "sınırsız depolama" ücretli Premium'a ait bir vaat; **TR trafiği için oran $0,07/1000** yani
 Voe/VidMoly'nin (~$1,00) **1/14'i**. Filemoon'a geçmek reklamdan da kurtarmıyor (reklam İngilizce).
+
+---
+
+# BÖLÜM 8 — Nihai öneri + net kazanç tablosu (24.09.2026)
+
+**Kur:** 1 USD = **48,7671 TRY** (TCMB döviz alış, 24.09.2026). Kur kaynağı dışındaki tüm rakamlar
+hostların/Adsterra'nın **resmî sayfalarından**; tahminler ayrıca işaretlendi.
+
+## 8.1 Kriterlere göre eleme (kullanıcı istekleri)
+
+| Kriter | VidMoly | **Voe** | StreamWish | Streamtape | DoodStream | EarnVids | Filemoon |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| TR kazancı /1.000 izlenme (resmî) | **$1,00** | **$1,00** | $0,30 | doğrulanamadı | $0,15 | $0,50 | $0,07 |
+| **USDT TRC20 ödeme** | doğrulanamadı | ✅ **panelde var** ($50, ücretsiz) | ✅ resmî | ❌ | belirsiz | doğrulanamadı | belirsiz |
+| Türkiye banka (TRY) ödeme | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| Min. ödeme | $15 | **$10 (LTC) / $50 (TRC20)** | doğrulanamadı | $10 | $10 | $20 | $100 |
+| Depolama (ücretsiz) | **5 TB** (hesabında 15 TB) | 3 TB | sınırsız (50 GB/dosya) | sınırsız (15 GB/dosya) | 5 GB | sınırsız | 30 GB (panel) |
+| Dosya ömrü | — | 60 gün hareketsizlik | 120 gün | — | 60 gün | — | 60 gün |
+| **Altyazı** | ✅ (kullanıcı kullanıyor) | ✅ (oynatıcıda CC + API'de `subtitles[]`) | doğrulanamadı | ✅ SRT/VTT | doğrulanamadı | doğrulanamadı | ✅ (oynatıcıda Subtitles menüsü) |
+| Reklam yoğunluğu ayarı | Full/Medium/**Low** | **5 kademe + reklamsız trafik satın alınabilir** | doğrulanamadı | ❌ yok (yüksek) | premium | doğrulanamadı | ad modes var |
+| Hız / CDN | global CDN, TR verisi yok | global, TR verisi yok | gigabit CDN, TR verisi yok | sınırsız bandwidth | doodcdn | HLS, çok sunucu | global HLS |
+| Oynatıcı dili | — | **panel Türkçe** | — | — | — | — | ❌ İngilizce (TR yok) |
+
+**Hiçbir host Türkiye banka havalesi (TRY/IBAN) sunmuyor.** USDT TRC20 net olarak **Voe** (kullanıcının
+kendi panelinde: $50 eşik, $0 ücret, haftalık) ve **StreamWish** (resmî ödeme seçeneklerinde) var.
+
+## 8.2 Karar
+
+**Video hostu: Voe.** Gerekçe: TR'de 1.000 izlenme **$1,00** (grubun en yükseği, Filemoon'un 14 katı),
+USDT TRC20 ödeme **panelde doğrulandı**, altyazı çalışıyor (CC menüsü + API), reklam yoğunluğu
+5 kademede ayarlanıyor, istenirse **tamamen reklamsız** trafik satın alınabiliyor, panel Türkçe,
+eşik $10.
+
+**Yedek/ikinci host: StreamWish** — USDT TRC20 resmî, sınırsız depolama; kazancı 1/3 ama
+depolama/erişim yedeği olarak mantıklı.
+
+**Bırakılacaklar:** Filemoon ($0,07 + İngilizce oynatıcı + $100 eşik), DoodStream ($0,15).
+
+**Site reklamları: Adsterra** — 2× Native Banner + 1× Social Bar (popunder **yok**).
+
+## 8.3 Adsterra ödeme gerçekleri (resmî Help Center)
+
+| Yöntem | Min. tutar | Ücret | Süre |
+| --- | --- | --- | --- |
+| **USDT TRC20** | **$100** | %1 + ağ ücreti | 1-2 gün |
+| **Yerel banka (TRY/IBAN)** ✅ Türkiye destekli | **$25** | $7 + kur farkı | ≤5 gün |
+| Paxum | $5 | $1 | 1-2 gün |
+| PayPal | $25 | $0,65 | 1-2 gün |
+| WebMoney | $5 | %1-2 | 1-2 gün |
+| Wire | $1.000 | $50 | ≤5 gün |
+
+Ödeme takvimi: **ayda 2 kez (1-2 ve 16-17 GMT)**, 2 hafta hold, otomatik (talep gerekmez).
+Not: TRY banka ve wire için **KYC zorunlu**.
+
+## 8.4 NET KAZANÇ TABLOSU
+
+**Varsayımlar (açıkça yazılıdır):** sayfa görüntülemesinin **%40'ı** bölüm izlenmesine dönüşür ·
+Adsterra sayfa başına 2 Native + 1 Social Bar · **AdBlock kaybı %25** (varsayım) · Adsterra TR CPM'i
+yayınlanmadığı için **Tier-2 bandından türetilmiş düşük/yüksek senaryo** (Native $0,50-1,50 ·
+Social Bar $1,00-2,50 / 1.000 gösterim) · kur 48,7671.
+
+| Aylık sayfa görüntüleme | Voe oynatıcı payı | Adsterra (düşük) | **TOPLAM (düşük)** | Adsterra (yüksek) | **TOPLAM (yüksek)** |
+| --- | --- | --- | --- | --- | --- |
+| **10.000** | $4 → ₺195 | $15 → ₺732 | **$19 ≈ ₺927** | $41 → ₺2.012 | **$45 ≈ ₺2.195** |
+| **50.000** | $20 → ₺975 | $75 → ₺3.658 | **$95 ≈ ₺4.633** | $206 → ₺10.058 | **$226 ≈ ₺11.034** |
+| **250.000** | $100 → ₺4.877 | $375 → ₺18.288 | **$475 ≈ ₺23.164** | $1.031 → ₺50.291 | **$1.131 ≈ ₺55.168** |
+
+Karşılaştırma (aynı trafik, **Filemoon** ile): 250.000 PV'de oynatıcı payı **$17,50** (₺853) —
+Voe'nin **1/5,7**'si. DoodStream'de **$37,50** (₺1.829).
+
+**Eşik gerçeği:** Düşük senaryoda 10.000 PV/ay → $15. Bu, Adsterra'nın **TRY banka $25** eşiğinin ve
+Voe'nun **TRC20 $50** eşiğinin altında. Yani ilk aylarda para hesapta birikir, çekim ancak
+eşiğe ulaşınca olur (Voe LTC ile **$10**'da çekilebilir → en hızlı yol LTC).
+
+## 8.5 Hız (lag) hakkında dürüst not
+
+Hiçbir host **Türkiye'ye özel hız/sunucu bilgisi yayınlamıyor** (hepsi "global CDN / unlimited speed"
+diyor). Gerçek hız ancak ölçümle bilinir: aynı bölümü Voe'ya ve StreamWish'e yükleyip
+telefondan/wifi'den açıp takılma testi yapmak gerekir. Ölçmek istersen ikisine de tek bölüm yükle,
+ben tarayıcıdan yükleme/oynatma sürelerini ölçer karşılaştırırım.
+
+## 8.6 Kaynaklar
+
+- Host oranları/limitleri: `vidmoly.me/make-money`, `voe.sx/earn-money`, `streamwish.com/?op=make_money`,
+  `earnvids.com/make_money.html`, `doodstream.com/earn-money`, `filemoon.org/en/make-money`,
+  `filemoon.org/en/payout-rates` (hepsi resmî)
+- Voe ödeme yöntemleri: kullanıcının kendi paneli (`voe.sx/payouts`, 24.09.2026) — resmî ekran
+- Adsterra: `help-publishers.adsterra.com` (ödeme makalesi + Yerel Banka Transferi ülke listesi),
+  `adsterra.com/blog` (Tier traffic, Social Bar)
+- CPM aralıkları: AffMaven "Ad Networks CPM Rates 2026" (bağımsız; rate card = tavan, gerçek
+  hesaplar genelde **1/3-1/2**'sini ölçüyor — raporda örnek: Brezilya Native CPM **$0,574**)
+- Kur: TCMB günlük kurlar, 24.09.2026
