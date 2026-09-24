@@ -66,16 +66,60 @@ export async function moveAndPersist<T extends { id: string }>(
  *  linki eklerken "bu video host tanınmıyor" hatası aldı; liste kaldırıldı. Artık her
  *  embed linki kabul edilir (bkz. `watchUrlError`). */
 
-/** Yapıştırılan metinden video linkini ayıklar:
+/**
+ * Bilinen sağlayıcılarda linki kanonik EMBED adresine çevirir; tanımadığında
+ * linke dokunmaz.
+ *
+ * Neden gerekli: Filemoon'da doğru embed biçimi `https://filemoon.org/<kod>/embed`
+ * biçimidir. Kullanıcı `/e/<kod>` yapıştırdı; o adres ana sayfaya yönlendiği için
+ * oynatıcıda Filemoon'un tanıtım sayfası göründü ("oynatıcı bozuk"). Voe'da da
+ * indirme sayfası (`/d/<kod>`) yerine embed (`/e/<kod>`) kullanılmalı.
+ */
+export function canonicalEmbedUrl(url: string): string {
+  const value = (url ?? "").trim();
+  if (!value) return "";
+  let parsed: URL;
+  try {
+    parsed = new URL(value.split(/[?#]/)[0] ?? "");
+  } catch {
+    return value;
+  }
+  const host = parsed.hostname.toLowerCase().replace(/^www\./, "");
+  const path = parsed.pathname.replace(/\/+$/, "");
+
+  // Filemoon / Byse: <kod>/embed biçimine çevrilir.
+  if (/(^|\.)(filemoon\.(org|sx|to)|byse\.sx)$/.test(host)) {
+    const code =
+      path.match(/\/(?:e|embed)\/([A-Za-z0-9]{6,})$/)?.[1] ??
+      path.match(/^\/([A-Za-z0-9]{6,})\/(?:embed|watch|file)$/)?.[1] ??
+      path.match(/^\/([A-Za-z0-9]{6,})$/)?.[1] ??
+      "";
+    return code ? `https://filemoon.org/${code}/embed` : value;
+  }
+
+  // Voe: embed yolu `/e/<kod>`.
+  if (/(^|\.)voe\.sx$/.test(host)) {
+    const code =
+      path.match(/\/(?:e|embed|d)\/([A-Za-z0-9]{6,})$/)?.[1] ??
+      path.match(/^\/([A-Za-z0-9]{8,})$/)?.[1] ??
+      "";
+    return code ? `https://voe.sx/e/${code}` : value;
+  }
+
+  return value;
+}
+
+/** Yapıştırılan metinden video linkini ayıklar ve bilinen sağlayıcıda kanonik
+ *  embed biçimine çevirir:
  *  - <IFRAME ...> embed kodu yapıştırılırsa src="..." içindeki linki döndürür
- *  - düz link yapıştırılırsa aynen döndürür */
+ *  - düz link yapıştırılırsa aynen (gerekirse düzeltilerek) döndürür */
 export function extractEmbedUrl(raw: string): string {
   const text = raw.trim();
   if (!text) return "";
   const src = text.match(/src\s*=\s*["']([^"']+)["']/i);
-  if (src?.[1]) return src[1].trim();
+  if (src?.[1]) return canonicalEmbedUrl(src[1].trim());
   const bare = text.match(/https:\/\/[^\s"'<>]+/i);
-  return bare ? bare[0] : text;
+  return canonicalEmbedUrl(bare ? bare[0] : text);
 }
 
 /** Input'a yapıştırılan tam embed kodunu link'e çevirir (normal yazma davranışı bozulmaz). */
