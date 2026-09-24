@@ -288,7 +288,10 @@ function PlayerBox({
           // sağlayıcının kendi belgesinde kaldığı sürece bu davranış kabul.
           allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
           allowFullScreen
-          className="aspect-video w-full"
+          // bg-black: iframe kendi belgesini boyayana kadar geçen sürede
+          // tarayıcının varsayılan BEYAZ zeminini görmemek için (iOS'ta beyaz
+          // kenar/çerçeve gibi görünüyordu). Sarmalayıcı da siyah.
+          className="aspect-video w-full bg-black"
         />
       ) : (
         <div className="flex aspect-video w-full flex-col items-center justify-center gap-4 bg-black/90 px-6 text-center">

@@ -1890,3 +1890,69 @@ Failed: build exceeded the time limit and was terminated.
 Derleme adımı 36 dakika boyunca hiç çıktı üretmedi (önceki başarılı derlemeler ~1 dk).
 Hata lightningcss kaynaklı değil — altyapı tarafında takılma. Canlıdaki sürüm hâlâ
 `6f0d93a`; yeni push yeni bir derleme tetikler.
+
+---
+
+## 34. VidMoly "reklamları kapat" ayarı + oynatıcıdaki beyazlık incelemesi
+
+### 34.1 Reklamı kapatmak reklamı durdurmuyor
+
+Kullanıcı VidMoly panelinden reklamları **tamamen kapattı** (panel "reklam gösterme", kazanç **$0**).
+Buna rağmen oynatıcıda duraklatınca ve tam ekrandan çıkınca **2 reklam** görüyor.
+
+Ölçüm (gerçek tarayıcı; sağlayıcının kendi embed sayfası):
+
+| Ölçüm | Sonuç |
+| --- | --- |
+| Tam ekrandan ESC ile çıkış | **1 yeni sekme popunder** açıldı (zamanlama ESC ile örtüşüyor) |
+| Embed gövdesindeki reklam alanları | `#vidmolyadblocktest.adsbygoogle.ad-unit.ad-zone` (1×1) ve `.afs_ads.ad-placement` (1×1) — o an boş/gizli olsa da altyapı yerinde |
+| Oynat/duraklat/tam ekran sırasında görünür katman | yakalanamadı (limit/ödenek etkisi olabilir) |
+
+**Sonuç:** "reklamsız" ayarı popunder/interstitial katmanını kaldırmıyor. Yani şu an **kazanç sıfır +
+reklam devam** — en kötü durum. İki seçenek: (a) reklamı geri açıp karşılığını almak, (b) sağlayıcıyı
+değiştirmek (Voe + reklamsız trafik, bkz. `HOSTING-VE-KAZANC.md` Bölüm 4).
+
+Ayrıca kullanıcı düzeltmesi: VidMoly depolaması **15 TB** (hostun tanıtımındaki 5 TB değil).
+`vidmoly.me/upgrade` ve `/premium` sayfaları yok (404) — yani "kapalı" modu yalnızca panelde var,
+genel dokümantasyonda belgelenmiyor.
+
+### 34.2 Beyaz kenar/çerçeve şikâyeti — bizim koddan DEĞİL
+
+Ölçüm (canlı, gerçek tarayıcı, 1600×1000):
+
+| Ölçüm | Sonuç |
+| --- | --- |
+| Oynatıcı `<iframe>` | **1034×582 = tam 16:9**, arkaplan `rgba(0,0,0,0)`, kenarlık `0px` |
+| Sarmalayıcı kutu | `bg-black` → **rgb(0,0,0)**, yalnızca 1 px koyu gri (`oklch(0.24 …)`) kenarlık |
+| Sayfada görünür beyaz yüzey (20×20 px üzeri) | **0** |
+| Sağlayıcının embed sayfası | gövde/oynatıcı **siyah**, letterbox barları **siyah**, görünür beyaz yüzey **0** |
+
+→ Kodda beyaz yüzey yok. **En olası neden:** tarayıcının (özellikle iOS Safari) cross-origin iframe'i
+içeriği boyanmadan önce **beyaz** boyaması — "arkaplan beyaz, video sonradan beyaza sığdırılmış" hissi
+tam olarak buna uyar.
+
+**Uygulanan iki önlem:**
+
+1. `:root { color-scheme: dark }` (`styles.css`) — tarayıcı, içerik gelmeden önce koyu tuval boyar.
+2. Oynatıcı iframe'ine `bg-black` sınıfı — iframe kendi belgesini boyayana kadar beyaz görünmesin.
+
+### 34.3 Adsterra formatları ve öneri
+
+| Format | Rahatsızlık | Not |
+| --- | --- | --- |
+| **Native Banner** | En az | İçerikle bütünleşir; küçük sitede **2 slot** önerilir |
+| **Social Bar / In-Page Push** | Orta | Yer kaplamaz, mobilde çalışır; **1 slot** yeter |
+| Klasik Banner (300×250 / 320×50) | Az | CPM en düşük, tamamlayıcı |
+| Popunder / Interstitial | Yüksek | **Siteye koymayacağız** — oynatıcıda zaten var, iki katı kullanıcı kaçırır |
+| Smartlink | — | 404/landing için |
+
+Ödeme eşikleri: Paxum $5 · WebMoney $5 · TRY banka **$25** · PayPal $25 · USDT/BTC $100 · wire $1.000.
+Minimum trafik şartı yok, onay ~5-10 dk. **Karar: 2× Native Banner + 1× Social Bar, popunder YOK.**
+
+### 34.4 Doğrulama
+
+| Kontrol | Sonuç |
+| --- | --- |
+| `color-scheme: dark` (derleme çıktısı `dist/*.css`) | **var** ✅ |
+| `aspect-video w-full bg-black` (izle chunk'ı) | **var** ✅ |
+| `build` · `tsc` · `eslint` | temiz ✅ |

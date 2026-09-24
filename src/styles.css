@@ -47,6 +47,12 @@
 }
 
 :root {
+  /* Renk şeması koyu. Tarayıcı, içerik yüklenmeden önce koyu tuval boyar ve
+     yerleşik alanları (iframe zemini, kaydırma çubuğu) koyu gösterir. Bu kural
+     olmadan iOS Safari, cross-origin oynatıcı iframe'ini önce BEYAZ boyuyor;
+     kullanıcı bunu "arkaplan beyaz, videoyu sonradan beyaza sığdırmışız" gibi
+     görüyordu (beyaz kenar/çerçeve hissi). */
+  color-scheme: dark;
   --radius: 1rem;
   --background: oklch(0.075 0.006 270);
   --foreground: oklch(0.97 0.004 90);
