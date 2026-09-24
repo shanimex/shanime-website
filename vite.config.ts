@@ -5,31 +5,35 @@ import { nitro } from "nitro/vite";
 import { defineConfig } from "vite";
 
 /**
- * shanime â€” standart Vite + TanStack Start yapÄ±landÄ±rmasÄ±.
+ * shanime — standart Vite + TanStack Start yapılandırması.
  *
- * Bu dosya bilinÃ§li olarak sade: hiÃ§bir platform sarmalayÄ±cÄ±sÄ± kullanmÄ±yor.
- * Proje tamamen kendi Ã¼zerinde durur; yayÄ±n hedefi Nitro'nun
- * `cloudflare-module` preset'i (Cloudflare Workers).
+ * Bu dosya bilinçli olarak sade: hiçbir platform sarmalayıcısı kullanmıyor.
+ * Derleme tamamen kendi üzerinde durur.
  *
  * NELER VAR:
- * - `tanstackStart` : SSR Ã§atÄ±sÄ±. `server.entry` bizim hata yakalayÄ±cÄ±mÄ±za
- *   (`src/server.ts`) yÃ¶nlendirir; h3'Ã¼n yuttuÄŸu 500'leri okunur sayfaya Ã§evirir.
- * - `viteReact`      : React derleyicisi.
- * - `tailwindcss`    : Tailwind v4 (CSS'ten yapÄ±landÄ±rÄ±lÄ±r, ayrÄ± config dosyasÄ± yok).
- * - `nitro`          : Ãœretim derlemesini Cloudflare Workers Ã§Ä±ktÄ±sÄ±na Ã§evirir
- *   (`.output/server/wrangler.json`).
+ * - `tanstackStart` : SSR çatısı. `server.entry` kendi hata yakalayıcımıza
+ *   (`src/server.ts`) yönlendirir; h3'ün yuttuğu 500'leri okunur sayfaya çevirir.
+ * - `viteReact`     : React derleyicisi.
+ * - `tailwindcss`   : Tailwind v4 (CSS'ten yapılandırılır, ayrı config dosyası yok).
+ * - `nitro`         : Üretim derlemesini Cloudflare çıktısına çevirir.
  *
- * `@` yol takma adÄ± (`@/lib/...`) tsconfig'deki `paths` Ã¼zerinden Vite 8'in
- * yerleÅŸik desteÄŸiyle Ã§Ã¶zÃ¼lÃ¼r (`resolve.tsconfigPaths`) â€” ayrÄ± eklenti gerekmez.
+ * YAYIN HEDEFİ: `cloudflare-pages` preset'i.
+ * Site Cloudflare Pages'te yayınlanıyor ve Pages, çıktı olarak `dist/` klasörünü
+ * bekliyor: `dist/_worker.js` (sunucu tarafı), `_routes.json`, `_headers` ve
+ * statik dosyalar. Preset sabitlendi — otomatik algılamaya bırakılırsa yerelde
+ * `cloudflare-module` seçilip `.output/` üretiliyor ve Pages ayarıyla uyuşmuyor.
+ *
+ * `@` yol takma adı (`@/lib/...`) tsconfig'deki `paths` üzerinden Vite 8'in
+ * yerleşik desteğiyle çözülür (`resolve.tsconfigPaths`) — ayrı eklenti gerekmez.
  */
 export default defineConfig({
-  // GeliÅŸtirme sunucusu sabit portta ve aÄŸa aÃ§Ä±k: siteyi baÅŸka cihazlardan da
-  // gÃ¶rebilmek iÃ§in. `strictPort` port doluysa sessizce baÅŸka porta kaymasÄ±n.
+  // Geliştirme sunucusu sabit portta ve ağa açık: siteyi başka cihazlardan da
+  // görebilmek için. `strictPort` port doluysa sessizce başka porta kaymasın.
   server: { port: 8080, strictPort: true, host: true },
   resolve: {
     tsconfigPaths: true,
-    // React ve TanStack paketlerinin iki kopyasÄ± yÃ¼klenirse hooks/gÃ¼venlik
-    // baÄŸlamÄ± bozulur; tekilleÅŸtirme bunu engeller.
+    // React ve TanStack paketlerinin iki kopyası yüklenirse hooks/güvenlik
+    // bağlamı bozulur; tekilleştirme bunu engeller.
     dedupe: ["react", "react-dom", "@tanstack/react-router", "@tanstack/react-start"],
   },
   plugins: [
