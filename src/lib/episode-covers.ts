@@ -79,16 +79,21 @@ export async function loadPosterMap(): Promise<Record<string, string>> {
 }
 
 /**
- * Kapağı eksik olan bölümleri çözer ve sonucu `site_settings`'e yazar.
- * Yalnızca eksikler için istek yapılır; tam olanlar atlanır.
+ * Kapakları çözer ve sonucu `site_settings`'e yazar.
+ *
+ * @param force `false` (varsayılan): yalnızca kapağı EKSİK bölümler için istek
+ *   atılır — bölüm eklenince otomatik çalışan yol budur, 1 yeni bölüm = 1 istek.
+ *   `true`: TÜM bölümler yeniden çözülür. Sağlayıcı CDN adresini değiştirdiğinde
+ *   (ör. `transit-up-1170-i` → `1171-e`) eski kayıtlar geçersiz kalır; kapağı
+ *   eksik olmayan bölümleri de tazelemek için bu mod gerekir.
  */
-export async function syncAllEpisodePosters(): Promise<{
+export async function syncAllEpisodePosters(force = false): Promise<{
   resolved: number;
   failed: number;
   total: number;
 }> {
   const map = await loadPosterMap();
-  const next = { ...map };
+  const next = force ? {} : { ...map };
   let resolved = 0;
   let failed = 0;
   let total = 0;
@@ -108,7 +113,7 @@ export async function syncAllEpisodePosters(): Promise<{
     }[]) {
       total += 1;
       const key = `${show.slug}-s${ep.season}e${ep.number}`;
-      if (next[key]) continue; // kapak zaten var
+      if (!force && next[key]) continue; // kapak zaten var
 
       const url = ep.watch_url ?? "";
       const code = videoCodeFromUrl(url);

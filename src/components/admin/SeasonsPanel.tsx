@@ -126,13 +126,15 @@ export function SeasonsPanel({
   const syncCovers = useCallback(async () => {
     setCoverBusy(true);
     try {
-      const { resolved, failed } = await syncAllEpisodePosters();
+      // Elle basıldığında TÜMÜ tazelenir (`force`): sağlayıcı kapak adreslerini
+      // değiştirdiğinde eskiler geçersiz kalır, eksik taraması onları yakalamaz.
+      const { resolved, failed } = await syncAllEpisodePosters(true);
       onNotice(
         resolved > 0
-          ? `${resolved} bölüm kapağı güncellendi.`
+          ? `${resolved} bölüm kapağı tazelendi.`
           : failed > 0
-            ? "Kapağı eksik bölümler için sağlayıcıda görsel bulunamadı."
-            : "Tüm bölüm kapakları zaten güncel.",
+            ? "Bölümler için sağlayıcıda görsel bulunamadı."
+            : "Tüm bölüm kapakları güncel.",
       );
     } catch (error) {
       onNotice(
