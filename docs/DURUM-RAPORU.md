@@ -1578,3 +1578,78 @@ artık `npm run build` ile de sorunsuz.
 
 **Bundan sonra:** `git push` → Cloudflare Pages otomatik derleyip yayınlıyor.
 Ek bir işlem gerekmiyor.
+
+---
+
+## 29. "Yakında" rozeti canlıda TÜM kartlarda çıkıyordu — bulundu ve düzeltildi
+
+### 29.1 Belirti
+
+Canlı ana sayfada (oturum açmamış ziyaretçi) **dört kartın dördünde** de "Yakında" rozeti
+vardı — 24 bölümü olan Jujutsu Kaisen dâhil. Aynı sebeple vitrindeki "N bölüm" satırı da
+hiçbir seride görünmüyordu.
+
+Ölçüm (canlı `shanime.xyz`, ham SSR HTML):
+
+| Kontrol | Canlı (önce) | Beklenen |
+| --- | --- | --- |
+| "Yakında" rozeti | **4** | 3 (Re:Zero, Mushoku Tensei, Erased) |
+| Vitrinde Jujutsu Kaisen "24 bölüm" satırı | **yok** | var |
+
+### 29.2 Kök neden
+
+Sayımlar `show_stats` görünümünden okunuyordu. O görünüm
+`20260924_featured_and_stats.sql` migration'ında bilinçli olarak **anon role kapatılmış**
+(`REVOKE ALL ... FROM anon`; yalnızca `authenticated` + `service_role`).
+
+```
+GET /rest/v1/show_stats?select=*
+→ 401 {"code":"42501","message":"permission denied for view show_stats"}
+```
+
+Ana sayfa ziyaretçi (anon) olarak çalışır: istek reddedilince liste boş dönüyor,
+`episode_count` her seri için `0` oluyor ve `episode_count === 0` koşuluna bağlı
+"Yakında" rozeti **her kartta** çıkıyordu. Vitrindeki `episode_count > 0` satırı da aynı
+sebeple kayboluyordu.
+
+**Neden gözden kaçtı:** §10.2'deki doğrulama tarayıcıda **yönetici oturumu açıkken**
+yapılmıştı; istek yetkili rolle gittiği için sayılar doğru geliyordu (3/4). Hata yalnızca
+**çıkış yapmış ziyaretçide** görünüyordu.
+
+### 29.3 Düzeltme
+
+`show_stats` görünümü tamamen bırakıldı; sayımlar artık seri listesiyle **aynı istekte**,
+veritabanında hesaplanıyor:
+
+```
+shows?select=*,show_episodes(count),show_seasons(count)&order=sort_order
+```
+
+| Ne değişti | Neden |
+| --- | --- |
+| `src/lib/content.ts` → `fetchShows` tek istek, gömülü `count` | Ziyaretçinin okuyabildiği tablolar; oturumdan bağımsız |
+| `fetchShowStats` + `ShowStats` **silindi** | Gereksiz kaldı; seri nesnesi sayıları taşıyor |
+| Gömülü sayım dizileri nesneden çıkarılıyor | Sayfa verisi kuru kalsın |
+| `src/routes/admin.tsx` sayıları seri nesnesinden okuyor | Paneldeki "N sezon · M bölüm" de tek istek, aynı kaynak |
+
+Kazanç: istek sayısı **2 → 1**; sayım SQL'de yapıldığı için 1000+ bölümlü seride de doğru
+(PostgREST satır sınırına takılmaz).
+
+**Canlı veritabanına dokunulmadı**, SQL/izin değişikliği gerekmedi. Artık kullanılmayan
+`show_stats` görünümü istenirse tek satır SQL ile silinebilir.
+
+### 29.4 Doğrulama
+
+| Kontrol | Sonuç |
+| --- | --- |
+| "Yakında" rozeti (yerel ana sayfa, ham SSR) | **3** ✅ — Jujutsu Kaisen'de yok |
+| Vitrin meta — Jujutsu Kaisen | `2020` + **`24 bölüm`** ✅ |
+| Gerçek tarayıcı 1600×1000 — rozet sayısı | **3** ✅ (Re:Zero, Mushoku Tensei, Erased) |
+| Gerçek tarayıcı 390×844 — rozet sayısı | **3** ✅ |
+| Konsol hatası / hydration uyarısı | **0 / 0** ✅ |
+| Kırık görsel (`naturalWidth === 0`) | **0** ✅ |
+| Yatay taşma (masaüstü + mobil) | **yok** ✅ |
+| `/seri/jujutsu-kaisen` bölüm satırı | **24** ✅ |
+| `/izle/jujutsu-kaisen?sezon=1&b=2` panel satırı | **24** ✅ |
+| `/admin` yerelde | `/auth`'a yönlendirdi (yerelde oturum yok) — beklenen |
+| Derleme · `tsc` · `eslint` | temiz ✅ |

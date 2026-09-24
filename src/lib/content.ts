@@ -67,18 +67,14 @@ export type Episode = {
   poster?: string;
 };
 
-export type ShowStats = {
-  show_id: string | null;
-  season_count: number | null;
-  episode_count: number | null;
-};
-
 export type ShowWithImage = Show & {
   image: string;
   banner_image: string;
   banner_video: string;
-  /** Bölüm sayısı: kartlarda "Yakında" rozeti için gerekli. */
+  /** Bölüm sayısı: kartlardaki "Yakında" rozeti ve vitrindeki "N bölüm" satırı için. */
   episode_count: number;
+  /** Sezon sayısı: panel listesindeki "N sezon · M bölüm" etiketi için. */
+  season_count: number;
 };
 export type SeasonWithEpisodes = Season & { episodes: Episode[] };
 
@@ -140,37 +136,50 @@ export async function signImagePaths(paths: string[]): Promise<Map<string, strin
   return result;
 }
 
+/** Seri satırı + gömülü sayımlar (`show_episodes(count)`, `show_seasons(count)`). */
+type ShowRow = Show & {
+  show_episodes?: { count: number }[];
+  show_seasons?: { count: number }[];
+};
+
+/**
+ * Serileri kapaklarıyla ve sezon/bölüm SAYILARIYLA getirir — tek istek.
+ *
+ * Sayımlar veritabanında yapılır (`show_episodes(count)`), satırlar çekilip
+ * sayılmaz: 1000+ bölümlü seride de doğru ve ucuz. Kartlardaki "Yakında" rozeti
+ * ile vitrindeki "N bölüm" satırı bu sayılardan beslenir.
+ *
+ * DİKKAT: Sayımlar daha önce `show_stats` görünümünden okunuyordu. O görünüm
+ * `anon` role kapalı (bkz. supabase/migrations/20260924_featured_and_stats.sql:
+ * `REVOKE ALL ... FROM anon`), bu yüzden siteye giriş yapmamış ziyaretçide sayılar
+ * boş dönüyor ve TÜM kartlarda "Yakında" rozeti çıkıyordu. Sayımlar artık
+ * serilerle aynı istekte geldiği için oturum açmış/açmamış herkeste aynı sonuç.
+ */
 export async function fetchShows(): Promise<ShowWithImage[]> {
-  // Bölüm sayıları da gelsin: kartlardaki "Yakında" rozeti için gerekli.
-  const [showsRes, stats] = await Promise.all([
-    db.from("shows").select("*").order("sort_order", { ascending: true }),
-    fetchShowStats(),
-  ]);
-  if (showsRes.error || !showsRes.data) return [];
-  const shows = showsRes.data as Show[];
+  const { data, error } = await db
+    .from("shows")
+    .select("*, show_episodes(count), show_seasons(count)")
+    .order("sort_order", { ascending: true });
+  if (error || !data) return [];
+  const shows = data as ShowRow[];
 
   // Kapak + banner yolları tek imzalama isteğinde çözülür.
   const urls = await signImagePaths(
     shows.flatMap((s) => [s.image_path, s.banner_image_path ?? "", s.banner_video_path ?? ""]),
   );
 
-  return shows.map((s) => ({
-    ...s,
-    image: urls.get(s.image_path) ?? "",
-    banner_image: urls.get(s.banner_image_path ?? "") ?? "",
-    banner_video: urls.get(s.banner_video_path ?? "") ?? "",
-    episode_count: stats.get(s.id)?.episode_count ?? 0,
-  }));
-}
-
-/** Panel listesi için sezon/bölüm sayıları — tek sorgu (show_stats görünümü). */
-export async function fetchShowStats(): Promise<Map<string, ShowStats>> {
-  const { data } = await db.from("show_stats").select("*");
-  const map = new Map<string, ShowStats>();
-  for (const row of (data ?? []) as ShowStats[]) {
-    if (row.show_id) map.set(row.show_id, row);
-  }
-  return map;
+  return shows.map((row) => {
+    // Gömülü sayım dizileri nesneden çıkarılır; taşınan veri kuru kalsın.
+    const { show_episodes, show_seasons, ...show } = row;
+    return {
+      ...show,
+      image: urls.get(show.image_path) ?? "",
+      banner_image: urls.get(show.banner_image_path ?? "") ?? "",
+      banner_video: urls.get(show.banner_video_path ?? "") ?? "",
+      episode_count: show_episodes?.[0]?.count ?? 0,
+      season_count: show_seasons?.[0]?.count ?? 0,
+    };
+  });
 }
 
 async function uploadToBucket(file: File, folder: string, fallbackExt: string): Promise<string> {
@@ -377,6 +386,9 @@ export async function fetchShowDetail(slug: string): Promise<ShowDetail | null> 
     poster: posterMap[`${posterSlug}-s${ep.season}e${ep.number}`] ?? "",
   }));
 
+  // Sezon gruplaması bir kez yapılır: hem sayfa verisinde hem sezon sayısında kullanılır.
+  const seasons = groupSeasons((seasonsRes.data ?? []) as Season[], episodes, show.id);
+
   return {
     show: {
       ...show,
@@ -384,8 +396,9 @@ export async function fetchShowDetail(slug: string): Promise<ShowDetail | null> 
       banner_image: urls.get(show.banner_image_path ?? "") ?? "",
       banner_video: urls.get(show.banner_video_path ?? "") ?? "",
       episode_count: episodes.length,
+      season_count: seasons.length,
     },
     episodes,
-    seasons: groupSeasons((seasonsRes.data ?? []) as Season[], episodes, show.id),
+    seasons,
   };
 }

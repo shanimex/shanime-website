@@ -7,7 +7,7 @@ import { ShowRow, type ShowCounts } from "@/components/admin/ShowRow";
 import { Button } from "@/components/ui/button";
 import { AD_SLOTS } from "@/components/AdSlot";
 import { checkSchema, db, moveAndPersist, type SchemaState } from "@/lib/admin";
-import { fetchShows, fetchShowStats, isAdmin, type ShowWithImage } from "@/lib/content";
+import { fetchShows, isAdmin, type ShowWithImage } from "@/lib/content";
 import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/admin")({
@@ -35,18 +35,14 @@ function AdminPage() {
   const [notice, setNotice] = useState<string | null>(null);
 
   const reload = useCallback(async () => {
-    const [showsData, stats] = await Promise.all([fetchShows(), fetchShowStats()]);
+    const showsData = await fetchShows();
     setShows(showsData);
 
-    // Sezon/bölüm sayıları tek sorguda gelir (show_stats görünümü):
-    // seri başına ayrı istek atmak yerine 1 istek.
+    // Sezon/bölüm sayıları seri listesiyle AYNI istekte, veritabanında sayılarak
+    // gelir: seri başına ayrı istek yok, 1000+ bölümlü seride de doğru.
     const next: Record<string, ShowCounts> = {};
     for (const show of showsData) {
-      const row = stats.get(show.id);
-      next[show.id] = {
-        seasons: row?.season_count ?? 0,
-        episodes: row?.episode_count ?? 0,
-      };
+      next[show.id] = { seasons: show.season_count, episodes: show.episode_count };
     }
     setCounts(next);
   }, []);
