@@ -1495,3 +1495,86 @@ nesne serileştirildiği için ilk çizimde iki taraf aynı adresi kullanıyor.
 | Hydration uyarısı | detay + izle + ana sayfa → **0** ✅ |
 | Konsol hatası | **0** ✅ |
 | Derleme · `tsc` · `eslint` | temiz ✅ |
+
+---
+
+## 28. Projenin tamamen bağımsızlaşması + yayının düzelmesi
+
+### 28.1 Platform sarmalayıcısı ve tüm izleri kaldırıldı
+
+Proje artık hiçbir dış platform sarmalayıcısına bağlı değil. Kaynak ağacında,
+derleme çıktısında ve canlı HTML'de **sıfır** iz var.
+
+**Kaldırılanlar:**
+
+| Ne | Neden |
+|---|---|
+| `vite.config.ts` içindeki platform `defineConfig` sarmalayıcısı | Yerine standart Vite + TanStack Start yapılandırması yazıldı |
+| `package.json` → sarmalayıcı bağımlılığı + `vite-tsconfig-paths` | `@` takma adı artık Vite 8'in yerleşik `resolve.tsconfigPaths` desteğiyle |
+| `.lovable/` | Platforma özel proje kimliği |
+| `AGENTS.md` | Platforma ait yönerge bloğu |
+| `src/lib/lovable-error-reporting.ts` | Platform editörüne telemetri gönderiyordu |
+| `src/integrations/supabase/previewAuthStorage.ts` | Önizleme oturumunu editör penceresine aktaran köprü |
+| `src/integrations/supabase/cron-auth.ts` | Kullanılmıyordu, platforma özel ortam değişkenleri okuyordu |
+| `bun.lock`, `bunfig.toml` | Fabrikaya ait kilit dosyası özel bir npm kayıt defterine işaret ediyordu |
+
+**Değişenler:** Supabase istemcisi artık standart `localStorage` kullanıyor; hata
+mesajları Türkçe ve platformdan bağımsız.
+
+**Sonuç:** Depoda tek kilit dosyası var (`package-lock.json`, herkese açık
+kaynaktan), `npm audit` **0 açık** veriyor.
+
+### 28.2 Yayın neden çalışmıyordu — KÖK NEDEN
+
+Site **Cloudflare Pages**'te yayınlanıyor (`shanime-website` projesi,
+`shanimex/shanime-website` deposuna bağlı, `main` dalı, otomatik yayın açık).
+Yani push → derleme → yayın zinciri kuruluydu. Sorun derlemenin çökmesiydi:
+
+```
+failed to load config from /opt/buildhome/repo/vite.config.ts
+Error: Cannot find module '../lightningcss.linux-x64-gnu.node'
+```
+
+**Sebep:** `package-lock.json` Windows'ta üretildiği için Linux'a özel yerel
+ikiliyi (`lightningcss-linux-x64-gnu`) içermiyordu. Cloudflare'in Linux
+sunucusunda kilit dosyasına göre kurulum yapılınca o ikili gelmiyor, CSS
+işleyicisi yüklenemiyor ve derleme daha yapılandırmayı okurken çöküyordu.
+
+**Sonuç:** 6 ardışık derleme başarısız → site **4 gündür** eski sürümde donmuştu.
+
+**Çözüm:** `node_modules` ve kilit dosyası silinip **temiz kurulum** yapıldı.
+Yeniden üretilen kilit dosyası artık tüm platformların yerel ikililerini içeriyor
+(`lightningcss-linux-x64-gnu`, `oxide-linux-x64-gnu`).
+
+### 28.3 İkinci düzeltme: yayın hedefi Pages'e sabitlendi
+
+`vite.config.ts` içindeki Nitro preset'i `cloudflare-pages` olarak sabitlendi.
+Gerekçe: Pages, çıktı olarak `dist/` klasörünü bekliyor
+(`dist/_worker.js`, `_routes.json`, `_headers`, statik dosyalar). Preset otomatik
+algılamaya bırakılınca **yerelde** `cloudflare-module` seçilip `.output/`
+üretiliyordu — yani yerel derleme ile üretim hedefi uyuşmuyordu. Artık ikisi de
+`dist/` üretiyor.
+
+### 28.4 Üçüncü düzeltme: bozuk bir yerel shim
+
+`node_modules/.bin/vite.exe` (eski bir bun shim'i) `npm run build` komutunu
+`could not find bin metadata file` hatasıyla çökertiyordu. Kaldırıldı; derleme
+artık `npm run build` ile de sorunsuz.
+
+### 28.5 Doğrulama
+
+| Kontrol | Sonuç |
+|---|---|
+| Kaynak ağacında platform izi | **0** |
+| Derleme çıktısında platform izi | **0** |
+| **Canlı site** (`shanime.xyz`) | **Yeni sürüm yayında** ✅ |
+| Canlı detay sayfası | 77.355 karakter, "Anasayfa" var, **48 SSR kapak adresi**, eski "Geri" yok |
+| Canlı ana sayfa | hero çalışıyor |
+| Canlıda "lovable" geçişi | **0** |
+| Derleme · `tsc` · `eslint` | temiz |
+| `npm audit` | **0 açık** |
+| Yerel dev sunucusu | HTTP 200, 48 SSR kapak |
+| Git | Çalışma alanı temiz, tüm commit'ler push edildi |
+
+**Bundan sonra:** `git push` → Cloudflare Pages otomatik derleyip yayınlıyor.
+Ek bir işlem gerekmiyor.
