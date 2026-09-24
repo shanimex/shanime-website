@@ -305,6 +305,14 @@
      Burada ANIMATION kullanılıyor, transition DEĞİL: sayfa artık sunucuda render
      edildiği için `active` sınıfı baştan geliyor ve transition hiç tetiklenmiyordu
      — zoom bu yüzden durmuştu. Animasyon, sınıf baştan gelse de ilk yükte oynar. */
+  /* <picture> sarmalayicisi blok kutu olmali: icindeki .hero-image yuksekligi
+     %100 ile hesaplandigi icin sarmalayici 0 yukseklige duserse gorsel kaybolur. */
+  .hero-picture {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+
   .hero-image {
     width: 100%;
     height: 100%;

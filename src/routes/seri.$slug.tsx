@@ -134,18 +134,27 @@ function ShowDetailPage() {
       </header>
 
       <section className="relative isolate overflow-hidden border-b border-border">
-        <img
-          src={backdrop}
-          alt=""
-          aria-hidden
-          className="absolute inset-0 -z-20 size-full object-cover object-center opacity-40"
-        />
-        <div className="absolute inset-0 -z-10 bg-gradient-to-t from-background via-background/85 to-background/40" />
+        {/* Vitrin bandı SABİT yükseklikte. Eskiden görsel `inset-0` idi: "Devamını
+            oku" ile bölüm uzayınca görsel de büyüyor, kadraj değişiyordu
+            (kullanıcı geri bildirimi: "üstteki resimle beraber büyüyor").
+            Artık bandın yüksekliği içerikten bağımsız: mobil 240 px, masaüstü 320 px. */}
+        <div className="absolute inset-x-0 top-0 -z-20 h-60 md:h-80">
+          <img
+            src={backdrop}
+            alt=""
+            aria-hidden
+            className="size-full object-cover object-center opacity-40"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-background via-background/85 to-background/40" />
+        </div>
         <div className="mx-auto flex max-w-6xl flex-col gap-6 px-5 py-9 md:flex-row md:gap-8 md:py-12 lg:px-8">
           <img
             src={show.image}
             alt={`${show.title} kapak görseli`}
-            className="w-32 shrink-0 rounded-2xl object-cover shadow-2xl sm:w-44"
+            // self-start: masaüstünde flex satırı yükseldikçe (açıklama açılınca)
+            // kapak da uzuyordu — `align-items: stretch` yüzünden. Kapak artık
+            // satırın yüksekliğine uymaz, kendi poster oranında kalır.
+            className="aspect-[2/3] w-32 shrink-0 self-start rounded-2xl object-cover shadow-2xl sm:w-44"
           />
           <div className="min-w-0">
             <h1 className="font-display text-3xl leading-none text-accent sm:text-5xl">
@@ -186,14 +195,19 @@ function ShowDetailPage() {
                   {description}
                 </p>
                 {longDescription && (
-                  <button
-                    type="button"
-                    onClick={() => setDescOpen((open) => !open)}
-                    // py-2: dokunma alani 20 px yuksekligindeydi, mobilde zor basilıyordu.
-                    className="mt-2 py-2 text-sm font-bold text-accent hover:underline"
-                  >
-                    {descOpen ? "Daha az göster" : "Devamını oku"}
-                  </button>
+                  // Blok sarmalayıcı: buton eskiden satır içi kalıyordu ve hemen
+                  // altındaki "Şimdi izle" düğmesiyle AYNI satıra düşüp üst üste
+                  // görünüyordu (mobilde okunmuyordu).
+                  <div className="mt-2">
+                    <button
+                      type="button"
+                      onClick={() => setDescOpen((open) => !open)}
+                      // py-2: dokunma alani 20 px yuksekligindeydi, mobilde zor basılıyordu.
+                      className="py-2 text-sm font-bold text-accent hover:underline"
+                    >
+                      {descOpen ? "Daha az göster" : "Devamını oku"}
+                    </button>
+                  </div>
                 )}
               </>
             )}

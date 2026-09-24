@@ -148,7 +148,9 @@ export function ShowEditor({
   return (
     <div className="rounded-2xl border border-border bg-secondary/40 p-4">
       <div className="flex flex-col gap-4 sm:flex-row">
-        <div className="flex shrink-0 gap-3">
+        {/* flex-wrap: telefonda kutu genişlikleri ekrana sığmadığında kutular
+            kırpılmak yerine alt satıra iner. */}
+        <div className="flex shrink-0 flex-wrap gap-3">
           <div>
             <span className="mb-1 block text-[11px] font-bold text-muted-foreground">
               Dikey Kapak
@@ -178,7 +180,7 @@ export function ShowEditor({
               label="Vitrin banner'ı (16:9)"
               onFile={(file) => void handleBanner(file)}
               disabled={disabled}
-              className="group relative h-28 w-44 shrink-0 overflow-hidden rounded-xl border border-dashed border-border bg-card"
+              className="group relative h-28 w-36 shrink-0 overflow-hidden rounded-xl border border-dashed border-border bg-card sm:w-44"
             >
               {bannerUrl ? (
                 <img
@@ -204,7 +206,7 @@ export function ShowEditor({
               accept="video/mp4"
               onFile={(file) => void handleVideo(file)}
               disabled={disabled}
-              className="group relative flex h-28 w-40 shrink-0 flex-col items-center justify-center gap-1 rounded-xl border border-dashed border-border bg-card px-3 text-center"
+              className="group relative flex h-28 w-32 shrink-0 flex-col items-center justify-center gap-1 rounded-xl border border-dashed border-border bg-card px-3 text-center sm:w-40"
             >
               <Video size={20} className="text-primary" />
               <span className="text-[11px] font-bold text-foreground">
@@ -277,7 +279,9 @@ export function ShowEditor({
               onClick={() => setEpisodesOpen((open) => !open)}
               aria-expanded={episodesOpen}
             >
-              <ListVideo size={14} /> Sezonlar ve bölümler
+              {/* Telefonda etiket kısalır: uzun etiket butonu tek başına bir
+                  satıra düşürüp düğme yığınını dağıtıyordu. */}
+              <ListVideo size={14} /> Sezonlar<span className="hidden sm:inline"> ve bölümler</span>
             </Button>
             {/* Vitrin = ana sayfadaki büyük slider. Tıklayınca anında kaydedilir. */}
             <Button
@@ -295,7 +299,7 @@ export function ShowEditor({
             <Button
               size="sm"
               variant="ghost"
-              className="rounded-full"
+              className="h-10 w-10 rounded-full sm:h-9 sm:w-9"
               onClick={() => onMove(-1)}
               disabled={first || disabled}
               aria-label="Yukarı taşı"
@@ -305,7 +309,7 @@ export function ShowEditor({
             <Button
               size="sm"
               variant="ghost"
-              className="rounded-full"
+              className="h-10 w-10 rounded-full sm:h-9 sm:w-9"
               onClick={() => onMove(1)}
               disabled={last || disabled}
               aria-label="Aşağı taşı"
@@ -315,7 +319,7 @@ export function ShowEditor({
             <Button
               size="sm"
               variant="outline"
-              className="ml-auto rounded-full"
+              className="rounded-full sm:ml-auto"
               onClick={onClose}
               disabled={disabled}
             >

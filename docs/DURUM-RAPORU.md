@@ -1830,6 +1830,55 @@ gelir; `!important` olmadan `text-sm` (14 px) kazanır. Yüksek özgüllük (`:n
 | Yatay taşma · konsol hatası | yok · **0** ✅ |
 | `build` · `tsc` · `eslint` | temiz ✅ |
 
+---
+
+## 33. iPhone video kaydı incelemesi ve düzeltmeler
+
+Kullanıcı 69 saniyelik bir iPhone kaydı paylaştı (4 sayfa: ana sayfa, arama, detay, oynatıcı,
+panel). Kayıt 34 kareye bölünüp kare kare incelendi (`ffmpeg`), sorunlar ölçümle doğrulandı.
+
+### 33.1 Kayıtta görülen sorunlar
+
+| Sorun | Kanıt (kare / ölçüm) |
+| --- | --- |
+| Vitrin görselinin çok azı görünüyor | 16:9 banner, 375×608 portre kutuya `object-fit: cover` ile sığdırılınca görüntünün yalnızca **~%39'u** görünüyordu; karakter kadraj dışında kalıyordu |
+| Arama sonucu yanlış yere götürüyor | Sonuç satırı `href="#series"` idi → sayfanın altındaki kart ızgarasına atıyordu |
+| "Devamını oku" üstteki görseli de büyütüyor | Detay bandı `absolute inset-0` olduğu için metin uzayınca bölüm büyüyor, görselin kadrajı değişiyordu; masaüstünde ayrıca kapak `align-items: stretch` yüzünden uzuyordu |
+| "Devamını oku" ile "Şimdi izle" üst üste | İkisi de satır içi kaldığı için aynı satıra düşüyorlardı (mobilde okunmuyordu) |
+| Oynatıcıda reklam yağmuru | Sağlayıcının katmanı: oynatıcı içinde **VPN reklam kartı**, tıklamada yeni sekme (`tuiov.com`), boş reklam sayfası |
+| Panel telefonda dağınık | Düzenleyicide kutu genişlikleri taşıyor, butonlar (Vitrin'e ekle / ↑ / ↓ / Kapat) ayrı satırlara dağılıyordu |
+
+### 33.2 Yapılan düzeltmeler
+
+| Ne | Yer | Nasıl |
+| --- | --- | --- |
+| Telefonda dikey kapak | `index.tsx` + `styles.css` | Vitrin görseli `<picture>` oldu: `max-width: 767px` için **dikey kapak** (2:3), üstü geniş banner. Tarayıcı yalnızca eşleşen kaynağı indirir. `.hero-picture` blok kutu olarak tanımlandı (içindeki görsel %100 yükseklikle hesaplandığı için şart). |
+| Detay bandı sabit yükseklik | `seri.$slug.tsx` | Bant `h-60 md:h-80` (mobil 240 px / masaüstü 320 px) — artık içerikten bağımsız |
+| Kapak uzaması bitti | `seri.$slug.tsx` | Kapak `self-start` + `aspect-[2/3]` (flex satırı büyüse de kapak sabit) |
+| "Devamını oku" kendi satırında | `seri.$slug.tsx` | Buton blok sarmalayıcıya alındı |
+| Arama sonucu detay sayfasına | `index.tsx` | `href={show.id ? \`/seri/${showSlug(show)}\` : "#series"}` |
+| Panel düzenleyicisi mobil | `ShowEditor.tsx` | Kutu satırı `flex-wrap`; banner `w-36 sm:w-44`, video `w-32 sm:w-40`; ikon butonları mobilde 40×40; "Sezonlar **ve bölümler**" etiketi mobilde kısalıyor; "Kapat" `sm:ml-auto` |
+
+### 33.3 Sınır: oynatıcı içi reklamlar
+
+VidMoly oynatıcısının içindeki reklam katmanı **bizim sayfamızdan yönetilemiyor**: katman
+sağlayıcının kendi belgesinde (cross-origin). `sandbox` denendi ve oynatıcıyı kırdı (bkz. §30).
+Bu yüzden "oynatıcıda reklam çıkmasın" ancak **sağlayıcı değişikliğiyle** mümkün; karar kullanıcıda.
+
+### 33.4 Doğrulama (yerel, 390×844 ve 1600×1000)
+
+| Kontrol | Sonuç |
+| --- | --- |
+| Mobil vitrin görseli | dikey kapak **600×900 (2:3)**, kutu 379×615 ✅ |
+| Masaüstü vitrin görseli | supabase geniş banner (5767×4092), **farklı URL** ✅ |
+| Detay bandı (mobil) | "Devamını oku" öncesi/sonrası **240 / 240 px** ✅ |
+| Kapak (mobil) | **192 / 192 px** ✅ |
+| Kapak (masaüstü) | **176×264**, tıklamada değişmedi ✅ |
+| "Devamını oku" / "Şimdi izle" | ayrı satırlar (y=563 / y=623), bindirme yok ✅ |
+| Arama sonucu `href` | `/seri/jujutsu-kaisen` → tıklayınca doğru sayfa ✅ |
+| Konsol hatası | **0** (tüm sayfalar) ✅ |
+| `build` · `tsc` · `eslint` | temiz ✅ |
+
 ### 30.4 Bekleyen: `245305a` derlemesi başarısız
 
 Cloudflare Pages, `245305a` commit'inin derlemesini **36 dk 17 sn** sonra öldürdü:

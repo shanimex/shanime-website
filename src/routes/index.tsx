@@ -232,7 +232,9 @@ const ALL_GENRES = "Tümü";
 function SearchResultItem({ show, onPick }: { show: HeroCard; onPick?: () => void }) {
   return (
     <a
-      href="#series"
+      // Sonuç, serinin DETAY sayfasına gider. Eskiden "#series" idi ve kullanıcıyı
+      // sayfanın altındaki kart ızgarasına atıyordu (kullanıcı geri bildirimi).
+      href={show.id ? `/seri/${showSlug(show)}` : "#series"}
       onClick={onPick}
       className="flex items-center gap-3 rounded-xl p-2 transition-colors hover:bg-secondary"
     >
@@ -721,18 +723,27 @@ function Index() {
                 style={backdropDragStyle(index)}
                 className={`hero-slide ${active ? "active" : ""}`}
               >
-                <img
-                  src={backdrop}
-                  alt={active ? `${show.title} sahnesi` : ""}
-                  width={1536}
-                  height={864}
-                  loading={index === 0 ? "eager" : "lazy"}
-                  fetchPriority={index === 0 ? "high" : "low"}
-                  decoding="async"
-                  draggable={false}
-                  onError={() => setBrokenBackdrops((map) => ({ ...map, [key]: true }))}
-                  className="hero-image"
-                />
+                {/* Telefonda DİKEY kapak, masaüstünde geniş banner kullanılır.
+                    16:9 banner portre kutuya sığdırılınca görüntünün yalnızca
+                    ~%39'u görünüyor ve karakter kadrajın dışında kalıyordu
+                    (kullanıcı geri bildirimi: "vitrindeki resmin sadece yarısı
+                    görünüyor"). 2:3 dikey kapağın neredeyse tamamı görünür.
+                    <picture> sayesinde tarayıcı yalnızca eşleşen kaynağı indirir. */}
+                <picture className="hero-picture">
+                  <source media="(max-width: 767px)" srcSet={show.image} />
+                  <img
+                    src={backdrop}
+                    alt={active ? `${show.title} sahnesi` : ""}
+                    width={1536}
+                    height={864}
+                    loading={index === 0 ? "eager" : "lazy"}
+                    fetchPriority={index === 0 ? "high" : "low"}
+                    decoding="async"
+                    draggable={false}
+                    onError={() => setBrokenBackdrops((map) => ({ ...map, [key]: true }))}
+                    className="hero-image"
+                  />
+                </picture>
                 {/* Video, görselin üstüne biner; oynamaya başlayınca yumuşakça görünür. */}
                 {videoActive && (
                   <video
