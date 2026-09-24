@@ -1689,26 +1689,46 @@ mobilde oynatıcı 341×192 → kutunun kapladığı alan oynatıcının yarıs�
 
 | Ne | Neden |
 | --- | --- |
-| Oynatıcı `<iframe>`'ine `sandbox="allow-scripts allow-same-origin allow-presentation"` | Sağlayıcının popunder'ı ve sayfa kaçırma davranışı engellenir. `allow-popups` ile `allow-top-navigation` bilinçli olarak verilmedi: oynatıcı çalışır, yeni sekme/başlık değiştirme çalışmaz. |
-| `useAdCode` kancası (`components/AdSlot.tsx`) | Bir slotun gerçekten boş olduğunu ayırt etmek için (kod yok ≠ henüz yüklenmedi). |
 | `ad_preroll` boşken geri sayım atlanıyor (`izle.$slug.tsx`) | Kod yokken 5 saniyelik boş "Reklamı geç" ekranı göstermek ziyaretçiyi rahatsız etmekten başka işe yaramıyordu. Kod girilirse bekleme aynen geri gelir. |
+| `useAdCode` kancası (`components/AdSlot.tsx`) | Bir slotun gerçekten boş olduğunu ayırt etmek için (kod yok ≠ henüz yüklenmedi). |
+| Oynatıcı iframe'i `sandbox`SIZ bırakıldı | Aşağıdaki deneme başarısız oldu; gerekçesi kayda geçsin diye burada. |
 
 Atlatma kararı yalnızca istemcide çalışan bir etkileşimle veriliyor; ilk çizim sunucuyla
 aynı kaldığı için hydration farkı oluşmuyor.
 
-**Sınır:** Sabit reklam kutusu sağlayıcının kendi belgesinin İÇİNDE; cross-origin olduğu
-için dışarıdan gizlenemez. Tamamen kaldırmak sağlayıcı değişikliği ya da VidMoly'nin
-reklamsız seçeneğini gerektirir — ikisi de onay ister.
+**Sınır:** Sabit reklam kutusu ve popunder sağlayıcının kendi belgesinin İÇİNDE; cross-origin
+olduğu için dışarıdan gizlenemez (aşağıdaki deneme bunu doğruladı).
 
-### 30.3 Doğrulama
+### 30.3 Denendi ve GERİ ALINDI: oynatıcı iframe'ine `sandbox`
+
+Popunder'ı engellemek için iframe'e `sandbox="allow-scripts allow-same-origin
+allow-presentation"` eklendi. **Sonuç: oynatıcı kırıldı.**
+
+| Ölçüm (aynı iframe, aynı `src`) | `sandbox` VAR | `sandbox` YOK |
+| --- | --- | --- |
+| 390×844 (mobil) | **"The embed could not be loaded."** | oynatıcı normal ✅ |
+| 1600×1000 (masaüstü) | **"The embed could not be loaded."** | oynatıcı normal ✅ |
+| Doğrudan `vidmoly.org` (embed, üst pencere) | — | her iki genişlikte normal ✅ |
+
+Yorum: hata pencere genişliğinden değil, sağlayıcıdan da değil — **sandbox'ın kendisinden**.
+VidMoly oynatıcısı sandbox altında çalışmayı reddediyor (muhtemelen reklam katmanını
+engelleyen ortamları bilinçli olarak dışlıyor). Bu yüzden `sandbox` kaldırıldı;
+`allow-popups`/`allow-top-navigation` vererek "gevşetmek" zaten koruma bırakmaz.
+
+**Sonuç:** Bu sağlayıcı kullanıldığı sürece popunder/yeni sekme davranışı dışarıdan
+engellenemiyor. Kalan seçenekler kullanıcı kararı ister: (a) sağlayıcı böyle kalsın,
+(b) farklı video sağlayıcısı, (c) VidMoly'nin reklamsız seçeneği.
+
+### 30.4 Doğrulama (geri alma sonrası)
 
 | Kontrol | Sonuç |
 | --- | --- |
-| `sandbox` attribute'u (yerel, ham DOM) | `allow-scripts allow-same-origin allow-presentation` ✅ (390×844 ve 1600×1000) |
-| Geri sayım / "Reklamı geç" ekranı | **yok** — kod olmadığı için video hemen başlıyor ✅ |
-| Oynatıcıya tıklamada yeni sekme | **yok** — sekme sayısı 6 → 6, URL ve başlık değişmedi ✅ |
-| Konsol hatası | **0** ✅ |
-| Oynatıcı yerelde | ⚠️ VidMoly localhost'u reddediyor ("The embed could not be loaded.") → video testi canlıda yapılır |
+| Geri sayım / "Reklamı geç" ekranı | **yok** — kod olmadığı için video hemen başlıyor ✅ (yükleme anında ~1 sn'lik bir kırpıntı görülebiliyor: reklam kodu sorgusu çözülene kadar) |
+| Ana sayfa "Yakında" rozeti | **3** ✅ (Jujutsu Kaisen'de yok) |
+| Vitrin — Jujutsu Kaisen | `2020` + **`24 bölüm`** ✅ |
+| Panel — Jujutsu Kaisen satırı | **1 sezon · 24 bölüm** ✅ |
+| Konsol hatası (ana sayfa, izle, panel) | **0** ✅ |
+| Kırık görsel | **0** ✅ |
 | `build` · `tsc` · `eslint` | temiz ✅ |
 
 ### 30.4 Bekleyen: `245305a` derlemesi başarısız

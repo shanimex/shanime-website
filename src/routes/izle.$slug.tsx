@@ -278,12 +278,16 @@ function PlayerBox({
           src={epUrl}
           title={`${showTitle} bölüm ${epNumber}`}
           loading="lazy"
-          // Sağlayıcının embed sayfası AdSense + PopAds popunder motoru yüklüyor:
-          // oynatıcıya yapılan tıklamada yeni sekme açıyor, açılan sekme aynı
-          // videoyu gösteriyor ve sayfanın başlığını değiştiriyor. `allow-popups`
-          // ile `allow-top-navigation` bilinçli olarak VERİLMİYOR — oynatıcı
-          // çalışmaya devam eder, reklam kaçırma çalışmaz.
-          sandbox="allow-scripts allow-same-origin allow-presentation"
+          // `sandbox` bilinçli olarak YOK — denendi, geri alındı.
+          //
+          // Amaç sağlayıcının popunder'ını (yeni sekme açma, sayfa başlığını
+          // değiştirme) engellemekti. Ölçüm sonucu: VidMoly oynatıcısı sandbox
+          // altında çalışmayı reddediyor ve kutuda "The embed could not be
+          // loaded." çıkıyor. Kanıt: aynı iframe, aynı adres, tek fark sandbox —
+          // sandbox'sız hâli hem 390×844 hem 1600×1000'de sorunsuz oynuyor,
+          // sandbox'lı hâli her iki genişlikte de hata veriyor. Yani bu
+          // sağlayıcıyla popunder'ı dışarıdan engellemenin yolu yok; reklamlar
+          // sağlayıcının kendi belgesinde kaldığı sürece bu davranış kabul.
           allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
           allowFullScreen
           className="aspect-video w-full"
