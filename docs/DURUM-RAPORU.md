@@ -1780,6 +1780,56 @@ hiç uygulanmaz, çünkü utility katmanı bileşen katmanından önce gelir. Ar
 | Yatay taşma · konsol hatası | yok · 0 ✅ |
 | `build` · `tsc` · `eslint` | temiz ✅ |
 
+---
+
+## 32. iPhone (Safari) denetimi: otomatik yakınlaştırma ve mobil arama
+
+Kullanıcı siteyi iPhone + Safari ile kullanıyor. iPhone'da canlı hata ayıklama (Safari Web
+Inspector) Mac gerektirdiği için denetim **kod taraması + 390×844 ölçümü** ile yapıldı.
+
+### 32.1 Bulunan sorunlar
+
+| Sorun | Ölçüm / kanıt | Durum |
+| --- | --- | --- |
+| **iOS Safari form alanına odaklanınca sayfayı otomatik yakınlaştırıyor** (16 px altı yazı boyutu) | Panel alanlarının çoğu `text-sm` (14 px), bir kısmı `text-xs` (12 px); ana sayfa arama kutusu 14 px. Panel telefonla kullanıldığı için her kutuya dokunuşta sayfa yakınlaşıp kayıyordu | **düzeltildi** |
+| **Telefonda arama yok** | Arama düğmesi `hidden md:flex` ile masaüstüne kilitli; mobil menüde yalnızca 3 bağlantı vardı → telefonda seri aranamıyordu | **düzeltildi** |
+| Mobil menüde bağlantıya basınca menü açık kalıyordu | `onClick` yoktu; menü içeriği kapatmıyordu | **düzeltildi** |
+| Menü, arama listesi yüzünden ekranın yarısını kaplıyordu | Menü açıkken header 566 px (ekran 844 px) | **düzeltildi** → 306 px |
+| Küçük telefonlarda ilk ekranda vitrin dışında hiçbir şey yok | 390×667: header 73 px + vitrin **560 px** = 633 px; `#series` y=**789** → tamamen ekran altında | **değiştirilmedi** — tasarım kararı, kullanıcıya soruldu |
+
+**Hata olmayan:** vitrin videosu iOS için doğru ayarlı (`muted`, `loop`, `playsInline`, `autoPlay`) —
+`playsInline` eksik olsaydı iPhone videoyu tam ekran açardı.
+
+### 32.2 Yapılan düzeltmeler
+
+| Ne | Yer |
+| --- | --- |
+| Mobilde form öğeleri 16 px'e sabitlendi | `styles.css` mobil bloğu (`input:not([type=checkbox]):not([type=radio]), textarea, select`) |
+| Mobil menüye arama alanı + sonuç listesi | `index.tsx` (`#search-mobile`, aynı `query`/`filtered` durumu) |
+| Sonuç satırı tek bileşende toplandı | `index.tsx` → `SearchResultItem` (masaüstü paneli ve menü aynı satırı kullanır) |
+| Menü bağlantıları menüyü kapatıyor, sonuç seçimi de | `index.tsx` (`onClick={() => setMenuOpen(false)}`) |
+| Menüdeki liste yalnızca yazarken görünür | `index.tsx` |
+
+**Tuzak (tekrar düşülmesin):** mobil kırılımdaki `font-size: 16px` kuralında `!important` ŞART.
+Tailwind utility katmanı bileşen katmanından sonra geldiği için, katman sırası özgüllükten önce
+gelir; `!important` olmadan `text-sm` (14 px) kazanır. Yüksek özgüllük (`:not(...)`) da yetmez.
+
+### 32.3 Doğrulama (yerel, 390×844 ve 1600×1000)
+
+| Kontrol | Sonuç |
+| --- | --- |
+| `#search-mobile` varlığı ve yazı boyutu | var · **16 px** ✅ |
+| Mobilde 16 px altı form alanı | **yok** ✅ |
+| `/auth` `#email` / `#password` | 16 px / 16 px ✅ |
+| Masaüstü arama kutusu | **14 px — değişmedi** ✅ |
+| Menüde "juju" araması | **1 sonuç: Jujutsu Kaisen** ✅ |
+| Sonuç yoksa mesaj | "Aramaya uyan seri yok." ✅ |
+| Sonuç seçimi | menü kapandı, `#series`'e kaydı ✅ |
+| Menü açıkken header yüksekliği | 566 px → **306 px** (panel 233 px) ✅ |
+| Menü kapalıyken header | 73 px ✅ |
+| Yatay taşma · konsol hatası | yok · **0** ✅ |
+| `build` · `tsc` · `eslint` | temiz ✅ |
+
 ### 30.4 Bekleyen: `245305a` derlemesi başarısız
 
 Cloudflare Pages, `245305a` commit'inin derlemesini **36 dk 17 sn** sonra öldürdü:

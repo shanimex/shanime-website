@@ -624,6 +624,18 @@
       padding: 14px;
       margin: -14px;
     }
+
+    /* iOS Safari, yazi boyutu 16 px'in ALTINDA olan bir form alanina
+       odaklaninca sayfayi otomatik yakinlastirir: duzen kayar, alandan cikinca
+       geri gelmez. Panel alanlarinin cogu 12-14 px (text-sm/text-xs) oldugu icin
+       telefonda her kutuya dokunusta sayfa zipliyordu. Mobilde form ogeleri
+       16 px'e sabitlenir; `!important` gerekli cunku Tailwind utility katmani
+       bilesen katmanindan sonra gelir. Masaustu olculeri degismez. */
+    input:not([type="checkbox"]):not([type="radio"]),
+    textarea,
+    select {
+      font-size: 16px !important;
+    }
   }
 }
 

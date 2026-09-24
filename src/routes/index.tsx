@@ -224,6 +224,32 @@ type HeroCard = ShowWithImage | typeof fallbackHero;
 
 /** Tür filtresinin "hepsi" etiketi. */
 const ALL_GENRES = "Tümü";
+
+/**
+ * Arama sonucu satırı. Masaüstü arama paneli ve mobil menü aynı satırı
+ * kullanır; iki yerde ayrı ayrı yazılsaydı biri güncellenmeden kalırdı.
+ */
+function SearchResultItem({ show, onPick }: { show: HeroCard; onPick?: () => void }) {
+  return (
+    <a
+      href="#series"
+      onClick={onPick}
+      className="flex items-center gap-3 rounded-xl p-2 transition-colors hover:bg-secondary"
+    >
+      <img
+        src={show.image}
+        alt=""
+        width={40}
+        height={52}
+        className="h-12 w-9 rounded-md object-cover"
+      />
+      <span className="min-w-0">
+        <strong className="block truncate text-sm">{show.title}</strong>
+        <span className="text-xs text-muted-foreground">Anime · Seri</span>
+      </span>
+    </a>
+  );
+}
 function Index() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -561,23 +587,7 @@ function Index() {
                 </div>
                 <div className="mt-3 space-y-1">
                   {(query ? filtered : shows).map((show) => (
-                    <a
-                      href="#series"
-                      key={show.title}
-                      className="flex items-center gap-3 rounded-xl p-2 transition-colors hover:bg-secondary"
-                    >
-                      <img
-                        src={show.image}
-                        alt=""
-                        width={40}
-                        height={52}
-                        className="h-12 w-9 rounded-md object-cover"
-                      />
-                      <span>
-                        <strong className="block text-sm">{show.title}</strong>
-                        <span className="text-xs text-muted-foreground">Anime · Seri</span>
-                      </span>
-                    </a>
+                    <SearchResultItem key={show.title} show={show} />
                   ))}
                 </div>
               </div>
@@ -608,15 +618,63 @@ function Index() {
             ref={mobileSearchRef}
             className="flex flex-col border-t border-border px-5 py-4 motion-safe:animate-pop-in motion-reduce:animate-none md:hidden"
           >
-            <a className="py-3 font-bold text-primary" href="#top">
+            <a
+              className="py-3 font-bold text-primary"
+              href="#top"
+              onClick={() => setMenuOpen(false)}
+            >
               Ana sayfa
             </a>
-            <a className="py-3 font-bold" href="#series">
+            <a className="py-3 font-bold" href="#series" onClick={() => setMenuOpen(false)}>
               Seriler
             </a>
-            <a className="py-3 font-bold" href="#season">
+            <a className="py-3 font-bold" href="#season" onClick={() => setMenuOpen(false)}>
               Bu sezon
             </a>
+
+            {/* Masaüstündeki arama kutusu `md` altında gizli olduğu için
+                telefonda arama yapılamıyordu; aynı `query` durumunu kullanan
+                alan menüye eklendi. Sonuç seçilince menü kendiliğinden kapanır. */}
+            <div className="mt-2 flex items-center gap-2 rounded-full border-2 border-primary px-4">
+              <Search size={17} className="text-muted-foreground" />
+              <label className="sr-only" htmlFor="search-mobile">
+                Anime ara
+              </label>
+              <input
+                id="search-mobile"
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Anime ara..."
+                className="h-11 min-w-0 flex-1 bg-transparent text-sm outline-none"
+              />
+              {query ? (
+                <button
+                  type="button"
+                  aria-label="Aramayı temizle"
+                  onClick={() => setQuery("")}
+                  className="icon-btn shrink-0 text-muted-foreground"
+                >
+                  <X size={16} aria-hidden="true" />
+                </button>
+              ) : null}
+            </div>
+            {/* Liste yalnızca yazarken görünür: masaüstünde olduğu gibi tüm
+                serileri menüye dökmek menüyü ekranın yarısına yayıyordu. */}
+            {query ? (
+              <div className="mt-1 max-h-64 space-y-1 overflow-y-auto">
+                {filtered.length === 0 ? (
+                  <p className="px-2 py-3 text-sm text-muted-foreground">Aramaya uyan seri yok.</p>
+                ) : (
+                  filtered.map((show) => (
+                    <SearchResultItem
+                      key={show.title}
+                      show={show}
+                      onPick={() => setMenuOpen(false)}
+                    />
+                  ))
+                )}
+              </div>
+            ) : null}
           </nav>
         )}
       </header>
