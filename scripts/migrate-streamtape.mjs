@@ -144,7 +144,9 @@ for (const file of targets) {
 
     const finalSize = statSync(localPath).size;
     if (expected > 0 && finalSize !== expected) {
-      throw new Error(`boyut tutmadı: ${finalSize} / ${expected} (sonraki çalıştırmada devam eder)`);
+      throw new Error(
+        `boyut tutmadı: ${finalSize} / ${expected} (sonraki çalıştırmada devam eder)`,
+      );
     }
     console.log("tamam");
     done += 1;
