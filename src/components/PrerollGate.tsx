@@ -5,16 +5,21 @@ import { fetchVastAds, fireBeacons, type VastAd } from "@/lib/vast";
 /**
  * Video öncesi reklam kapısı (gerçek video reklamı).
  *
- * Akış: poster + "Oynat" düğmesi → istenen sayıda VAST reklamı sırayla oynar
- * (her biri için "Reklamı geç" geri sayımı) → `onFinish()` çağrılır ve bölüm
- * oynatıcısı (sağlayıcı embed'i) yüklenir.
+ * Akış: poster + "Oynat" → VAST reklamı oynar ("Reklamı geç" geri sayımıyla) →
+ * istenirse ikinci reklam → `onFinish()` → bölüm oynatıcısı yüklenir.
  *
- * Kritik davranış: reklam yüklenemezse, dolgu (fill) yoksa veya ağ hata verirse
- * `onFinish()` HEMEN çağrılır — ziyaretçi asla reklam yüzünden videoyu
- * izleyemez durumda kalmaz.
+ * Kritik: reklam yüklenemez / dolgu yoksa `onFinish()` HEMEN çağrılır. Ziyaretçi
+ * asla reklam yüzünden videoyu izleyemez durumda kalmaz.
+ *
+ * ÖNEMLİ (bu dosyada bir kez düzeltilen hata): <video> elementi TEK ve HER
+ * durumda basılmalıdır. Daha önce <video> yalnızca `started === true` olan
+ * render dalında basılıyordu; "Oynat" tıklandığında `videoRef.current` henüz
+ * null olduğu için `startAd()` erken çıkıyor, `started` hiç true olmuyor ve
+ * dolayısıyla video bir daha basılmıyordu — kilitli döngü, reklam da bölüm de
+ * açılmıyordu. Artık video hep DOM'da; poster/overlay onun üzerine çizilir.
  */
 const MAX_ADS = 2;
-/** VAST skipoffset vermediyse kullanılacak varsayılan atlama süresi (saniye). */
+/** VAST skipoffset vermediyse kullanılacak atlama süresi (saniye). */
 const DEFAULT_SKIP_SECONDS = 5;
 
 export function PrerollGate({
@@ -47,8 +52,8 @@ export function PrerollGate({
     onFinish();
   }, [onFinish]);
 
-  // Etiketleri sayfa açılır açılmaz (kullanıcı Oynat'a basmadan) çek: böylece
-  // tıklama anında reklam hazır olur ve unmuted oynatma izni korunur.
+  // Etiketi sayfa açılır açılmaz (kullanıcı "Oynat"a basmadan) çek: tıklama
+  // anında reklam hazır olur ve unmuted oynatma izni korunur.
   useEffect(() => {
     let alive = true;
     const first = vastUrls.find((url) => /^https?:\/\//i.test(url));
@@ -71,15 +76,19 @@ export function PrerollGate({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [vastUrls.join("|")]);
 
-  const current = ads?.[index];
   const visibleAds = ads ? ads.slice(0, MAX_ADS) : [];
+  const current = ads?.[index];
 
   /** Reklamı başlatır. Tıklama hareketinden çağrıldığı için unmuted oynatma izinlidir. */
   const startAd = useCallback(
     (adIndex: number) => {
       const ad = ads?.[adIndex];
       const video = videoRef.current;
-      if (!ad || !video) return;
+      if (!ad) {
+        finish();
+        return;
+      }
+      if (!video) return;
 
       if (!countedRef.current.has(adIndex)) {
         countedRef.current.add(adIndex);
@@ -87,7 +96,6 @@ export function PrerollGate({
       }
 
       video.src = ad.mediaFile;
-      video.currentTime = 0;
       const skipAt = ad.skipOffsetSeconds ?? DEFAULT_SKIP_SECONDS;
       setRemaining(Math.max(1, Math.ceil(skipAt)));
       setSkippable(false);
@@ -97,8 +105,8 @@ export function PrerollGate({
       const attempt = video.play();
       if (attempt) {
         attempt.catch(() => {
-          // Tarayıcı sesli otomatik oynatmayı reddetti: sessiz başlat, kullanıcı
-          // sesi açsın. Reklam yine oynar ve gösterim sayılır.
+          // Tarayıcı sesli oynatmayı reddetti: sessiz başlat, kullanıcı sesi
+          // açsın. Reklam yine oynar ve gösterim sayılır.
           video.muted = true;
           setMuted(true);
           void video.play().catch(() => finish());
@@ -108,7 +116,7 @@ export function PrerollGate({
     [ads, finish],
   );
 
-  // Geri sayım: video zamanına göre, sekme arka planda olsa da doğru kalır.
+  // Geri sayım: video zamanına göre — sekme arka plandayken de doğru kalır.
   useEffect(() => {
     if (!started || !current) return;
     const skipAt = current.skipOffsetSeconds ?? DEFAULT_SKIP_SECONDS;
@@ -131,7 +139,7 @@ export function PrerollGate({
     else finish();
   }, [finish, index, startAd, visibleAds.length]);
 
-  // --- Reklamlar henüz gelmediyse / hiç yoksa: kapı beklemez. ---
+  // Etiket çekilene kadar kısa bir bekleme ekranı (video elementi henüz gerekmez).
   if (ads === null) {
     return (
       <div className="flex aspect-video w-full flex-col items-center justify-center gap-3 bg-black px-6 text-center">
@@ -140,82 +148,82 @@ export function PrerollGate({
     );
   }
 
-  if (!started) {
-    return (
-      <div className="relative aspect-video w-full bg-black">
-        {poster ? (
-          <img
-            src={poster}
-            alt=""
-            className="absolute inset-0 h-full w-full object-cover opacity-60"
-            loading="eager"
-          />
-        ) : null}
-        <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 px-6 text-center">
-          <Button
-            size="lg"
-            className="rounded-full"
-            onClick={() => startAd(0)}
-            aria-label={`${title} bölümünü oynat`}
-          >
-            Oynat
-          </Button>
-          <p className="text-xs text-muted-foreground">
-            Önce {Math.min(visibleAds.length, MAX_ADS)} kısa reklam oynayacak
-          </p>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="relative aspect-video w-full bg-black">
+      {/* Tek <video> — durum değişince unmount OLMAMALI, yoksa oynayan reklam ölür. */}
       <video
         ref={videoRef}
         className="h-full w-full bg-black"
         playsInline
         muted={muted}
         onEnded={goNext}
-        // Kullanıcı kaydırıcıyla reklamı ileri sarıp göstermim saydırmasın.
+        onError={goNext}
         controls={false}
         disablePictureInPicture
       />
-      {/* Reklamın içeriğe karışmaması için video tıklaması CTA'ya bağlanmadı. */}
 
-      <div className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between p-3">
-        <span className="rounded bg-black/70 px-2 py-1 text-[11px] font-medium text-white/90">
-          Reklam {index + 1}/{Math.min(visibleAds.length, MAX_ADS)}
-        </span>
-        <div className="pointer-events-auto flex items-center gap-2">
-          {muted ? (
-            <button
-              type="button"
-              className="rounded bg-black/70 px-2 py-1 text-[11px] font-medium text-white/90"
-              onClick={() => {
-                const video = videoRef.current;
-                if (!video) return;
-                video.muted = false;
-                setMuted(false);
-              }}
-            >
-              Sesi aç
-            </button>
-          ) : null}
-          {skippable ? (
-            <button
-              type="button"
-              className="rounded bg-white/90 px-3 py-1 text-[12px] font-medium text-black"
-              onClick={goNext}
-            >
-              Reklamı geç
-            </button>
-          ) : (
-            <span className="rounded bg-black/70 px-2 py-1 text-[11px] font-medium text-white/90">
-              Reklamı geç: {remaining}
-            </span>
-          )}
+      {started ? (
+        <div className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between p-3">
+          <span className="rounded bg-black/70 px-2 py-1 text-[11px] font-medium text-white/90">
+            Reklam {index + 1}/{Math.min(visibleAds.length, MAX_ADS)}
+          </span>
+          <div className="pointer-events-auto flex items-center gap-2">
+            {muted ? (
+              <button
+                type="button"
+                className="rounded bg-black/70 px-2 py-1 text-[11px] font-medium text-white/90"
+                onClick={() => {
+                  const video = videoRef.current;
+                  if (!video) return;
+                  video.muted = false;
+                  setMuted(false);
+                }}
+              >
+                Sesi aç
+              </button>
+            ) : null}
+            {skippable ? (
+              <button
+                type="button"
+                className="rounded bg-white/90 px-3 py-1 text-[12px] font-medium text-black"
+                onClick={goNext}
+              >
+                Reklamı geç
+              </button>
+            ) : (
+              <span className="rounded bg-black/70 px-2 py-1 text-[11px] font-medium text-white/90">
+                Reklamı geç: {remaining}
+              </span>
+            )}
+          </div>
         </div>
-      </div>
+      ) : (
+        // Reklam başlamadan önce: poster + "Oynat". Poster overlay'i üstte
+        // olduğu için altta duran reklam sayacı görünmez.
+        <div className="absolute inset-0">
+          {poster ? (
+            <img
+              src={poster}
+              alt=""
+              className="absolute inset-0 h-full w-full object-cover opacity-60"
+              loading="eager"
+            />
+          ) : null}
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 px-6 text-center">
+            <Button
+              size="lg"
+              className="rounded-full"
+              onClick={() => startAd(0)}
+              aria-label={`${title} bölümünü oynat`}
+            >
+              Oynat
+            </Button>
+            <p className="text-xs text-muted-foreground">
+              Önce {Math.min(visibleAds.length, MAX_ADS)} kısa reklam oynayacak
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

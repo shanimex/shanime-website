@@ -48,9 +48,18 @@ export const Route = createFileRoute("/izle/$slug")({
  * "Reklamı geç" geri sayımı biter ve ancak ondan sonra bölüm oynatıcısı yüklenir.
  * Reklam gelmezse kapı beklemeden açılır (ziyaretçi asla reklam yüzünden
  * videoyu izleyemez durumda kalmaz).
+ *
+ * MyBid spot adresi koda GÖMÜLÜ: Vite `.env` değişikliklerini çalışma anında
+ * yeniden okumaz (dev sunucusunun yeniden başlatılması gerekir), o yüzden adres
+ * varsayılan olarak burada durur — "reklam görünmüyor" durumu oluşmaz.
+ * Farklı bir spot kullanmak için `.env` içindeki VITE_MYBID_VAST_1 bu varsayılanı
+ * geçersiz kılar.
  */
+const MYBID_VAST_DEFAULT = "https://vast.vstserv.com/vast?spot_id=2028774";
+
 const PREROLL_VAST_URLS = [
-  (import.meta.env as unknown as Record<string, string | undefined>)["VITE_MYBID_VAST_1"] ?? "",
+  (import.meta.env as unknown as Record<string, string | undefined>)["VITE_MYBID_VAST_1"] ||
+    MYBID_VAST_DEFAULT,
   (import.meta.env as unknown as Record<string, string | undefined>)["VITE_MYBID_VAST_2"] ?? "",
 ].filter((value) => /^https?:\/\//i.test(value));
 

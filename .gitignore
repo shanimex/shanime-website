@@ -36,3 +36,6 @@ supabase/.temp/
 *.sln
 *.sw?
 .env
+
+# Streamtape'tan indirilen ham videolar (repoya girmez)
+media/

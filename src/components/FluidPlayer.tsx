@@ -29,6 +29,13 @@ type FluidPlayerFactory = (id: string, config?: Record<string, unknown>) => Flui
 /** Fluid Player'ın resmî CDN adresi (doküman: Integration → quick setup → CDN). */
 const FLUID_CDN = "https://cdn.fluidplayer.com/v3/current/fluidplayer.min.js";
 
+/**
+ * MyBid spot adresi — `.env` boşsa kullanılan varsayılan.
+ * (Vite `.env` değişikliklerini çalışma anında okumaz; adres koda gömülü ki
+ * reklamın görünmemesi gibi bir durum oluşmasın.)
+ */
+const MYBID_VAST_DEFAULT = "https://vast.vstserv.com/vast?spot_id=2028774";
+
 export type FluidSubtitle = {
   /**
    * Altyazı dosyası adresi.
@@ -93,7 +100,7 @@ function loadFluidPlayer(): Promise<FluidPlayerFactory> {
  */
 function vastTags(): string[] {
   const env = import.meta.env as unknown as Record<string, string | undefined>;
-  const tags = [env["VITE_MYBID_VAST_1"], env["VITE_MYBID_VAST_2"]]
+  const tags = [env["VITE_MYBID_VAST_1"] || MYBID_VAST_DEFAULT, env["VITE_MYBID_VAST_2"]]
     .map((value) => (value ?? "").trim())
     .filter((value) => /^https?:\/\//i.test(value));
   // Tek spot tanımlıysa ad-pod yine iki reklam olsun: aynı etiket iki kez
