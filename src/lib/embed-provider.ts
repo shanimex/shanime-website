@@ -34,14 +34,21 @@
  *    kodludur (her sezonun ayrı MAL kaydı vardır).
  */
 
-export type EmbedProviderId = "none" | "megaplay";
+export type EmbedProviderId = "none" | "megaplay" | "vidsrc";
 
 export interface EmbedProviderRequest {
   /** MyAnimeList kimliği. Şemada yoksa null. */
   malId: number | null;
   /** AniList kimliği (megaplay `ani` yolu için). */
   anilistId?: number | null;
-  /** Sezon numarası (1 tabanlı) — şu anki doğrulanmış şablonlarda KULLANILMAZ. */
+  /**
+   * TMDB kimliği. vidsrc.to gibi **TMDB tabanlı** sağlayıcılar bu kimliği ister;
+   * MAL kimliği o şablonlarda çalışmaz. `scripts/sync-anizip-covers.mjs` aynı
+   * ani.zip yanıtından üretip `src/data/mal-tmdb.json` dosyasına yazar
+   * (`tmdbIdForMal()` ile okunur).
+   */
+  tmdbId?: number | null;
+  /** Sezon numarası (1 tabanlı) — megaplay'de KULLANILMAZ, vidsrc'te zorunlu. */
   season: number;
   /** Bölüm numarası (1 tabanlı). */
   episode: number;
@@ -70,6 +77,8 @@ function fillTemplate(template: string, request: EmbedProviderRequest): string |
   const url = template
     .replace("{mal}", String(request.malId ?? ""))
     .replace("{ani}", String(request.anilistId ?? ""))
+    .replace("{tmdb}", String(request.tmdbId ?? ""))
+    .replace("{season}", String(request.season))
     .replace("{ep}", String(request.episode))
     .replace("{lang}", lang);
 
@@ -120,7 +129,50 @@ export const EMBED_PROVIDERS: Record<EmbedProviderId, EmbedProvider> = {
       return fillTemplate(template, request);
     },
   },
+
+  /**
+   * vidsrc.to — TMDB dizi kimliğiyle embed. **TÜRKÇE ALTYAZI VEREN SAĞLAYICI.**
+   *
+   * NEDEN TMDB: vidsrc.to'nun anime ucu YOK ("Currently we do not support anime",
+   * kendi SSS'i + `/embed/anime/...` → 404). Ama anime dizileri TMDB'de dizi
+   * olarak kayıtlı olduğu için `/embed/tv/{tmdb}/{sezon}/{bölüm}` çalışıyor.
+   *
+   * KULLANICI DOĞRULAMASI (25.09.2026, gerçek tarayıcı, JJK S1B1):
+   * `/embed/tv/95479/1/1` → video OYNADI (1:46 / 23:55), altyazı panelinde
+   * **"SEARCH BY LANGUAGE → Turkish — Türkçe"** seçili ve Türkçe altyazı dosyası
+   * listelendi. Ayarlar (kalite) menüsü de var. Kendi dokümanı: "The player has a
+   * range of quality options", "We source subtitles from various websites, ensuring
+   * we have a wide selection available for almost every title", ayrıca
+   * `?sub_file=` / `?sub.info=` ile KENDİ altyazı dosyanı yükleyebiliyorsun.
+   *
+   * ⚠️ OTOMASYON NOTU: Bu adres otomatik tarayıcıda oynatılamadı çünkü `vsembed.ru`
+   * `disable-devtool.js` yüklüyor ve otomasyon altında sayfa boşalıyor. Yani
+   * "otomatik test oynatamadı" ≠ "çalışmıyor". Kullanıcı tarayıcısında çalışıyor.
+   *
+   * Zincir: vidsrc.to → vsembed.ru → cloudorchestranova.com (iç içe iframe).
+   */
+  vidsrc: {
+    id: "vidsrc",
+    label: "VidSrc (TMDB kimliği, TR altyazı)",
+    template: "https://vidsrc.to/embed/tv/{tmdb}/{season}/{ep}",
+    requiresMalId: false,
+    evidence:
+      "vidsrc.to SSS: anime desteklenmiyor ama TMDB dizi kimliğiyle çalışıyor. " +
+      "Kullanıcı ölçümü: /embed/tv/95479/1/1 (JJK S1B1) oynadı, altyazı panelinde Turkish — Türkçe listelendi. " +
+      "Gereksinim: `mal-tmdb.json` içinde TMDB kimliği olmalı (MAL kimliği bu şablonda işe yaramaz).",
+    buildUrl(request) {
+      if (!request.tmdbId) return null;
+      const template = EMBED_PROVIDERS.vidsrc.template;
+      if (!template) return null;
+      return fillTemplate(template, request);
+    },
+  },
 };
+
+/** Dizge kimliğinden sağlayıcı getirir (bilinmeyen kimlik → null). */
+function providerById(id: string): EmbedProvider | null {
+  return (EMBED_PROVIDERS as Record<string, EmbedProvider | undefined>)[id] ?? null;
+}
 
 /**
  * Aktif sağlayıcı — **"megaplay"** (25.09.2026, kullanıcı onayı).
@@ -147,15 +199,20 @@ export const EMBED_PROVIDERS: Record<EmbedProviderId, EmbedProvider> = {
  *
  * Kapatmak için: aşağıdaki değeri "none" yap.
  */
-export const ACTIVE_EMBED_PROVIDER: EmbedProviderId = "megaplay";
+export const ACTIVE_EMBED_PROVIDER: EmbedProviderId = "vidsrc";
 
 /**
  * Bir bölüm için oynatılacak adresi çözer.
  *
  * Sıra:
- *  1. `watch_url` DOLUYSA o kazanır → mevcut çalışan davranış birebir korunur.
- *  2. Boşsa ve aktif sağlayıcı varsa ondan üretilir.
- *  3. Hiçbiri yoksa null → oynatıcı "video yok" ekranını gösterir.
+ *  1. `watch_url` **`@saglayici`** biçimindeyse (ör. `@vidsrc`, `@megaplay`) o
+ *     sağlayıcı ZORLANIR — kayıttaki eski embed adresini silmeden belirli bir
+ *     dizi/bölüm için sağlayıcı seçmenin yolu budur. Veritabanı şeması gerekmez.
+ *  2. `watch_url` doluysa o kazanır → mevcut çalışan davranış korunur.
+ *  3. Boşsa aktif sağlayıcıdan üretilir.
+ *  4. Aktif sağlayıcı adres üretemezse (ör. TMDB kimliği yok) **megaplay'e düşülür**
+ *     — böylece eşlemesi olmayan dizi boş ekrana değil, çalışan bir oynatıcıya düşer.
+ *  5. Hiçbiri yoksa null → oynatıcı "video yok" ekranını gösterir.
  */
 export function resolveEpisodeEmbed(
   watchUrl: string | null | undefined,
@@ -163,6 +220,20 @@ export function resolveEpisodeEmbed(
   providerId: EmbedProviderId = ACTIVE_EMBED_PROVIDER,
 ): string | null {
   const direct = (watchUrl ?? "").trim();
+
+  // `@saglayici` direktifi: bilinmeyen kimlik → adres üretme (yanlış oynatıcıya
+  // düşmektense "video yok" ekranı daha dürüst).
+  if (direct.startsWith("@")) {
+    const forced = providerById(direct.slice(1).trim());
+    return forced ? forced.buildUrl(request) : null;
+  }
+
   if (direct) return direct;
-  return EMBED_PROVIDERS[providerId].buildUrl(request);
+
+  const primary = EMBED_PROVIDERS[providerId].buildUrl(request);
+  if (primary) return primary;
+  if (providerId !== "megaplay") {
+    return EMBED_PROVIDERS.megaplay.buildUrl(request);
+  }
+  return null;
 }

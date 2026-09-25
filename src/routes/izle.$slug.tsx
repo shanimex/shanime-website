@@ -19,7 +19,7 @@ import {
   type SeasonWithEpisodes,
 } from "@/lib/content";
 import { resolvePosterForEpisode } from "@/lib/episode-covers";
-import { anizipCover } from "@/lib/anizip-covers";
+import { anizipCover, tmdbIdForMal } from "@/lib/anizip-covers";
 
 type WatchSearch = { sezon?: number | undefined; b?: number | undefined };
 
@@ -209,6 +209,9 @@ function WatchPage() {
   const episodeEmbed = currentEpisode
     ? resolveEpisodeEmbed(currentEpisode.watch_url, {
         malId: show.mal_id ?? null,
+        // TMDB kimliği: vidsrc.to şablonu bunu ister (MAL kimliği işe yaramaz).
+        // Eşleme `src/data/mal-tmdb.json` içinde derleme zamanında gömülü.
+        tmdbId: tmdbIdForMal(show.mal_id),
         season: currentEpisode.season,
         episode: currentEpisode.number,
       })

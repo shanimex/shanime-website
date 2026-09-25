@@ -233,9 +233,28 @@ Kendi altyazı dosyanı enjekte etmeye izin veren sağlayıcılar ve durumları:
 | vidlink.pro | `sub_file` + `sub_label` | Anime ucu **kırık** (`localhost:8080` hatası) |
 | multiembed / SuperEmbed | `directstream.php` + `sub_url` + `sub_label` | VIP oynatıcı bu kimlikler için **404** (yok) |
 
-Sonuç: bugün **çalışan ve TR altyazı kabul eden tek kombinasyon yok**. Kalıcı
-çözüm, §2'deki gibi videoyu kendimiz barındırıp kendi oynatıcımızda oynatmak —
-o zaman TR `.vtt` bir `<track>` etiketi olur ve kalite menüsü de bizim olur.
+### ⚠️ DÜZELTME (25.09.2026, kullanıcı kanıtı)
+
+Yukarıdaki "hiçbir sağlayıcı Türkçe vermiyor" tespiti **fazla genellemeydi**: o
+liste VidLink'in dokümanındaki dillere dayanıyordu. Kullanıcı `vidsrc.to`
+oynatıcısının **kendi altyazı panelini** açtı ve panelde:
+
+- `SEARCH BY LANGUAGE` → **Turkish — Türkçe** seçili,
+- altında **Türkçe altyazı dosyası** listelenmiş (`Jujutsu.Kaisen.S01E01...`, 11588 indirme),
+- video aynı anda oynuyor (`1:46 / 23:55`).
+
+Yani **vidsrc.to Türkçe altyazı sunuyor** — altyazıları harici sitelerden topladığını
+kendi SSS'inde zaten söylüyor ("we have a wide selection available for almost every
+title"). Ayarlar menüsünde kalite seçenekleri de var.
+
+Bu yüzden aktif sağlayıcı **vidsrc.to** yapıldı (§9). Kendi altyazı dosyanı
+(`?sub_file` / `?sub.info`) yükleme imkânı da duruyor — yani Türkçe dosyayı biz
+sağlamak istersek altyapı hazır.
+
+Bundan bağımsız olarak §2'deki kendi barındırma yolu hâlâ **tek** yol olarak
+kalıyor: (a) gerçek video karesi kapak, (b) altyazıyı varsayılan yapma, (c) %100
+reklam kontrolü. vidsrc.to bunların hiçbirini vermez — TR altyazıyı kullanıcı
+menüden kendi seçer.
 
 Koddaki hazır altyapı: `izle.$slug.tsx` içindeki `subtitlesOf()` zaten
 `episodes.subtitles` alanını `[{src, label, srclang}]` biçiminde okuyup Fluid
@@ -268,3 +287,55 @@ iki slot da sayılıyor; ≈ 1 ise ikinci gösterim sayılmıyor demektir.
 Her iki MyBid spotu da koda ve `.env`'e girilmiştir (`src/lib/mybid.ts` →
 `MYBID_VAST_SPOT_1/2`, `.env` → `VITE_MYBID_VAST_1/2`); `prerollVastUrls()`
 ikisini birden döndürür.
+
+---
+
+## 9. Yeni sağlayıcı mimarisi (vidsrc.to aktif)
+
+### Neden değişti
+
+megaplay çalışıyor ama **altyazı menüsünde Türkçe yok**; vidsrc.to'da **var**
+(kullanıcı kanıtı, §7). Kalite menüsü ikisinde de var.
+
+### Eşleme: MAL → TMDB
+
+vidsrc.to MAL kimliği kabul etmiyor, TMDB dizi kimliği istiyor. Eşleme
+`scripts/sync-anizip-covers.mjs` içinde **aynı ani.zip yanıtından** üretilip
+`src/data/mal-tmdb.json` dosyasına yazılıyor (ayrı istek yok):
+
+| Dizi | MAL | TMDB |
+|---|---|---|
+| jujutsu-kaisen | 40748 | 95479 |
+| re-zero | 31240 | 65942 |
+| erased | 31043 | 65249 |
+| mushoku-tensei | 39535 | 94664 |
+
+Okuma: `tmdbIdForMal(malId)` (`src/lib/anizip-covers.ts`).
+
+### Kod değişiklikleri
+
+| Dosya | Değişiklik |
+|---|---|
+| `src/lib/embed-provider.ts` | `vidsrc` sağlayıcısı eklendi; şablonda `{tmdb}` ve `{season}` yer tutucuları; `ACTIVE_EMBED_PROVIDER = "vidsrc"` |
+| `src/lib/embed-provider.ts` | `resolveEpisodeEmbed` sırası: **`@saglayici` direktifi** → `watch_url` → aktif sağlayıcı → **megaplay yedeği** (TMDB eşlemesi olmayan dizi boş ekrana düşmesin) |
+| `src/lib/anizip-covers.ts` | `tmdbIdForMal()` eklendi |
+| `src/routes/izle.$slug.tsx` | Sağlayıcı isteğine `tmdbId` geçiliyor |
+| `scripts/sync-anizip-covers.mjs` | `mal-tmdb.json` da üretiliyor |
+| `scripts/sql/jjk-eski-embedleri-kaldir.sql` | JJK'nın eski linklerini yedekleyip boşaltır |
+
+### `@saglayici` direktifi
+
+`watch_url` alanı `@vidsrc` veya `@megaplay` yazılırsa o sağlayıcı **zorlanır**.
+Şema değişikliği gerekmez, geri alması tek `update`. Bir dizide vidsrc bölüm
+bulamazsa o diziyi tek satırla megaplay'e döndürebilirsin (SQL dosyasında örnek var).
+
+### Kalan riskler (dürüstçe)
+
+- vidsrc.to iç içe iframe zinciri kullanıyor (`vidsrc.to → vsembed.ru →
+  cloudorchestranova.com`) ve `vsembed.ru` üzerinde `disable-devtool.js` var. Bu
+  otomasyon testini engelliyor; **bölüm kapsamı 4 dizi için tek tek elle
+  doğrulanmadı**.
+- Testte 1 adet kendiliğinden açılan pop-under gözlendi (hangi sağlayıcıdan geldiği
+  belirlenemedi). vidsrc.to oynatıcı üstüne `Histats.com` izleme rozeti çiziyor.
+- Türkçe altyazı **varsayılan değil**; kullanıcı panelden seçiyor. Varsayılan yapmak
+  ancak kendi altyazı dosyamızı `?sub_file=` ile vermekle mümkün.

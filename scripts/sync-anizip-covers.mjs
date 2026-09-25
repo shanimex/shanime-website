@@ -30,6 +30,12 @@ import { fileURLToPath } from "node:url";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const OUT = resolve(root, "src/data/episode-thumbs.json");
+/**
+ * MAL → TMDB kimlik eşlemesi. TMDB tabanlı embed sağlayıcıları (vidsrc.to)
+ * `https://vidsrc.to/embed/tv/{tmdb}/{sezon}/{bölüm}` biçimini kullanır; MAL
+ * kimliği bu şablonlarda işe yaramaz. Aynı ani.zip yanıtından üretilir.
+ */
+const TMDB_OUT = resolve(root, "src/data/mal-tmdb.json");
 const FORCE = process.argv.includes("--force");
 
 /** .env içinden Supabase bağlantısını okur (bağımlılık eklememek için elle). */
@@ -99,17 +105,23 @@ async function fetchAnizip(malId) {
     if (Number.isFinite(season) && Number.isFinite(number)) table[`s${season}e${number}`] = image;
     if (Number.isFinite(absolute)) table[`abs${absolute}`] = image;
   }
-  return table;
+  // Aynı yanıt TMDB kimliğini de taşır — vidsrc.to gibi TMDB tabanlı
+  // sağlayıcılar için ayrı bir istek gerekmez.
+  const tmdb = Number(json.mappings?.themoviedb_id);
+  return { table, tmdb: Number.isFinite(tmdb) && tmdb > 0 ? String(tmdb) : "" };
 }
 
-let existing = {};
-if (existsSync(OUT) && !FORCE) {
+function loadJson(path) {
+  if (FORCE || !existsSync(path)) return {};
   try {
-    existing = JSON.parse(readFileSync(OUT, "utf8"));
+    return JSON.parse(readFileSync(path, "utf8"));
   } catch {
-    existing = {};
+    return {};
   }
 }
+
+const existing = loadJson(OUT);
+const tmdbMap = loadJson(TMDB_OUT);
 
 const shows = await fetchShows();
 console.log(`Supabase: ${shows.length} seri (mal_id dolu).`);
@@ -117,24 +129,34 @@ console.log(`Supabase: ${shows.length} seri (mal_id dolu).`);
 let added = 0;
 let skipped = 0;
 let failed = 0;
+let tmdbAdded = 0;
 
 for (const show of shows) {
   const key = String(show.mal_id);
-  if (existing[key] && Object.keys(existing[key]).length > 0) {
+  const hasCovers = Boolean(existing[key] && Object.keys(existing[key]).length > 0);
+  const hasTmdb = Boolean(tmdbMap[key]);
+  // Tek istek hem kapakları hem TMDB kimliğini getirir: ikisinden biri eksikse çek.
+  if (hasCovers && hasTmdb) {
     skipped += 1;
     continue;
   }
   try {
-    const table = await fetchAnizip(key);
+    const { table, tmdb } = await fetchAnizip(key);
+    if (tmdb && !hasTmdb) {
+      tmdbMap[key] = tmdb;
+      tmdbAdded += 1;
+    }
     const count = Object.keys(table).length;
     if (count === 0) {
       console.warn(`  ! ${show.slug} (MAL ${key}) → kapak bulunamadı`);
       failed += 1;
-      continue;
+    } else if (!hasCovers) {
+      existing[key] = table;
+      added += 1;
+      console.log(`  + ${show.slug} (MAL ${key}) → ${count} kapak, TMDB ${tmdb || "yok"}`);
+    } else {
+      console.log(`  ~ ${show.slug} (MAL ${key}) → TMDB ${tmdb || "yok"}`);
     }
-    existing[key] = table;
-    added += 1;
-    console.log(`  + ${show.slug} (MAL ${key}) → ${count} kapak`);
     // ani.zip'i yormamak için kısa bekleme.
     await new Promise((r) => setTimeout(r, 400));
   } catch (err) {
@@ -145,6 +167,8 @@ for (const show of shows) {
 
 mkdirSync(dirname(OUT), { recursive: true });
 writeFileSync(OUT, `${JSON.stringify(existing, null, 2)}\n`, "utf8");
+writeFileSync(TMDB_OUT, `${JSON.stringify(tmdbMap, null, 2)}\n`, "utf8");
 console.log(
-  `\nYazıldı: ${OUT}\n  seri: ${Object.keys(existing).length} (yeni ${added}, atlanan ${skipped}, hata ${failed})`,
+  `\nYazıldı: ${OUT}\n  seri: ${Object.keys(existing).length} (yeni ${added}, atlanan ${skipped}, hata ${failed})` +
+    `\nYazıldı: ${TMDB_OUT}\n  TMDB eşlemesi: ${Object.keys(tmdbMap).length} (yeni ${tmdbAdded})`,
 );

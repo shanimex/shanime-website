@@ -1,4 +1,5 @@
 import BAKED_THUMBS from "@/data/episode-thumbs.json";
+import BAKED_TMDB from "@/data/mal-tmdb.json";
 
 /**
  * Bölüm kapakları — GERÇEK bölüm görselleri (ani.zip / TVDB).
@@ -40,4 +41,23 @@ export function anizipCover(
   const table = thumbs[String(malId)];
   if (!table) return "";
   return table[`s${season}e${episode}`] ?? table[`abs${episode}`] ?? "";
+}
+
+/**
+ * TMDB eşlemesi (MAL → TMDB). Aynı ani.zip yanıtından üretilir.
+ *
+ * NEDEN GEREKLİ: `vidsrc.to` gibi TMDB tabanlı sağlayıcılar şablonlarında TMDB
+ * kimliği ister (`/embed/tv/{tmdb}/{sezon}/{bölüm}`). MAL kimliği o şablonlarda
+ * işe yaramaz — bu yüzden ayrı bir eşleme tutulur.
+ *
+ * Örnek (25.09.2026 ölçümü): 40748 → 95479 (Jujutsu Kaisen), 31240 → 65942
+ * (Re:Zero), 31043 → 65249 (Erased), 39535 → 94664 (Mushoku Tensei).
+ */
+const tmdbMap = BAKED_TMDB as Record<string, string>;
+
+/** MAL kimliğine karşılık gelen TMDB kimliği; eşleme yoksa null. */
+export function tmdbIdForMal(malId: number | null | undefined): number | null {
+  if (!malId) return null;
+  const value = Number(tmdbMap[String(malId)]);
+  return Number.isFinite(value) && value > 0 ? value : null;
 }
