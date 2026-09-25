@@ -241,6 +241,23 @@ function providerById(id: string): EmbedProvider | null {
 export const ACTIVE_EMBED_PROVIDER: EmbedProviderId = "vidsrc";
 
 /**
+ * Belirli bir sağlayıcıdan embed adresi üretir (watch_url'i tamamen yok sayar).
+ *
+ * KULLANIM: izleyicinin "kaynak" seçimi. Bazı sağlayıcılar farklı şeyler
+ * verdiği için (ölçüm 25.09.2026):
+ *   · vidsrc.to → altyazı listesinde **Türkçe** var, ses İngilizce dublaj
+ *   · megaplay  → **orijinal Japonca ses**, altyazı listesinde Türkçe YOK
+ * Hiçbiri ikisini birlikte vermiyor; seçim izleyiciye bırakılır.
+ */
+export function buildProviderUrl(
+  providerId: EmbedProviderId,
+  request: EmbedProviderRequest,
+): string | null {
+  const provider = (EMBED_PROVIDERS as Record<string, EmbedProvider | undefined>)[providerId];
+  return provider ? provider.buildUrl(request) : null;
+}
+
+/**
  * Bir bölüm için oynatılacak adresi çözer.
  *
  * Sıra:

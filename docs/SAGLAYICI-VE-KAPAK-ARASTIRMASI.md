@@ -529,3 +529,74 @@ sürüm yayına girmiş.
 Yani sitede bizim tarafımızdan **4 reklam yüzeyi** var: 2 ön reklam + 1 banner +
 1 native. Bunun üstünde gördüğün her şey sağlayıcının kendi oynatıcısından gelir
 (vidsrc zinciri).
+
+---
+
+## 14. "Japonca dublaj + Türkçe altyazı" arayışı — kesin sonuç
+
+### Önce: megaplay'in kaynak ucu bulundu (önemli)
+
+megaplay oynatıcısının altyazı listesi **açık bir uçtan** okunabiliyor:
+
+```
+GET https://megaplay.buzz/stream/getSources?id=<data-id>     (kimlik gerekmiyor)
+→ { "tracks":[{ "file":"https://….hiddenvertex.top/…/subtitles/<hash>.vtt",
+                "label":"English", "kind":"captions", "default":true }],
+    "t":1, "intro":{"start":0,"end":0}, "outro":{"start":2853,"end":2950},
+    "server":4, "enc":"wdeBruh3…" }
+```
+
+`data-id`, embed kabuğundaki `<div id="megaplay-player" data-id="…">` alanından
+alınır. **Kabuğu sunucudan isterken `Sec-Fetch-Dest: iframe` göndermek şart** —
+yoksa sağlayıcı "Error Code: 410" sayfası döndürüyor (üçüncü kez doğrulandı:
+gerçek engelleme değil, bağlam kontrolü).
+
+Yan ürün: `intro`/`outro` saniyeleri de geliyor → ileride "açılışı atla" için
+hazır veri.
+
+### Tarama sonucu: megaplay'de TÜRKÇE ALTYAZI YOK
+
+4 dizi × 3 bölüm (B1/B2/B5) tarandı:
+
+| Dizi (MAL) | Bölüm 1'in izleri |
+|---|---|
+| jujutsu-kaisen (40748) | Arabic, **English\\***, French, German, Italian, Portuguese(BR), Russian, Spanish, Spanish(ES) — **Türkçe yok** |
+| re-zero (31240) | English\\* — **tek iz** |
+| mushoku-tensei (39535) | **English\\***, Portuguese(BR), Spanish — **Türkçe yok** |
+| erased (31043) | English\\* — **tek iz** |
+
+(`*` = varsayılan iz)
+
+### Karar: hiçbir sağlayıcı ikisini birlikte vermiyor
+
+| Sağlayıcı | Ses | Altyazı | Türkçe |
+|---|---|---|---|
+| **megaplay** | **orijinal Japonca** (sub sürümü) | 1–9 iz, İngilizce varsayılan | **YOK** (ölçüldü) |
+| **vidsrc.to** | İngilizce dublaj (anime için) | geniş altyazı veritabanı, dil aramalı | **VAR** |
+
+Ek olarak bu turda taranan ve elenen adaylar: `vidsrc.cc` (anime sub/dub ucu —
+**522, tamamen düşmüş**), `vidsrc.sbs` (anime → 404), `vidsrc.net`/`.rip`/`.in`/
+`.xyz`/`vidora.su` (bağlantı yok), `vidsrc.win`/`vidsrc.me`/`vidsrc.pm`
+(200 döndü ama altyazı/kalite izi yok), `2anime.xyz` (403 Cloudflare),
+`anizone.to` (404), `animekai.to` (erişilemedi), `embed.su` (erişilemedi).
+
+### Uygulanan çözüm: izleyiciye kaynak seçimi
+
+Oynatıcının altına iki düğme eklendi:
+
+- **Japonca ses** → megaplay (orijinal ses, altyazı EN ve diğerleri)
+- **Türkçe altyazı** → vidsrc.to (Türkçe altyazı menüsü, ses İngilizce dublaj)
+
+Teknik: `?kaynak=megaplay|vidsrc` sorgu parametresi; `buildProviderUrl()` seçilen
+sağlayıcıdan adresi üretir (watch_url ve `@` direktifi o anda yok sayılır).
+Düğme yalnızca iki sağlayıcı da adres üretebiliyorsa görünür. Kaynak değişince
+iframe yenilenir, **ön reklam tekrar oynamaz**.
+
+Kod: `src/lib/embed-provider.ts` → `buildProviderUrl()`,
+`src/routes/izle.$slug.tsx` → `WatchSource` / `WATCH_SOURCES` / kaynak düğmeleri.
+
+### İkisini birlikte vermenin tek yolu
+
+Videoyu kendimiz barındırmak (R2) + kendi Türkçe `.vtt` dosyamız. O zaman
+Japonca ses, Türkçe altyazı, kalite menüsü, altyazı tasarımı ve pop kontrolü
+aynı anda bizim olur. Aksi halde sağlayıcı seçimi zorunlu bir takas.

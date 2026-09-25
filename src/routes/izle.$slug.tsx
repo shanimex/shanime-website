@@ -8,7 +8,7 @@ import { AdsterraLeaderboard, AdsterraNative } from "@/components/AdsterraUnit";
 import { EpisodeCover } from "@/components/EpisodeCover";
 import { FluidPlayer, type FluidSubtitle } from "@/components/FluidPlayer";
 import { PrerollGate } from "@/components/PrerollGate";
-import { resolveEpisodeEmbed } from "@/lib/embed-provider";
+import { buildProviderUrl, resolveEpisodeEmbed } from "@/lib/embed-provider";
 import { prerollVastUrls } from "@/lib/mybid";
 import {
   episodeCoverFromWatchUrl,
@@ -21,7 +21,36 @@ import {
 import { resolvePosterForEpisode } from "@/lib/episode-covers";
 import { anizipCover, tmdbIdForMal } from "@/lib/anizip-covers";
 
-type WatchSearch = { sezon?: number | undefined; b?: number | undefined };
+/**
+ * İzleyicinin seçtiği kaynak.
+ *
+ * NEDEN VAR: hiçbir sağlayıcı "Japonca ses" ve "Türkçe altyazı"yı birlikte
+ * vermiyor (ölçüm 25.09.2026):
+ *   · vidsrc.to → altyazı menüsünde Türkçe VAR, ses İngilizce dublaj
+ *   · megaplay  → orijinal Japonca ses, altyazı listesinde Türkçe YOK
+ *     (4 dizide 12 bölüm tarandı: JJK'da 9 dil var, Türkçe yok)
+ * Bu yüzden seçim izleyiciye bırakılır; varsayılan `ACTIVE_EMBED_PROVIDER`.
+ */
+type WatchSource = "megaplay" | "vidsrc";
+
+type WatchSearch = {
+  sezon?: number | undefined;
+  b?: number | undefined;
+  kaynak?: WatchSource | undefined;
+};
+
+const WATCH_SOURCES: { id: WatchSource; label: string; hint: string }[] = [
+  {
+    id: "megaplay",
+    label: "Japonca ses",
+    hint: "Orijinal Japonca dublaj (altyazı: EN ve diğerleri)",
+  },
+  { id: "vidsrc", label: "Türkçe altyazı", hint: "Türkçe altyazı menüsü (ses: İngilizce dublaj)" },
+];
+
+function toWatchSource(value: unknown): WatchSource | undefined {
+  return value === "megaplay" || value === "vidsrc" ? value : undefined;
+}
 
 /** Sorgu parametresini pozitif tam sayıya çevirir; geçersizse undefined döner. */
 function toPositiveInt(value: unknown): number | undefined {
@@ -37,6 +66,7 @@ export const Route = createFileRoute("/izle/$slug")({
   validateSearch: (search: Record<string, unknown>): WatchSearch => ({
     sezon: toPositiveInt(search["sezon"]),
     b: toPositiveInt(search["b"]),
+    kaynak: toWatchSource(search["kaynak"]),
   }),
   head: () => ({
     meta: [{ title: "shanime | İzle", name: "robots", content: "noindex" }],
@@ -109,7 +139,7 @@ function subtitlesOf(episode: Episode | null): FluidSubtitle[] {
 
 function WatchPage() {
   const { slug } = Route.useParams();
-  const { sezon, b } = Route.useSearch();
+  const { sezon, b, kaynak } = Route.useSearch();
   const navigate = useNavigate();
   const {
     data: detail,
@@ -206,8 +236,8 @@ function WatchPage() {
   // döndürür → mevcut yayın davranışı değişmez. Sağlayıcı yalnızca watch_url'i
   // boş olan bölümlerde devreye girer (ör. yalnızca MAL kimliğiyle eklenen yeni
   // bölümler).
-  const episodeEmbed = currentEpisode
-    ? resolveEpisodeEmbed(currentEpisode.watch_url, {
+  const episodeRequest = currentEpisode
+    ? {
         malId: show.mal_id ?? null,
         // TMDB kimliği: vidsrc.to şablonu bunu ister (MAL kimliği işe yaramaz).
         // Eşleme `src/data/mal-tmdb.json` içinde derleme zamanında gömülü.
@@ -219,8 +249,27 @@ function WatchPage() {
         // Böylece Türkçe altyazı menüde hazır olur — sağlayıcının yerleşik
         // listesinden Türkçe'yi varsayılan yapmanın başka yolu yok.
         subtitles: episodeSubtitles.map((track) => ({ file: track.src, label: track.label })),
-      })
+      }
     : null;
+
+  // Kaynak seçimi: izleyici açıkça seçtiyse o kazanır (watch_url ve `@` direktifi
+  // yok sayılır), seçmediyse mevcut çözümleme sırası işler.
+  const episodeEmbed =
+    currentEpisode && episodeRequest
+      ? ((kaynak ? buildProviderUrl(kaynak, episodeRequest) : null) ??
+        resolveEpisodeEmbed(currentEpisode.watch_url, episodeRequest))
+      : null;
+
+  // Kaynak düğmesi yalnızca iki sağlayıcı da adres ÜRETEBİLİYORSA gösterilir.
+  const sourceOptions = WATCH_SOURCES.filter((option) =>
+    episodeRequest ? Boolean(buildProviderUrl(option.id, episodeRequest)) : false,
+  );
+  // Şu an gerçekten hangisi oynuyor? (Adresten tespit edilir.)
+  const activeSource: WatchSource | null = episodeEmbed?.includes("megaplay.buzz")
+    ? "megaplay"
+    : episodeEmbed?.includes("vidsrc.to")
+      ? "vidsrc"
+      : null;
   const watching = Boolean(episodeEmbed) && gateDone;
 
   return (
@@ -310,6 +359,46 @@ function WatchPage() {
 
         {/* Bilgi satırı + reklam: oynatıcının altında, oynatıcı genişliğinde. */}
         <div className="mt-4 space-y-4 lg:pr-[340px]">
+          {/* Kaynak seçimi. Yalnızca iki sağlayıcı da adres üretebiliyorsa çıkar:
+              "Japonca ses" (megaplay) ve "Türkçe altyazı" (vidsrc.to) aynı anda
+              hiçbir sağlayıcıda yok, seçim izleyiciye bırakılır (bkz. WatchSource).
+              Kaynak değişince iframe yenilenir; reklam kapısı yeniden kurulmaz. */}
+          {sourceOptions.length > 1 && (
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                Kaynak
+              </span>
+              {sourceOptions.map((option) => {
+                const active = activeSource === option.id;
+                return (
+                  <button
+                    key={option.id}
+                    type="button"
+                    title={option.hint}
+                    onClick={() =>
+                      void navigate({
+                        to: "/izle/$slug",
+                        params: { slug },
+                        search: {
+                          sezon: activeSeason?.number,
+                          b: currentEpisode?.number,
+                          kaynak: option.id,
+                        },
+                      })
+                    }
+                    className={
+                      active
+                        ? "rounded-full border border-accent bg-accent/15 px-3 py-1 text-[12px] font-bold text-accent"
+                        : "rounded-full border border-border px-3 py-1 text-[12px] font-bold text-muted-foreground transition-colors hover:border-accent/60 hover:text-accent"
+                    }
+                  >
+                    {option.label}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
           {/* Oynatıcının altındaki bilgi satırı (animecix düzeni). */}
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="min-w-0">
