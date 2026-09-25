@@ -418,3 +418,79 @@ pop, ~60 saniyelik soğuma süresiyle sınırlandırılmış.
 **Yapılabilecek bir şey yok.** Pop, sağlayıcının kendi belgesinin içinde
 oluşturuluyor; bizim tarafımızdan engellenemiyor. Seçenekler: (a) izleyicinin
 reklam engelleyicisi, (b) pop'u olmayan bir sağlayıcı, (c) kendi barındırma.
+
+---
+
+## 11. Sandbox A/B ölçümü — kesin sonuç: ENGELLİ
+
+`sbx.js` kaynağı tamamen okundu (1.201 byte). Algılama iki yolla ve ikisi de
+**cross-origin** bir üst çerçevede tetiklenmemesi gerekiyordu:
+
+```js
+try { if (window.frameElement && window.frameElement.hasAttribute('sandbox')) { block(); return; } } catch (t) {}
+try { document.domain = document.domain; }
+catch (t) { if (('' + t).toLowerCase().indexOf('sandbox') !== -1) { block(); return; } }
+```
+
+Yani `allow-same-origin` İÇEREN bir sandbox teorik olarak `sbx.js`'i atlatmalıydı.
+Bu yüzden gerçek tarayıcıda 3 hücreli A/B testi yapıldı
+(`public/_sandbox-test.html`, aynı adres, tek değişken `sandbox`):
+
+| Hücre | sandbox | Sonuç |
+|---|---|---|
+| 1 | **yok** (kontrol) | Gerçek oynatıcı geldi: poster "JUJUTSU KAISEN 2020 - S01 E01" + oynat düğmesi |
+| 2 | `allow-scripts allow-same-origin allow-forms allow-presentation allow-orientation-lock` | **ENGELLENDİ** |
+| 3 | `allow-scripts allow-forms` (allow-same-origin yok) | **ENGELLENDİ** |
+| 4 | yok (megaplay kontrol) | Oynatıcı geldi |
+
+Hücre 2 ve 3'te ekranda birebir şu yazdı:
+
+> **This content can't be embedded in a sandboxed frame**
+> The player was loaded inside an `<iframe sandbox>`, which isn't permitted.
+
+Yani `sbx.js`'in yanında **ikinci bir engel** var: en içteki oynatıcının kendisi
+sandbox'ı algılayıp reddediyor. `allow-same-origin` olsa bile.
+
+**Sonuç: vidsrc.to'da pop-up'ı sandbox ile engellemek mümkün değil.** Pop
+60 saniyelik soğuma ile sağlayıcının kendi belgesinde oluşturuluyor.
+
+---
+
+## 12. Sağlayıcı oynatıcısının İÇİNDEKİ ayarlar — dışarıdan değiştirilemez
+
+Kullanıcı şunları istedi; hepsi en içteki oynatıcının (`cloudorchestranova.com`)
+kendi arayüzünde ve **cross-origin** olduğu için dışarıdan müdahale edilemez:
+
+| İstek | Durum | Neden |
+|---|---|---|
+| Kaliteyi varsayılan **1080p** yap | **Mümkün değil** | Kalite menüsü oynatıcının içinde. Ayrıca bu akışta menüde yalnızca **Auto / 360p / 720p** var — 1080p kaynak yok |
+| Altyazıyı varsayılan **Türkçe** yap | **Mümkün değil** | Seçim oynatıcının iç durumu. Tek yol kendi `.vtt` dosyamızı `?sub.info=` ile vermek (§10.1) |
+| Altyazı tasarımı: **Background opacity 0** | **Mümkün değil** | "CAPTION STYLE" ayarları oynatıcının kendi VTTCue render'ı; her ziyaretçi için bizden ayarlanamaz |
+
+Bu ayarlar ziyaretçinin tarayıcısında sağlayıcının origin'i altında saklanıyor;
+bizim sayfamızdan ne okunabilir ne yazılabilir. Kalıcı varsayılan istiyorsan tek
+yol kendi oynatıcımız (§2).
+
+### Ses/dublaj (ör. Re:Zero İngilizce dublaj)
+
+vidsrc.to oynatıcısında **ses/dublaj seçici yok** (arayüzde yalnızca
+`Subtitles` ve `Options` sekmeleri var; `Settings` içinde sadece `QUALITY`).
+Yani hangi sesi verdiyse o çalar — URL'den değiştirilemez.
+
+Alternatif: diziyi `@megaplay`e almak. megaplay `/sub` yolu **orijinal Japonca
+ses + gömülü altyazı** verir (iframe ölçümünde altyazı göründü). Ama megaplay'de
+Türkçe altyazı yok.
+
+| Seçim | Ses | TR altyazı |
+|---|---|---|
+| vidsrc.to (bugünkü varsayılan) | sağlayıcı ne verirse (Re:Zero'da İngilizce dublaj) | **var** (menüden seçilir) |
+| `@megaplay` | **orijinal Japonca** | yok |
+
+Tek satırla dizi bazında değiştirilir:
+
+```sql
+update public.show_episodes e
+set watch_url = '@megaplay'
+from public.shows s
+where s.id = e.show_id and s.slug = 're-zero';
+```

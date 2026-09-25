@@ -288,7 +288,6 @@ function WatchPage() {
             watching={watching}
             showTitle={show.title}
             epNumber={currentEpisode?.number ?? 0}
-            epSeason={currentEpisode?.season ?? 1}
             epUrl={episodeEmbed ?? ""}
             directSrc={directSrc}
             subtitles={episodeSubtitles}
@@ -348,7 +347,6 @@ function PlayerBox({
   watching,
   showTitle,
   epNumber,
-  epSeason,
   epUrl,
   directSrc,
   subtitles,
@@ -358,8 +356,6 @@ function PlayerBox({
   watching: boolean;
   showTitle: string;
   epNumber: number;
-  /** Sezon: sağlayıcı iframe'inin üstüne çizilen kendi etiketimizde kullanılır. */
-  epSeason: number;
   epUrl: string;
   /** Doğrudan oynatılabilir adres (mp4/HLS). Varsa Fluid Player kullanılır. */
   directSrc: string;
@@ -383,65 +379,52 @@ function PlayerBox({
             subtitles={subtitles}
           />
         ) : (
-          // `relative` + `group` sarmalayıcı: iframe'in ÜSTÜNE kendi şeridimizi
-          // çizmek için. Sağlayıcı zinciri (vidsrc.to → vsembed.ru) kendi üst
-          // şeridinde "JUJUTSU KAISEN 2020 · S01 E01" yazıyor; o metin cross-origin
-          // iframe'in İÇİNDE olduğu için DÜZENLENEMEZ. Aynı noktaya kendi şeridimizi
-          // çizip onunkini görsel olarak kapatıyoruz (bkz. aşağıdaki şerit).
-          <div className="group relative">
-            <iframe
-              src={epUrl}
-              title={`${showTitle} bölüm ${epNumber}`}
-              loading="lazy"
-              // `sandbox` YOK — popunder'ı engellemek için DENENDİ ve BAŞARISIZ OLDU.
-              //
-              // Ölçüm (25.09.2026 · aynı URL + aynı sayfa + aynı referrer,
-              // TEK değişken `sandbox`):
-              //   sandbox="allow-scripts allow-same-origin allow-forms
-              //            allow-presentation allow-orientation-lock"
-              //   → Streamtape: "Client blocked! / Your browser or the embed you are
-              //     viewing are doing nasty things!"  (sandbox'ı ALGILIYOR)
-              //   → VidMoly:    "The embed could not be loaded."
-              //   → sandbox'SIZ aynı iframe: VidMoly gerçek oynatıcıyı yüklüyor
-              //     (poster + play), Streamtape CAPTCHA kapısına geliyor.
-              //
-              // Yani sağlayıcılar sandbox'lı embed'i reddediyor → "popup engelle +
-              // video oynat" birlikte MÜMKÜN DEĞİL. Embed'in kendi belgesi içindeki
-              // davranış dışarıdan kontrol edilemiyor. Kanıt: OYNATICI-FLUIDPLAYER.md §6.
-              //
-              // vidsrc.to için de DENENDİ (25.09.2026) — KASITLI OLARAK ENGELLENİYOR.
-              // Zincirin ikinci halkası `vsembed.ru`, `/assets/sbx.js` adlı bir
-              // "Sandbox-embed blocker" yüklüyor; kendi yorumu birebir:
-              //   "If that page is loaded inside an <iframe sandbox> (a client
-              //    trying to cage the player), this frame is redirected to
-              //    /sandbox.php?ref=<embedding host>."
-              // Algılama iki yolla: (1) kendi çerçevesinde `sandbox` özniteliği,
-              // (2) opak kaynak (allow-same-origin olmayan sandbox) → `document.domain`
-              // ataması "sandbox" içeren bir SecurityError verir.
-              // Sonuç: vidsrc'te pop-up'ı sandbox ile engellemek MÜMKÜN DEĞİL.
-              allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
-              allowFullScreen
-              // bg-black: iframe kendi belgesini boyayana kadar geçen sürede
-              // tarayıcının varsayılan BEYAZ zeminini görmemek için (iOS'ta beyaz
-              // kenar/çerçeve gibi görünüyordu). Sarmalayıcı da siyah.
-              className="aspect-video w-full bg-black"
-            />
-
-            {/* Kendi üst şeridimiz. Sağlayıcının şeridinin tam üstüne oturur ve onu
-              görsel olarak kapatır. Video normalde temiz kalsın diye şerit yalnızca
-              fareyle üzerine gelindiğinde görünür (sağlayıcının şeridi de öyle
-              davranıyor).
-              NOT: Sağlayıcının yazısını DEĞİŞTİRMEZ, üstünü boyar — cross-origin
-              iframe'in içeriğine yazı yazmak mümkün değil. */}
-            <div
-              aria-hidden
-              className="pointer-events-none absolute inset-x-0 top-0 z-10 flex items-center bg-gradient-to-b from-black/90 to-transparent px-4 pb-6 pt-3.5 opacity-0 transition-opacity duration-300 group-hover:opacity-100"
-            >
-              <span className="min-w-0 truncate text-[15px] font-semibold text-white [text-shadow:0_1px_3px_rgba(0,0,0,.65)]">
-                {showTitle} · S{epSeason} B{epNumber}
-              </span>
-            </div>
-          </div>
+          // NOT: sağlayıcının üst şeridini ("S01 E01" yazan) KAPATMAK için kendi
+          // şeridimizi çizme denemesi yapıldı (25.09.2026) — kullanıcı istemedi,
+          // kaldırıldı. Sağlayıcının yazısı cross-origin iframe'in içinde; bizim
+          // katmanımız onu boyuyor ve çirkin duruyor. Metin değiştirilemez.
+          <iframe
+            src={epUrl}
+            title={`${showTitle} bölüm ${epNumber}`}
+            loading="lazy"
+            // `sandbox` YOK — popunder'ı engellemek için DENENDİ ve BAŞARISIZ OLDU.
+            //
+            // Ölçüm (25.09.2026 · aynı URL + aynı sayfa + aynı referrer,
+            // TEK değişken `sandbox`):
+            //   sandbox="allow-scripts allow-same-origin allow-forms
+            //            allow-presentation allow-orientation-lock"
+            //   → Streamtape: "Client blocked! / Your browser or the embed you are
+            //     viewing are doing nasty things!"  (sandbox'ı ALGILIYOR)
+            //   → VidMoly:    "The embed could not be loaded."
+            //   → sandbox'SIZ aynı iframe: VidMoly gerçek oynatıcıyı yüklüyor
+            //     (poster + play), Streamtape CAPTCHA kapısına geliyor.
+            //
+            // Yani sağlayıcılar sandbox'lı embed'i reddediyor → "popup engelle +
+            // video oynat" birlikte MÜMKÜN DEĞİL. Embed'in kendi belgesi içindeki
+            // davranış dışarıdan kontrol edilemiyor. Kanıt: OYNATICI-FLUIDPLAYER.md §6.
+            //
+            // vidsrc.to için de DENENDİ (25.09.2026) — İKİ AYRI ENGEL var:
+            //  1) Zincirin ikinci halkası `vsembed.ru`, `/assets/sbx.js` adlı bir
+            //     "Sandbox-embed blocker" yüklüyor (kendi yorumu birebir:
+            //     "If that page is loaded inside an <iframe sandbox> ... this frame
+            //      is redirected to /sandbox.php?ref=<embedding host>").
+            //  2) A/B ölçümü (aynı sayfa, 3 hücre: sandbox'suz · allow-same-origin'li
+            //     sandbox · allow-same-origin'siz sandbox): HER İKİ sandbox
+            //     varyantında en içteki oynatıcı şunu yazdı —
+            //     "This content can't be embedded in a sandboxed frame /
+            //      The player was loaded inside an <iframe sandbox>, which isn't
+            //      permitted."
+            //     (sandbox'suz aynı adres gerçek oynatıcıyı getirdi.)
+            // Sonuç: vidsrc'te pop-up'ı sandbox ile engellemek MÜMKÜN DEĞİL.
+            // Pop, sağlayıcının kendi belgesi içinde oluşturuluyor (window.open
+            // hook'u + gizli iframe + localStorage 60 sn soğuma).
+            allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
+            allowFullScreen
+            // bg-black: iframe kendi belgesini boyayana kadar geçen sürede
+            // tarayıcının varsayılan BEYAZ zeminini görmemek için (iOS'ta beyaz
+            // kenar/çerçeve gibi görünüyordu). Sarmalayıcı da siyah.
+            className="aspect-video w-full bg-black"
+          />
         )
       ) : epUrl ? (
         <PrerollGate
