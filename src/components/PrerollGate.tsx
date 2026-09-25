@@ -43,15 +43,22 @@ const MAX_ADS_ROUNDS = 3;
  *  - `true`  → iki slot da oynar, sayaç **"Reklam 1/2 → 2/2"**; ama aynı video
  *               iki kez görünebilir.
  *
- * `false` seçildi: kullanıcı şartı **"2 tane AYNI reklam olmaz"**. Tekilleştirme
- * açıkken MyBid iki farklı kreatif verirse **2 reklam** oynar (2/2); iki spot aynı
- * kreatifi verirse dürüstçe **1 reklam** oynar (1/1) — aynı video iki kez
- * gösterilmez.
+ * KURAL: **farklı kreatif tercih edilir, ama pod mutlaka doldurulur.**
  *
- * `true` yapılırsa sayaç her zaman 2/2 olur ama iki slotta **aynı reklam** oynar
- * (ölçüm: aynı mp4, 15,1 sn × 2 ≈ 30 sn). Kullanıcı bunu istemedi.
+ *  1. Turlar boyunca FARKLI kreatifler toplanır (aynı mp4 tekrarı bir kenara
+ *     ayrılır, atılmaz).
+ *  2. `MAX_ADS`e farklı kreatifle ulaşılamadıysa, kalan slot bir kenara ayrılan
+ *     tekrarla doldurulur → sayaç yine `2/2` olur.
+ *
+ * Böylece: MyBid iki farklı reklam verirse **2 farklı reklam** oynar; yalnızca tek
+ * kreatif varsa pod yine 2 slottur (ikinci slot aynı reklamı gösterir — başka
+ * envanter olmadığı için tek yol budur).
+ *
+ * `false` yapılırsa tekrar hiç kullanılmaz → tek kreatif olduğunda pod **1 reklama
+ * düşer** (`1/1`). Bu bir kez yanlışlıkla yapıldı ve 2 reklam kayboldu; varsayılan
+ * bu yüzden `true`.
  */
-const ALLOW_REPEAT_CREATIVE = false;
+const ALLOW_REPEAT_CREATIVE = true;
 /** VAST skipoffset vermediyse kullanılacak atlama süresi (saniye). */
 const DEFAULT_SKIP_SECONDS = 5;
 
@@ -97,10 +104,12 @@ export function PrerollGate({
       finish();
       return;
     }
-    // Toplanan reklamlar + kreatif tekilleştirme. Aynı video iki kez oynatılmaz;
-    // ikinci slotu doldurmak için farklı kreatif bulana kadar ek tur atılır.
+    // `collected`: oynatılacak reklamlar.
+    // `seen`      : görülen kreatifler (farklı olanı tercih etmek için).
+    // `repeats`   : farklı kreatif bulunamazsa pod'u doldurmak için ayrılan tekrarlar.
     const collected: VastAd[] = [];
     const seen = new Set<string>();
+    const repeats: VastAd[] = [];
 
     const collect = async (): Promise<void> => {
       for (let round = 0; round < MAX_ADS_ROUNDS; round += 1) {
@@ -114,18 +123,28 @@ export function PrerollGate({
         if (!alive) return;
         for (const ad of groups.flat()) {
           if (collected.length >= MAX_ADS) return;
-          // Tekilleştirme yalnızca kapalıyken uygulanır (bkz. ALLOW_REPEAT_CREATIVE).
-          if (!ALLOW_REPEAT_CREATIVE && seen.has(ad.mediaFile)) continue;
+          if (seen.has(ad.mediaFile)) {
+            // Farklı kreatif tercih edilir; tekrar atılmaz, yedeğe alınır.
+            if (ALLOW_REPEAT_CREATIVE) repeats.push(ad);
+            continue;
+          }
           seen.add(ad.mediaFile);
           collected.push(ad);
         }
         if (collected.length >= MAX_ADS) return;
-        // Bu tur hiç YENİ kreatif getirmediyse ek tur denemek boşuna.
-        if (collected.length === before) return;
+        // Bu tur hiç YENİ farklı kreatif getirmediyse ek tur denemek boşuna.
+        if (collected.length === before) break;
       }
     };
 
     void collect()
+      .then(() => {
+        // Farklı kreatifle dolmadıysa kalan slotu yedektekilerle doldur → pod 2/2.
+        while (alive && collected.length < MAX_ADS && repeats.length > 0) {
+          const next = repeats.shift();
+          if (next) collected.push(next);
+        }
+      })
       .catch(() => undefined)
       .then(() => {
         if (!alive) return;
