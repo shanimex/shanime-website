@@ -17,7 +17,7 @@ düşüldü, o yüzden her iddianın yanında nasıl ölçüldüğü yazılı.
 | **vidsrc.to** | **YOK** | Kendi SSS metni: *"Can i use this API for anime? Currently we do not support anime, we may do that in the future."* Ayrıca `/embed/anime/40748/1/sub` → **HTTP 404** | Elenir |
 | **vidlink.pro** | Var (MAL id ile) | Doküman: `https://vidlink.pro/anime/{MALid}/{number}/{subOrDub}` — `/anime/40748/1/sub` → **HTTP 200**. Ama üretim JS paketi anime sayfasında `fetch("http://localhost:8080/api/anime/...")` çağırıyor; gerçek tarayıcıda sayfa **"FETCHING DATA, PLEASE WAIT…" ekranında kilitli kaldı, hiç `<video>` oluşmadı, 0 istek yanıtlandı** | **Şu an KIRIK** |
 | **player.videasy.net** | Var (MAL id ile) | Sunucu tarafı istek → 200. Gerçek tarayıcı → **403 / `net::ERR_HTTP_RESPONSE_CODE_FAILURE`** (`player.videasy.to`'ya yönleniyor). Anime kaynağını çağırdığı `api.speedracelight.com/hianime/sources-with-title` rotası → **404 "Route … not found"** | **Erişilemez + rota ölü** |
-| **megaplay.buzz** (mevcut) | Var (MAL id ile) | `/stream/mal/{mal}/{ep}/{lang}` → 200. MAL **40748 (JJK) bölüm 1 → HTTP 410** ("removed due a copyright violation"); MAL 31240 (Re:Zero) bölüm 1 → gerçek oynatıcı yüklendi | Çalışıyor; bazı MAL kimliklerinde 410 |
+| **megaplay.buzz** (mevcut) | Var (MAL **ve** AniList id ile) | **iframe içinde** (doğru bağlam): MAL 40748 (JJK), AniList 113415 (JJK), MAL 31240 (Re:Zero) → **üçünde de gerçek oynatıcı, video oynadı**, CC + ayarlar simgeleri var, katman reklam yok. Sekmede (top-level) açılınca üçünde de "Error Code: 410" sayfası çıkar — bu bir erişim koruması, embed davranışı değil | **Çalışıyor — JJK dahil** |
 | vidora.su / vidsrc.cc / 2anime.xyz / embed.animekai.to | — | sırasıyla **timeout / timeout / 403 / DNS çözülemedi** | Elenir |
 
 ### vidlink.pro'nun gerçek problemi (kanıt)
@@ -155,7 +155,7 @@ dev sunucusunu yeniden başlatmak yeterli — kod değişikliği yok.
 
 | Soru | Cevap |
 |---|---|
-| Başka "hazır anime" servisi var mı? | vidsrc.to anime **desteklemiyor**. vidlink.pro ve videasy nin anime **şu an kırık/erişilemez**. megaplay çalışan tek sağlayıcı, ama bazı MAL kimliklerinde 410. Yeni bir sağlayıcıya geçmek bugün **net bir kazanç sağlamıyor**. |
+| Başka "hazır anime" servisi var mı? | vidsrc.to **anime ucu yok** (ama TMDB dizi kimliğiyle JJK'yı tanıyor). vidlink.pro ve videasy'nin anime uçları **şu an kırık/erişilemez**. vidfast.pro 3 pop-under açtı. multiembed/streamingnow kendini kapatıyor (otomasyonda doğrulanamadı). **megaplay çalışan tek sağlayıcı** ve JJK dahil çalışıyor. Sağlayıcı değiştirmek bugün net kazanç sağlamıyor. |
 | TR altyazı + kalite? | Embed ile **imkânsız**. Tek yol R2 + kendi oynatıcı (§2). |
 | Hızlı/yavaş olmasın? | megaplay iframe'i hafif (sayfa ~5 KB kabuk). Sağlayıcı değişikliği hız kazandırmaz; asıl kazanç kendi barındırmada. |
 | Kapaklar? | **Çözüldü** — ani.zip ile bölüm başına gerçek görsel (§3). |
@@ -171,3 +171,100 @@ dev sunucusunu yeniden başlatmak yeterli — kod değişikliği yok.
 - Videasy anime sayfası + `api.speedracelight.com` rota testleri
 - ani.zip eşleme API'si (bölüm görselleri): https://api.ani.zip/mappings?mal_id=40748
 - Clickadu / HilltopAds VAST format iddiaları: affmaven.com, afftank.com (üçüncü taraf blog)
+- İframe bağlamı testi (JJK): `public/_embed-test.html` → bkz. §6
+
+---
+
+## 6. Jujutsu Kaisen — eski reklamlı embedlerin kaldırılması
+
+### Durum (ölçüm, `show_episodes` tablosu, 25.09.2026)
+
+| Dizi | Bölüm | Embed durumu |
+|---|---|---|
+| **jujutsu-kaisen** | 24 | **22 VidMoly + 2 Streamtape** ← reklamlı, kaldırılıyor |
+| re-zero | 25 | boş → megaplay |
+| erased | 12 | boş → megaplay |
+| mushoku-tensei | 11 | boş → megaplay |
+
+### Doğrulama — iframe bağlamında (top-level DEĞİL)
+
+`public/_embed-test.html` içine 4 iframe konup gerçek tarayıcıda oynatıldı:
+
+| Hücre | Adres | Sonuç |
+|---|---|---|
+| 1 | `megaplay.buzz/stream/mal/40748/1/sub` | **Gerçek oynatıcı. Video oynadı** (JJK S1B1, `23:55`), altyazı göründü, CC + ayarlar simgeleri var, katman reklam yok |
+| 2 | `megaplay.buzz/stream/ani/113415/1/sub` | Aynı — gerçek oynatıcı, video oynadı |
+| 3 | `megaplay.buzz/stream/mal/31240/1/sub` (kontrol) | Gerçek oynatıcı, farklı dizi (Re:Zero) |
+| 4 | `vidsrc.to/embed/tv/95479/1/1` | Gerçek oynatıcı (poster + başlık "JUJUTSU KAISEN 2020 · S01 E01" + oynat). Oynatma **doğrulanamadı**; oynatıcı üstünde `Histats.com` rozeti çizildi |
+
+**Kritik düzeltme:** bu testten önce megaplay adresleri tarayıcıda **sekme olarak**
+açılmış ve hepsinde "Error Code: 410 — removed due a copyright violation" görülmüştü.
+Bu bir **doğrudan erişim korumasıdır**; aynı adresler iframe içinde sorunsuz oynuyor.
+O ölçüme dayanarak "megaplay'de JJK yok" sonucu çıkarmak yanlıştı.
+
+Not: test sırasında **1 adet kendiliğinden açılan pop-under** gözlendi
+(`arenabreakoutinfinite.com` adresine giden reklam sayfası) — hangi hücreden
+geldiği belirlenemedi. Yani sağlayıcıların sıfır pop-up garantisi yok.
+
+### Uygulama
+
+`scripts/sql/jjk-megaplay.sql` — Supabase SQL Editor'de çalıştırılır:
+
+1. `public.watch_url_backup_jjk` yedek tablosu oluşturulur (24 satır) → **geri alınabilir**.
+2. JJK'nın `watch_url` alanları boşaltılır → kod aktif sağlayıcıya (megaplay) düşer.
+3. Öncesi/sonrası sayım sorguları ve geri alma bloğu dosyanın içinde.
+
+Kod değişikliği GEREKMEZ: `resolveEpisodeEmbed` zaten "önce `watch_url`, boşsa
+sağlayıcı" sırasını uyguluyor ve `jujutsu-kaisen` kaydında `mal_id = 40748` dolu.
+
+---
+
+## 7. TR altyazı — hangi yol gerçekten mümkün
+
+Hiçbir sağlayıcı **Türkçe** altyazı yayınlamıyor (vidlink dil listesi: Arapça,
+Bengalce, İngilizce, Filipince, Fransızca, Endonezce, Rusça, Urduca — Türkçe yok).
+megaplay'de CC simgesi var ama dil listesi **doğrulanmadı**.
+
+Kendi altyazı dosyanı enjekte etmeye izin veren sağlayıcılar ve durumları:
+
+| Sağlayıcı | Parametre | Anime durumu |
+|---|---|---|
+| **vidsrc.to** | `?sub_file=<vtt>` (tek dosya) veya `?sub.info=<json>` (`{file,label,kind}` dizisi) | Anime ucu yok **ama** TMDB dizi kimliğiyle JJK gerçek oynatıcı verdi (oynatma doğrulanamadı) |
+| vidlink.pro | `sub_file` + `sub_label` | Anime ucu **kırık** (`localhost:8080` hatası) |
+| multiembed / SuperEmbed | `directstream.php` + `sub_url` + `sub_label` | VIP oynatıcı bu kimlikler için **404** (yok) |
+
+Sonuç: bugün **çalışan ve TR altyazı kabul eden tek kombinasyon yok**. Kalıcı
+çözüm, §2'deki gibi videoyu kendimiz barındırıp kendi oynatıcımızda oynatmak —
+o zaman TR `.vtt` bir `<track>` etiketi olur ve kalite menüsü de bizim olur.
+
+Koddaki hazır altyapı: `izle.$slug.tsx` içindeki `subtitlesOf()` zaten
+`episodes.subtitles` alanını `[{src, label, srclang}]` biçiminde okuyup Fluid
+Player'a veriyor. Aynı veri, vidsrc.to seçilirse `sub.info` parametresine
+çevrilebilir — yani **tek alan, iki kullanım**.
+
+---
+
+## 8. "2 reklam aynı çıkıyor, yine kazanır mıyım?"
+
+Ölçülen durum: iki MyBid spotu (2028789 + 2028790) dolu dönüyor ama **aynı
+kreatifi** veriyor (creativeID 7991131, birebir aynı mp4).
+
+Mekanik olarak ne oluyor:
+
+- Her slot **ayrı bir açık artırma** açar (`PrerollGate` iki etiketi ayrı ayrı
+  çeker). Yani iki ayrı reklam yanıtı ve iki ayrı `<Impression>` beacon'ı oluşur.
+- Buna karşılık talep tarafında **sıklık sınırı (frequency cap)** uygulanabilir:
+  aynı kullanıcıya aynı kreatifi kısa sürede iki kez göstermek bazı alıcılarda
+  ikinci gösterimin sayılmamasına yol açar. Bu, ağın iç kuralıdır ve dışarıdan
+  doğrulanamaz.
+
+Yani: **kesin iki kat gelir garantisi yok.** Garantili artış için 2. slotu
+**farklı bir talep kaynağıyla** doldurmak gerekir (§4).
+
+Kullanıcı tarafında doğrulanabilir kontrol: MyBid panelinde **gösterim
+(impression) sayısı** ile **izlenme/oynatma sayısı** oranına bakın. Oran ≈ 2 ise
+iki slot da sayılıyor; ≈ 1 ise ikinci gösterim sayılmıyor demektir.
+
+Her iki MyBid spotu da koda ve `.env`'e girilmiştir (`src/lib/mybid.ts` →
+`MYBID_VAST_SPOT_1/2`, `.env` → `VITE_MYBID_VAST_1/2`); `prerollVastUrls()`
+ikisini birden döndürür.
