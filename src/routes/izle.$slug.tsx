@@ -4,7 +4,9 @@ import { ArrowLeft, ArrowRight, Home, Loader2, Play } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { AdSlot, useAdCode } from "@/components/AdSlot";
+import { AdsterraLeaderboard, AdsterraNative } from "@/components/AdsterraUnit";
 import { EpisodeCover } from "@/components/EpisodeCover";
+import { FluidPlayer, type FluidSubtitle } from "@/components/FluidPlayer";
 import {
   episodeCoverFromWatchUrl,
   fetchShowDetail,
@@ -51,6 +53,52 @@ function seasonLabel(season: SeasonWithEpisodes): string {
   return season.title.trim() || `${season.number}. Sezon`;
 }
 
+/**
+ * Bölümün DOĞRUDAN oynatma adresi (mp4 / m3u8).
+ *
+ * Fluid Player bir iframe oynatamaz; yalnızca kendi oynatabildiği bir dosya ya
+ * da HLS akışıyla çalışır. Bölüm kaydında böyle bir alan yoksa (bugünkü durum)
+ * boş döner ve aşağıdaki oynatıcı sağlayıcının embed'ine düşer — yani bu yol
+ * eklenmeden hiçbir şey bozulmaz.
+ *
+ * Devreye almak için `episodes` tablosuna `play_url` (text) kolonu eklenip
+ * kendi barındırdığın dosyanın/ HLS adresinin yazılması gerekir.
+ */
+function directSourceOf(episode: Episode | null): string {
+  if (!episode) return "";
+  const value = (episode as unknown as { play_url?: unknown }).play_url;
+  return typeof value === "string" && /^https?:\/\//i.test(value) ? value : "";
+}
+
+/**
+ * Bölümün altyazı listesi.
+ *
+ * `episodes.subtitles` alanı şu biçimde bir JSON dizisi olmalıdır:
+ *   [{ "src": "https://.../bolum-1.vtt", "label": "Türkçe", "srclang": "tr" }]
+ *
+ * DİKKAT: Fluid Player altyazıyı HTML5 <track> ile okur ve <track> yalnızca
+ * .vtt destekler; .srt tarayıcıda çalışmaz. .srt dosyaları önce .vtt'ye
+ * çevrilmelidir.
+ */
+function subtitlesOf(episode: Episode | null): FluidSubtitle[] {
+  if (!episode) return [];
+  const value = (episode as unknown as { subtitles?: unknown }).subtitles;
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((item, index) => {
+    if (!item || typeof item !== "object") return [];
+    const entry = item as { src?: unknown; label?: unknown; srclang?: unknown };
+    if (typeof entry.src !== "string" || !/^https?:\/\//i.test(entry.src)) return [];
+    return [
+      {
+        src: entry.src,
+        label: typeof entry.label === "string" && entry.label ? entry.label : "Altyazı",
+        srclang: typeof entry.srclang === "string" && entry.srclang ? entry.srclang : "tr",
+        isDefault: index === 0,
+      },
+    ];
+  });
+}
+
 function WatchPage() {
   const { slug } = Route.useParams();
   const { sezon, b } = Route.useSearch();
@@ -68,6 +116,12 @@ function WatchPage() {
   // Panelde `ad_preroll` kodu var mı? Geri sayım kararı buna bağlı.
   const preroll = useAdCode("ad_preroll");
   const prerollHasAd = preroll.isFetched && Boolean(preroll.code);
+
+  // Oynatıcının üstü/altı: panelde kod varsa PANEL kazanır, yoksa koddaki
+  // Adsterra birimi devreye girer. Böylece panelden kod değiştirmek yayın
+  // gerektirmez, kod boşken de reklam alanı boş kalmaz.
+  const watchTop = useAdCode("ad_watch_top");
+  const watchBottom = useAdCode("ad_watch_bottom");
 
   // Geri sayım VARSAYILAN OLARAK 0: kod yokken ziyaretçi boş bir "Reklamı geç"
   // ekranında bekletilmez, video hemen başlar. Kod girilmişse bekleme geri gelir.
@@ -99,6 +153,10 @@ function WatchPage() {
       ? (ordered[currentIndex + 1] ?? null)
       : null;
   const multipleSeasons = playableSeasons.length > 1;
+
+  // Oynatıcı kaynağı: doğrudan adres varsa Fluid Player, yoksa sağlayıcı embed'i.
+  const directSrc = directSourceOf(currentEpisode);
+  const episodeSubtitles = subtitlesOf(currentEpisode);
 
   // Bölüm değişince (istemci içi geçişte de) bekleme yeniden ayarlanır: geri
   // sayım yalnızca panelde gerçek bir `ad_preroll` kodu varsa kurulur.
@@ -193,7 +251,11 @@ function WatchPage() {
           {show.title}
           {currentEpisode ? ` ${currentEpisode.number}. Bölüm izle` : " izle"}
         </h1>
-        <AdSlot slot="ad_watch_top" className="mb-5 flex justify-center" />
+        {watchTop.isFetched && watchTop.code ? (
+          <AdSlot slot="ad_watch_top" className="mb-5 flex justify-center" />
+        ) : (
+          <AdsterraLeaderboard className="mb-5" />
+        )}
 
         {/* Kapak alanı: oynatıcı normal akışta durur ve YÜKSEKLİĞİ O BELİRLER;
             panel masaüstünde sağa mutlak konumlanır ve `inset-y-0` ile tam
@@ -209,6 +271,8 @@ function WatchPage() {
             showTitle={show.title}
             epNumber={currentEpisode?.number ?? 0}
             epUrl={currentEpisode?.watch_url ?? ""}
+            directSrc={directSrc}
+            subtitles={episodeSubtitles}
             onSkip={() => setCountdown(0)}
           />
 
@@ -246,7 +310,11 @@ function WatchPage() {
             />
           </div>
 
-          <AdSlot slot="ad_watch_bottom" className="flex justify-center" />
+          {watchBottom.isFetched && watchBottom.code ? (
+            <AdSlot slot="ad_watch_bottom" className="flex justify-center" />
+          ) : (
+            <AdsterraNative className="flex justify-center" />
+          )}
         </div>
       </main>
     </div>
@@ -260,6 +328,8 @@ function PlayerBox({
   showTitle,
   epNumber,
   epUrl,
+  directSrc,
+  subtitles,
   onSkip,
 }: {
   watching: boolean;
@@ -267,32 +337,47 @@ function PlayerBox({
   showTitle: string;
   epNumber: number;
   epUrl: string;
+  /** Doğrudan oynatılabilir adres (mp4/HLS). Varsa Fluid Player kullanılır. */
+  directSrc: string;
+  /** Fluid Player için VTT altyazı listesi (boş olabilir). */
+  subtitles: FluidSubtitle[];
   onSkip: () => void;
 }) {
   return (
     <div className="overflow-hidden rounded-2xl border border-border bg-black">
       {watching ? (
-        <iframe
-          src={epUrl}
-          title={`${showTitle} bölüm ${epNumber}`}
-          loading="lazy"
-          // `sandbox` bilinçli olarak YOK — denendi, geri alındı.
-          //
-          // Amaç sağlayıcının popunder'ını (yeni sekme açma, sayfa başlığını
-          // değiştirme) engellemekti. Ölçüm sonucu: VidMoly oynatıcısı sandbox
-          // altında çalışmayı reddediyor ve kutuda "The embed could not be
-          // loaded." çıkıyor. Kanıt: aynı iframe, aynı adres, tek fark sandbox —
-          // sandbox'sız hâli hem 390×844 hem 1600×1000'de sorunsuz oynuyor,
-          // sandbox'lı hâli her iki genişlikte de hata veriyor. Yani bu
-          // sağlayıcıyla popunder'ı dışarıdan engellemenin yolu yok; reklamlar
-          // sağlayıcının kendi belgesinde kaldığı sürece bu davranış kabul.
-          allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
-          allowFullScreen
-          // bg-black: iframe kendi belgesini boyayana kadar geçen sürede
-          // tarayıcının varsayılan BEYAZ zeminini görmemek için (iOS'ta beyaz
-          // kenar/çerçeve gibi görünüyordu). Sarmalayıcı da siyah.
-          className="aspect-video w-full bg-black"
-        />
+        directSrc ? (
+          // Kendi oynatıcımız. YALNIZCA bölümün doğrudan (mp4/HLS) adresi
+          // varsa kullanılır: Fluid Player bir iframe oynatamaz, bu yüzden
+          // sağlayıcı embed'leri aşağıdaki dala düşer.
+          <FluidPlayer
+            src={directSrc}
+            title={`${showTitle} bölüm ${epNumber}`}
+            subtitles={subtitles}
+          />
+        ) : (
+          <iframe
+            src={epUrl}
+            title={`${showTitle} bölüm ${epNumber}`}
+            loading="lazy"
+            // `sandbox` bilinçli olarak YOK — denendi, geri alındı.
+            //
+            // Amaç sağlayıcının popunder'ını (yeni sekme açma, sayfa başlığını
+            // değiştirme) engellemekti. Ölçüm sonucu: VidMoly oynatıcısı sandbox
+            // altında çalışmayı reddediyor ve kutuda "The embed could not be
+            // loaded." çıkıyor. Kanıt: aynı iframe, aynı adres, tek fark sandbox —
+            // sandbox'sız hâli hem 390×844 hem 1600×1000'de sorunsuz oynuyor,
+            // sandbox'lı hâli her iki genişlikte de hata veriyor. Yani bu
+            // sağlayıcıyla popunder'ı dışarıdan engellemenin yolu yok; reklamlar
+            // sağlayıcının kendi belgesinde kaldığı sürece bu davranış kabul.
+            allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
+            allowFullScreen
+            // bg-black: iframe kendi belgesini boyayana kadar geçen sürede
+            // tarayıcının varsayılan BEYAZ zeminini görmemek için (iOS'ta beyaz
+            // kenar/çerçeve gibi görünüyordu). Sarmalayıcı da siyah.
+            className="aspect-video w-full bg-black"
+          />
+        )
       ) : (
         <div className="flex aspect-video w-full flex-col items-center justify-center gap-4 bg-black/90 px-6 text-center">
           {epUrl ? (

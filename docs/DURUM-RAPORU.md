@@ -2224,3 +2224,39 @@ koymadığını sordu. Girdiği link: `https://filemoon.org/e/qw1zeDk03Xyn`
   Geo Blocking, Team & Business.
 - **Not:** `filemoon.sx` / `filemoon.to` / `byse.sx` artık "Byse" tanıtım sayfasına çıkıyor; kullanıcının
   hesabı ve dosyaları **`filemoon.org`** üzerinde. Alan adı karışıklığına dikkat.
+
+---
+
+## 39. Fluid Player + reklam entegrasyonu: 2 adım uygulandı, 2 adım reddedildi
+
+Ayrıntılı rapor: [docs/OYNATICI-FLUIDPLAYER.md](OYNATICI-FLUIDPLAYER.md)
+
+**Uygulandı**
+- `src/components/FluidPlayer.tsx` (yeni): VAST ad-pod (`vastOptions.adList`, çoklu preRoll),
+  altyazı (`kind="metadata"`), HLS/mp4, kaynak değişince yeniden kurulum.
+- `src/components/AdsterraUnit.tsx` (yeni): oynatıcının üstünde 728×90 / 768 px altında 300×250
+  (yükseklik önceden ayrılır — CLS yok), altında Native Banner.
+- `src/lib/streamtape.ts` (yeni): resmî API istemcisi; **yalnız embed linki** üretir.
+- `src/routes/izle.$slug.tsx`: `PlayerBox` artık doğrudan adres varsa Fluid Player, yoksa
+  sağlayıcı embed'i; panel slotu doluysa panel kazanır, boşsa Adsterra birimi çalışır.
+- `npx tsc --noEmit` temiz, `npx eslint` (4 dosya) temiz.
+
+**Uygulanmadı (gerekçeli)**
+1. **Streamtape reklamlarını filtreleyip ham dosyayı kendi oynatıcıda oynatmak.** Şartlar ve
+   Koşullar'ın "Prohibited Activities" bölümü yasaklıyor ("use content obtained from Streamtape
+   … for commercial purposes", "display, perform … except by using functionality provided by
+   Streamtape") ve "Company may withhold some or all payment" + "terminate your account without
+   prior notice" diyor. API'nin verdiği adres de zaten bir **indirme** adresi (`wait_time: 10`).
+   Meşru yol: kendi depolamanda barındırıp Fluid Player + kendi reklamların, ya da Streamtape
+   embed'i (**"Publisher Program"** tam olarak siteye gömülü izlenmeler için ödeme yapıyor).
+2. **Reklam div class isimlerini "rastgele kriptolu" yapmak.** Cloaking yapılmadı; sınıf adları
+   okunaklı. Reklam yükünü azaltmak yerine gizlemek hem hesap riski hem hata ayıklamayı imkânsız kılar.
+
+**Eksik girdiler:** Streamtape **API Login** (API login+key çifti ister; yalnız key var) ·
+**MyBid VAST URL'i** (verilen değer 32 karakterlik kimlik; Fluid Player URL ister ve VAST yanıtı
+`application/xml|text/xml` olmalı) · oynatılacak **doğrudan kaynak** (`episodes.play_url`).
+Streamtape API key'i sohbette paylaşıldığı için **döndürülmesi** önerildi.
+
+**Kritik gerçek:** Fluid Player bir iframe oynatamaz → sağlayıcı embed'leri (Voe/VidMoly/Filemoon/
+Streamtape) Fluid Player'a taşınamaz. "Tüm akış Fluid Player" ancak dosya sende olursa mümkün.
+Ayrıca Fluid Player'da sabit "5 sn sonra atla" ayarı yok; atlama VAST `skipoffset`'ine bağlı.
