@@ -7,6 +7,7 @@ import { AdSlot, useAdCode } from "@/components/AdSlot";
 import { AdsterraLeaderboard, AdsterraNative } from "@/components/AdsterraUnit";
 import { EpisodeCover } from "@/components/EpisodeCover";
 import { FluidPlayer, type FluidSubtitle } from "@/components/FluidPlayer";
+import { PrerollGate } from "@/components/PrerollGate";
 import {
   episodeCoverFromWatchUrl,
   fetchShowDetail,
@@ -41,13 +42,17 @@ export const Route = createFileRoute("/izle/$slug")({
 });
 
 /**
- * Video öncesi bekleme.
+ * Video öncesi reklam (VAST) etiketleri.
  *
- * Bu bekleme YALNIZCA `ad_preroll` slotunda gerçek bir reklam kodu varsa
- * uygulanır. Kod yokken kullanıcı boş bir "reklam" ekranında bekletilmez;
- * aşağıdaki etki geri sayımı sıfıra çeker ve video hemen başlar.
+ * Kapı GERÇEK video reklamı oynatır: etiket çekilir, reklam mp4'ü oynatılır,
+ * "Reklamı geç" geri sayımı biter ve ancak ondan sonra bölüm oynatıcısı yüklenir.
+ * Reklam gelmezse kapı beklemeden açılır (ziyaretçi asla reklam yüzünden
+ * videoyu izleyemez durumda kalmaz).
  */
-const PREROLL_SECONDS = 5;
+const PREROLL_VAST_URLS = [
+  (import.meta.env as unknown as Record<string, string | undefined>)["VITE_MYBID_VAST_1"] ?? "",
+  (import.meta.env as unknown as Record<string, string | undefined>)["VITE_MYBID_VAST_2"] ?? "",
+].filter((value) => /^https?:\/\//i.test(value));
 
 function seasonLabel(season: SeasonWithEpisodes): string {
   return season.title.trim() || `${season.number}. Sezon`;
@@ -113,21 +118,14 @@ function WatchPage() {
     staleTime: 60_000,
   });
 
-  // Panelde `ad_preroll` kodu var mı? Yoksa koddaki Adsterra birimi gösterilir,
-  // yani 5 saniyelik ön-reklam ekranı HER durumda çalışır (istenen davranış).
-  const preroll = useAdCode("ad_preroll");
-  const prerollUsesPanel = preroll.isFetched && Boolean(preroll.code);
-  const prerollHasAd = preroll.isFetched;
-
   // Oynatıcının üstü/altı: panelde kod varsa PANEL kazanır, yoksa koddaki
   // Adsterra birimi devreye girer. Böylece panelden kod değiştirmek yayın
   // gerektirmez, kod boşken de reklam alanı boş kalmaz.
   const watchTop = useAdCode("ad_watch_top");
   const watchBottom = useAdCode("ad_watch_bottom");
 
-  // Geri sayım VARSAYILAN OLARAK 0: kod yokken ziyaretçi boş bir "Reklamı geç"
-  // ekranında bekletilmez, video hemen başlar. Kod girilmişse bekleme geri gelir.
-  const [countdown, setCountdown] = useState(0);
+  // Video öncesi reklam kapısı: gerçek VAST reklamları oynadıktan sonra açılır.
+  const [gateDone, setGateDone] = useState(false);
 
   // Sezonu bölümü olan sezonlar üzerinden çöz: boş bir sezon seçilirse
   // izleyici "bölüm yok" ekranında kalmaz, ilk dolu sezona düşer.
@@ -160,18 +158,11 @@ function WatchPage() {
   const directSrc = directSourceOf(currentEpisode);
   const episodeSubtitles = subtitlesOf(currentEpisode);
 
-  // Bölüm değişince (istemci içi geçişte de) bekleme yeniden ayarlanır: geri
-  // sayım yalnızca panelde gerçek bir `ad_preroll` kodu varsa kurulur.
+  // Bölüm değişince (istemci içi geçişte de) reklam kapısı yeniden kurulur.
   const currentKey = currentEpisode ? `${currentEpisode.season}-${currentEpisode.number}` : "yok";
   useEffect(() => {
-    setCountdown(prerollHasAd ? PREROLL_SECONDS : 0);
-  }, [currentKey, prerollHasAd]);
-
-  useEffect(() => {
-    if (countdown <= 0) return;
-    const timer = window.setTimeout(() => setCountdown((value) => value - 1), 1000);
-    return () => window.clearTimeout(timer);
-  }, [countdown]);
+    setGateDone(false);
+  }, [currentKey]);
 
   // Sekme başlığı: rota başlığı statik ("shanime | İzle") olduğu için seri ve
   // bölüm bilgisi veri hazır olunca burada yazılır.
@@ -204,7 +195,7 @@ function WatchPage() {
   }
 
   const { show } = detail;
-  const watching = Boolean(currentEpisode?.watch_url) && countdown <= 0;
+  const watching = Boolean(currentEpisode?.watch_url) && gateDone;
 
   return (
     <div className="min-h-screen bg-background">
@@ -269,14 +260,13 @@ function WatchPage() {
         <div className="relative lg:pr-[340px]">
           <PlayerBox
             watching={watching}
-            countdown={countdown}
             showTitle={show.title}
             epNumber={currentEpisode?.number ?? 0}
             epUrl={currentEpisode?.watch_url ?? ""}
             directSrc={directSrc}
             subtitles={episodeSubtitles}
-            prerollUsesPanel={prerollUsesPanel}
-            onSkip={() => setCountdown(0)}
+            vastUrls={PREROLL_VAST_URLS}
+            onGateFinish={() => setGateDone(true)}
           />
 
           {activeSeason && currentEpisode && (
@@ -324,20 +314,18 @@ function WatchPage() {
   );
 }
 
-/** Oynatıcı + geri sayım ekranı. */
+/** Oynatıcı + video öncesi reklam kapısı. */
 function PlayerBox({
   watching,
-  countdown,
   showTitle,
   epNumber,
   epUrl,
   directSrc,
   subtitles,
-  prerollUsesPanel,
-  onSkip,
+  vastUrls,
+  onGateFinish,
 }: {
   watching: boolean;
-  countdown: number;
   showTitle: string;
   epNumber: number;
   epUrl: string;
@@ -345,9 +333,10 @@ function PlayerBox({
   directSrc: string;
   /** Fluid Player için VTT altyazı listesi (boş olabilir). */
   subtitles: FluidSubtitle[];
-  /** Ön-reklam kodu panelden mi geliyor? Değilse kod içi Adsterra birimi çizilir. */
-  prerollUsesPanel: boolean;
-  onSkip: () => void;
+  /** Video öncesi reklam (VAST) etiketleri. */
+  vastUrls: string[];
+  /** Reklamlar bitince çağrılır; bölüm oynatıcısı o zaman yüklenir. */
+  onGateFinish: () => void;
 }) {
   return (
     <div className="overflow-hidden rounded-2xl border border-border bg-black">
@@ -384,25 +373,15 @@ function PlayerBox({
             className="aspect-video w-full bg-black"
           />
         )
+      ) : epUrl ? (
+        <PrerollGate
+          vastUrls={vastUrls}
+          title={`${showTitle} bölüm ${epNumber}`}
+          onFinish={onGateFinish}
+        />
       ) : (
         <div className="flex aspect-video w-full flex-col items-center justify-center gap-4 bg-black/90 px-6 text-center">
-          {epUrl ? (
-            <>
-              {prerollUsesPanel ? (
-                <AdSlot slot="ad_preroll" className="flex justify-center" />
-              ) : (
-                <AdsterraLeaderboard />
-              )}
-              <p className="text-sm font-bold text-foreground">
-                Video {countdown} saniye içinde başlayacak
-              </p>
-              <Button size="sm" className="rounded-full" onClick={onSkip}>
-                Reklamı geç
-              </Button>
-            </>
-          ) : (
-            <p className="text-sm text-muted-foreground">Bu bölüm için video henüz eklenmedi.</p>
-          )}
+          <p className="text-sm text-muted-foreground">Bu bölüm için video henüz eklenmedi.</p>
         </div>
       )}
     </div>
