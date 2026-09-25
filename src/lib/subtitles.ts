@@ -53,19 +53,34 @@ export function parseSubtitles(raw: string): Cue[] {
   return cues.sort((a, b) => a.start - b.start);
 }
 
+/** Sitеде sunabildiğimiz altyazı dilleri. */
+export const SUBTITLE_LANGS = ["tr", "en"] as const;
+export type SubtitleLang = (typeof SUBTITLE_LANGS)[number];
+
+/** Menüde görünecek adlar. */
+export const SUBTITLE_LABELS: Record<SubtitleLang, string> = {
+  tr: "Türkçe",
+  en: "İngilizce",
+};
+
 /**
- * Altyazı dosyasının YERLEŞİK yolu: `/subs/{slug}-s{sezon}b{bölüm}.vtt`.
+ * Altyazı dosyasının YERLEŞİK yolu: `/subs/{slug}-s{sezon}b{bölüm}.{dil}.vtt`.
  *
- * NEDEN KURAL: her bölüm için panelde ayrı ayrı JSON girmek istemiyoruz. Betik
- * (`scripts/sync-tr-subtitles.mjs`) dosyaları bu adla `public/subs/` altına
- * yazıyor; kod da bu yolu kendiliğinden arıyor. Dosya yoksa istek 404 döner ve
- * altyazı sessizce kapalı kalır — hiçbir şey bozulmaz.
+ * NEDEN KURAL: her bölüm ve her dil için panelde ayrı ayrı JSON girmek
+ * istemiyoruz. Betik (`scripts/sync-tr-subtitles.mjs`) dosyaları bu adla
+ * `public/subs/` altına yazıyor; site de bu yolu kendiliğinden arıyor. Dosya
+ * yoksa istek 404 döner ve o dil menüde hiç görünmez — hiçbir şey bozulmaz.
  *
  * Panelden açıkça bir adres girilmişse (`episodes.subtitles`) o tercih edilir.
  */
-export function conventionSubtitlePath(slug: string, season: number, episode: number): string {
+export function conventionSubtitlePath(
+  slug: string,
+  season: number,
+  episode: number,
+  lang: SubtitleLang,
+): string {
   if (!slug) return "";
-  return `/subs/${slug}-s${season}b${episode}.vtt`;
+  return `/subs/${slug}-s${season}b${episode}.${lang}.vtt`;
 }
 
 /** Verilen saniyede gösterilecek satırı bulur (yoksa null). */

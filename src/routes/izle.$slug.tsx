@@ -9,7 +9,12 @@ import { EpisodeCover } from "@/components/EpisodeCover";
 import { FluidPlayer, type FluidSubtitle } from "@/components/FluidPlayer";
 import { PrerollGate } from "@/components/PrerollGate";
 import { SubtitleOverlay } from "@/components/SubtitleOverlay";
-import { conventionSubtitlePath } from "@/lib/subtitles";
+import {
+  conventionSubtitlePath,
+  SUBTITLE_LABELS,
+  SUBTITLE_LANGS,
+  type SubtitleLang,
+} from "@/lib/subtitles";
 import { buildProviderUrl, resolveEpisodeEmbed } from "@/lib/embed-provider";
 import { prerollVastUrls } from "@/lib/mybid";
 import {
@@ -166,12 +171,15 @@ function WatchPage() {
   // Video öncesi reklam kapısı: gerçek VAST reklamları oynadıktan sonra açılır.
   const [gateDone, setGateDone] = useState(false);
 
-  // Türkçe altyazı durumu. `available` yalnızca katman dosyayı gerçekten
-  // yükleyebildiğinde true olur; düğme o zaman gösterilir (altyazısı olmayan
-  // bölümde arayüz sade kalsın). Kanca sırası için BURADA, erken `return`lerden
-  // önce tanımlanır.
-  const [trSubsAvailable, setTrSubsAvailable] = useState(false);
-  const [trSubsOn, setTrSubsOn] = useState(true);
+  // --- Altyazı menüsü durumu -------------------------------------------------
+  // Sağlayıcının kendi CC menüsüne satır EKLEYEMİYORUZ (menü verisi onların
+  // sunucusundan geliyor, URL parametresi ve köprü komutu yok — ölçüm §15).
+  // Bu yüzden dil seçimi sitenin KENDİ menüsünden yapılır; menü yalnızca
+  // dosyası gerçekten var olan dilleri listeler.
+  // Kanca sırası için BURADA, erken `return`lerden önce tanımlanır.
+  const [subsLang, setSubsLang] = useState<SubtitleLang | "off">("tr");
+  const [subsOpen, setSubsOpen] = useState(false);
+  const [subsLangs, setSubsLangs] = useState<SubtitleLang[]>([]);
 
   // Sezonu bölümü olan sezonlar üzerinden çöz: boş bir sezon seçilirse
   // izleyici "bölüm yok" ekranında kalmaz, ilk dolu sezona düşer.
@@ -203,6 +211,54 @@ function WatchPage() {
   // Oynatıcı kaynağı: doğrudan adres varsa Fluid Player, yoksa sağlayıcı embed'i.
   const directSrc = directSourceOf(currentEpisode);
   const episodeSubtitles = subtitlesOf(currentEpisode);
+
+  // Bu bölüm için aday altyazı dosyaları: panelde açıkça girilmiş adres varsa o,
+  // yoksa yerleşik yol `/subs/{slug}-s{sezon}b{bölüm}.{dil}.vtt`.
+  const subCandidates = currentEpisode
+    ? SUBTITLE_LANGS.map((lang) => ({
+        lang,
+        label: SUBTITLE_LABELS[lang],
+        url:
+          episodeSubtitles.find((track) => track.srclang === lang)?.src ||
+          conventionSubtitlePath(slug, currentEpisode.season, currentEpisode.number, lang),
+      }))
+    : [];
+  const subKey = subCandidates.map((entry) => entry.url).join("|");
+
+  // Hangi diller GERÇEKTEN var? Olmayan dil menüde hiç görünmez (dosya yoksa
+  // istek 404 döner). Böylece boş seçenek gösterilmez.
+  useEffect(() => {
+    if (subKey === "") {
+      setSubsLangs([]);
+      return;
+    }
+    let alive = true;
+    void Promise.all(
+      subCandidates.map(async (entry) => {
+        try {
+          const res = await fetch(entry.url, { method: "HEAD" });
+          return res.ok ? entry.lang : null;
+        } catch {
+          return null;
+        }
+      }),
+    ).then((found) => {
+      if (alive) setSubsLangs(found.filter((lang): lang is SubtitleLang => lang !== null));
+    });
+    return () => {
+      alive = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [subKey]);
+
+  // Seçili dil bu bölümde yoksa ilk bulunana (yoksa "kapalı"ya) düş.
+  useEffect(() => {
+    if (subsLang === "off" || subsLangs.includes(subsLang)) return;
+    setSubsLang(subsLangs[0] ?? "off");
+  }, [subsLangs, subsLang]);
+
+  const selectedSubUrl =
+    subsLang === "off" ? "" : (subCandidates.find((entry) => entry.lang === subsLang)?.url ?? "");
 
   // Bölüm değişince (istemci içi geçişte de) reklam kapısı yeniden kurulur.
   const currentKey = currentEpisode ? `${currentEpisode.season}-${currentEpisode.number}` : "yok";
@@ -343,18 +399,7 @@ function WatchPage() {
             epUrl={episodeEmbed ?? ""}
             directSrc={directSrc}
             subtitles={episodeSubtitles}
-            subsOn={trSubsOn}
-            onSubsAvailable={setTrSubsAvailable}
-            subtitleUrl={
-              episodeSubtitles[0]?.src ||
-              (currentEpisode
-                ? conventionSubtitlePath(
-                    showSlug(show),
-                    currentEpisode.season,
-                    currentEpisode.number,
-                  )
-                : "")
-            }
+            subtitleUrl={selectedSubUrl}
             vastUrls={PREROLL_VAST_URLS}
             onGateFinish={() => setGateDone(true)}
           />
@@ -374,27 +419,62 @@ function WatchPage() {
 
         {/* Bilgi satırı + reklam: oynatıcının altında, oynatıcı genişliğinde. */}
         <div className="mt-4 space-y-4 lg:pr-[340px]">
-          {/* Altyazı düğmesi — oynatıcının İÇİNDE DEĞİL, ALTINDA durur.
-              Neden: oynatıcının içine konduğunda sağlayıcının kendi CC/ayar
-              simgeleriyle karışıyordu ("TR altyazı açık" yazısı oynatıcının
-              kontrol çubuğunun parçası gibi görünüyordu). Türkçe altyazı dosyası
-              olan bölümlerde çıkar; olmayanlarda arayüz sade kalır. */}
-          {trSubsAvailable && (
-            <div className="flex flex-wrap items-center gap-2">
+          {/* SİTENİN KENDİ ALTYAZI MENÜSÜ.
+              Sağlayıcının CC menüsüne satır eklenemiyor (menü verisi onların
+              sunucusundan geliyor; URL parametresi ve köprü komutu yok), bu
+              yüzden dil seçimi burada. Yalnızca dosyası olan diller listelenir.
+              Oynatıcının İÇİNDE değil ALTINDA durur — içerideyken sağlayıcının
+              CC/ayar simgeleriyle karışıyordu. */}
+          {subsLangs.length > 0 && (
+            <div className="relative flex flex-wrap items-center gap-2">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                Altyazı
+              </span>
               <button
                 type="button"
-                onClick={() => setTrSubsOn((value) => !value)}
-                className={
-                  trSubsOn
-                    ? "rounded-full border border-accent bg-accent/15 px-3 py-1 text-[12px] font-bold text-accent"
-                    : "rounded-full border border-border px-3 py-1 text-[12px] font-bold text-muted-foreground transition-colors hover:border-accent/60 hover:text-accent"
-                }
+                aria-haspopup="listbox"
+                aria-expanded={subsOpen}
+                onClick={() => setSubsOpen((value) => !value)}
+                className="flex items-center gap-1.5 rounded-full border border-border px-3 py-1 text-[12px] font-bold text-foreground transition-colors hover:border-accent/60 hover:text-accent"
               >
-                {trSubsOn ? "Türkçe altyazı açık" : "Türkçe altyazı kapalı"}
+                {subsLang === "off" ? "Kapalı" : SUBTITLE_LABELS[subsLang]}
+                <span aria-hidden className="text-[9px] leading-none">
+                  ▼
+                </span>
               </button>
-              <span className="text-[11px] text-muted-foreground">
-                Oynatıcının İngilizce satırı açıksa CC düğmesinden kapatabilirsin.
-              </span>
+
+              {subsOpen && (
+                <div
+                  role="listbox"
+                  className="absolute left-0 top-full z-30 mt-1 w-36 overflow-hidden rounded-lg border border-border bg-card py-1 shadow-xl"
+                >
+                  {[
+                    { key: "off" as const, label: "Kapalı" },
+                    ...subsLangs.map((lang) => ({ key: lang, label: SUBTITLE_LABELS[lang] })),
+                  ].map((option) => (
+                    <button
+                      key={option.key}
+                      type="button"
+                      role="option"
+                      aria-selected={subsLang === option.key}
+                      onClick={() => {
+                        setSubsLang(option.key);
+                        setSubsOpen(false);
+                      }}
+                      className={
+                        subsLang === option.key
+                          ? "flex w-full items-center gap-2 px-3 py-1.5 text-left text-[12px] font-bold text-accent"
+                          : "flex w-full items-center gap-2 px-3 py-1.5 text-left text-[12px] font-bold text-muted-foreground transition-colors hover:text-foreground"
+                      }
+                    >
+                      <span aria-hidden className="w-3 text-[10px]">
+                        {subsLang === option.key ? "✓" : ""}
+                      </span>
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
@@ -439,8 +519,6 @@ function PlayerBox({
   directSrc,
   subtitles,
   subtitleUrl,
-  subsOn,
-  onSubsAvailable,
   vastUrls,
   onGateFinish,
 }: {
@@ -457,11 +535,8 @@ function PlayerBox({
    * Bkz. `src/components/SubtitleOverlay.tsx`: megaplay köprüsünden gelen oynatma
    * zamanıyla senkronlanır — yani Türkçe altyazı için video yüklemek gerekmez.
    */
+  /** Seçili altyazı dosyası ("" = kapalı). Menü oynatıcının ALTINDA durur. */
   subtitleUrl: string;
-  /** Türkçe altyazı katmanı açık mı? (Düğme oynatıcının ALTINDA durur.) */
-  subsOn: boolean;
-  /** Altyazı dosyası yüklenebildiyse true — düğme o zaman gösterilir. */
-  onSubsAvailable: (available: boolean) => void;
   /** Video öncesi reklam (VAST) etiketleri. */
   vastUrls: string[];
   /** Reklamlar bitince çağrılır; bölüm oynatıcısı o zaman yüklenir. */
@@ -541,8 +616,6 @@ function PlayerBox({
               frameRef={iframeRef}
               url={subtitleUrl}
               active={epUrl.includes("megaplay.buzz")}
-              on={subsOn}
-              onAvailable={onSubsAvailable}
             />
           </div>
         )

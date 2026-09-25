@@ -134,17 +134,32 @@ function decodeBody(buffer) {
   return new TextDecoder("windows-1252").decode(buffer);
 }
 
+/**
+ * İndirilecek diller. Site kendi altyazı menüsünde bu dilleri listeler
+ * (`src/lib/subtitles.ts` → SUBTITLE_LANGS ile AYNI olmalı).
+ */
+const LANGS = ["tr", "en"];
+
 /** Altyazı dosyasının adı: yerleşik kural (kod da bu yolu arar). */
-export function subtitleFileFor(slug, season, episode) {
-  return `${slug}-s${season}b${episode}.vtt`;
+export function subtitleFileFor(slug, season, episode, lang) {
+  return `${slug}-s${season}b${episode}.${lang}.vtt`;
 }
 
-async function searchTr(tmdbId, season, episode) {
+/**
+ * İstekler arası bekleme.
+ *
+ * NEDEN: API'nin saniyelik istek sınırı 5. Betik hızlı ardışık arama yapınca
+ * **403** dönmeye başlıyordu (ölçüldü: 11 arama üst üste 403). Bu bekleme
+ * sınırın altında kalır.
+ */
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+async function searchTr(tmdbId, season, episode, lang) {
   const params = new URLSearchParams({
     tmdb_id: String(tmdbId),
     season_number: String(season),
     episode_number: String(episode),
-    languages: "tr",
+    languages: lang,
     type: "episode",
   });
   const res = await fetch(`${API}/subtitles?${params}`, {
@@ -208,42 +223,48 @@ for (const show of shows) {
   }
   const list = episodes.filter((e) => e.show_id === show.id);
   for (const ep of list) {
-    const file = resolve(OUT_DIR, subtitleFileFor(show.slug, ep.season, ep.number));
-    if (existsSync(file) && !FORCE) {
-      skipped += 1;
-      continue;
-    }
-    if (used >= LIMIT) {
-      console.log(`\nGünlük indirme sınırına ulaşıldı (${LIMIT}). Kalanlar sonraki çalıştırmada.`);
-      console.log("Daha fazlası için: --limit 50 (veya consumer'ı 'Under Development' yap)");
-      console.log(
-        `\nÖzet: yazıldı=${written} atlandı=${skipped} bulunamadı=${missing} harcanan=${used}`,
-      );
-      process.exit(0);
-    }
-    try {
-      const results = await searchTr(tmdbId, ep.season, ep.number);
-      if (results.length === 0) {
-        missing += 1;
-        console.log(`  ${show.slug} S${ep.season}B${ep.number}: Türkçe altyazı bulunamadı`);
+    for (const lang of LANGS) {
+      const file = resolve(OUT_DIR, subtitleFileFor(show.slug, ep.season, ep.number, lang));
+      if (existsSync(file) && !FORCE) {
+        skipped += 1;
         continue;
       }
-      const best = results[0];
-      if (DRY) {
+      if (used >= LIMIT) {
         console.log(
-          `  ${show.slug} S${ep.season}B${ep.number}: ${results.length} aday · en iyi "${best.release}" (${best.downloads} indirme)`,
+          `\nGünlük indirme sınırına ulaşıldı (${LIMIT}). Kalanlar sonraki çalıştırmada.`,
         );
-        continue;
+        console.log("Daha fazlası için: --limit 50 (veya consumer'ı 'Under Development' yap)");
+        console.log(
+          `\nÖzet: yazıldı=${written} atlandı=${skipped} bulunamadı=${missing} harcanan=${used}`,
+        );
+        process.exit(0);
       }
-      const srt = await download(best.fileId);
-      used += 1;
-      writeFileSync(file, srtToVtt(srt));
-      written += 1;
-      console.log(
-        `  ${show.slug} S${ep.season}B${ep.number}: yazıldı ← "${best.release}" (${best.downloads} indirme)`,
-      );
-    } catch (err) {
-      problems.push(`${show.slug} S${ep.season}B${ep.number}: ${err.message}`);
+      try {
+        const results = await searchTr(tmdbId, ep.season, ep.number, lang);
+        if (results.length === 0) {
+          missing += 1;
+          console.log(`  ${show.slug} S${ep.season}B${ep.number} [${lang}]: altyazı bulunamadı`);
+          continue;
+        }
+        const best = results[0];
+        if (DRY) {
+          console.log(
+            `  ${show.slug} S${ep.season}B${ep.number} [${lang}]: ${results.length} aday · en iyi "${best.release}" (${best.downloads} indirme)`,
+          );
+          continue;
+        }
+        const srt = await download(best.fileId);
+        used += 1;
+        writeFileSync(file, srtToVtt(srt));
+        written += 1;
+        console.log(
+          `  ${show.slug} S${ep.season}B${ep.number} [${lang}]: yazıldı ← "${best.release}" (${best.downloads} indirme)`,
+        );
+      } catch (err) {
+        problems.push(`${show.slug} S${ep.season}B${ep.number} [${lang}]: ${err.message}`);
+      }
+      // Saniyelik istek sınırının altında kal (bkz. `sleep` açıklaması).
+      await sleep(1200);
     }
   }
 }
