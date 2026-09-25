@@ -339,3 +339,82 @@ bulamazsa o diziyi tek satırla megaplay'e döndürebilirsin (SQL dosyasında ö
   belirlenemedi). vidsrc.to oynatıcı üstüne `Histats.com` izleme rozeti çiziyor.
 - Türkçe altyazı **varsayılan değil**; kullanıcı panelden seçiyor. Varsayılan yapmak
   ancak kendi altyazı dosyamızı `?sub_file=` ile vermekle mümkün.
+
+---
+
+## 10. vidsrc.to — üç istek, üç ölçüm
+
+Kullanıcı üç şey istedi: (1) altyazı otomatik Türkçe olsun, (2) oynatıcıdaki
+`S01 E01` yazısı `S1 B1` olsun, (3) pop kaldırılsın. Hepsi incelendi; sonuçlar:
+
+### 10.1 Altyazıyı varsayılan Türkçe yapmak — parametreyle MÜMKÜN DEĞİL
+
+Zincir: `vidsrc.to/embed/... → vsembed.ru/embed/... → cloudorchestranova.com/...`
+
+Zincirin ikinci halkası (`vsembed.ru`) sayfasının kodu indirilip tarandı
+(54.133 karakter, 25.09.2026):
+
+- `URLSearchParams` / `searchParams` **hiç geçmiyor** → sayfa hiçbir sorgu
+  parametresi okumuyor.
+- Sayfada bir üst şerit var: `#vs-bar` → `#vs-title` ("JUJUTSU KAISEN 2020 ·
+  S01 E01" metni **buradan** geliyor) + `#vs-epnav` içinde **iki adet `<select>`**:
+  `Season N` ve `Episode N`. Yani oradaki menüler **sezon/bölüm seçicisi**,
+  altyazı dili seçicisi değil.
+- Bölüm değiştirme protokolü: `postMessage({type:'TV_SET', season, episode})`.
+- Altyazı menüsü (Türkçe'nin listelendiği yer) en içteki oynatıcıda
+  (`cloudorchestranova.com`) — oraya dışarıdan erişilemiyor.
+
+**Tek çalışan yol:** kendi `.vtt` dosyamızı `?sub.info=` ile vermek
+(vidsrc.to API dokümanı, "Use custom subtitles"):
+
+```
+https://vidsrc.to/embed/tv/95479/1/1?sub.info=<urlencoded json>
+json: [{"file":"https://.../tr.vtt","label":"Türkçe","kind":"captions"}]
+```
+
+Dosyanın `Access-Control-Allow-Origin: *` başlığıyla servis edilmesi şart.
+
+**Uygulandı:** `src/lib/embed-provider.ts` → `appendSubInfo()`. Panelden
+`episodes.subtitles` alanına bir Türkçe `.vtt` adresi girildiği anda altyazı
+sağlayıcının menüsüne eklenir. (Aynı alan kendi oynatıcımızda `<track>` olarak
+da kullanılıyor — tek alan, iki kullanım.)
+
+### 10.2 `S01 E01` → `S1 B1` — metin değiştirilemez, ÜSTÜ BOYANDI
+
+O metin `vsembed.ru` sayfasının `#vs-title` öğesinde. Cross-origin iframe'in
+içeriğine yazı yazılamaz / CSS uygulanamaz.
+
+**Çözüm:** iframe'in tam üstüne kendi şeridimizi çizdik — aynı konum, aynı
+görünüm, bizim metnimiz (`{seri} · S{sezon} B{bölüm}`). Sağlayıcının şeridi de
+fareyle üzerine gelince göründüğü için bizimki de öyle davranıyor; video normalde
+temiz kalıyor. `src/routes/izle.$slug.tsx` → `PlayerBox`, `group-hover` şeridi.
+
+Dürüst sınır: bu bir **kapatma**, düzenleme değil. Sağlayıcı yazıyı başka bir
+konuma taşırsa ikisi birlikte görünebilir.
+
+### 10.3 Pop kaldırmak — MÜMKÜN DEĞİL (kasıtlı engel)
+
+`vsembed.ru`, `/assets/sbx.js` adlı bir **"Sandbox-embed blocker"** yüklüyor.
+Kendi yorumu birebir:
+
+> "If that page is loaded inside an `<iframe sandbox>` (a client trying to cage
+> the player), this frame is redirected to `/sandbox.php?ref=<embedding host>`."
+
+Algılama: (1) kendi çerçevesinde `sandbox` özniteliği, (2) opak kaynak
+(`allow-same-origin` olmayan sandbox) → `document.domain` ataması "sandbox"
+içeren bir `SecurityError` verir. Yani **sandbox ile pop-up engelleme yolu
+bilinçli olarak kapatılmış.**
+
+Pop'un nasıl çıktığı da bulundu (sayfa JS'i):
+
+- `window.open` **hook'lanıyor**; gizli bir iframe oluşturulup
+  `t.contentWindow.open(...)` çağrılıyor → iframe tabanlı pop-under.
+- `localStorage`'da `unloaded_at` / `shown_at` anahtarları ve
+  `... > 6e4` karşılaştırması → **60 saniyelik bekleme süresi**.
+
+Bu, kullanıcının gözlemini açıklıyor: "1 pop oldu, 2 olmadı, ama 2.'de olur" —
+pop, ~60 saniyelik soğuma süresiyle sınırlandırılmış.
+
+**Yapılabilecek bir şey yok.** Pop, sağlayıcının kendi belgesinin içinde
+oluşturuluyor; bizim tarafımızdan engellenemiyor. Seçenekler: (a) izleyicinin
+reklam engelleyicisi, (b) pop'u olmayan bir sağlayıcı, (c) kendi barındırma.

@@ -36,6 +36,14 @@
 
 export type EmbedProviderId = "none" | "megaplay" | "vidsrc";
 
+/** Sağlayıcıya enjekte edilecek harici altyazı izi. */
+export interface EmbedSubtitleTrack {
+  /** Doğrudan .vtt adresi. CORS başlığı `Access-Control-Allow-Origin: *` olmalı. */
+  file: string;
+  /** Altyazı menüsünde görünecek ad (ör. "Türkçe"). */
+  label: string;
+}
+
 export interface EmbedProviderRequest {
   /** MyAnimeList kimliği. Şemada yoksa null. */
   malId: number | null;
@@ -54,6 +62,14 @@ export interface EmbedProviderRequest {
   episode: number;
   /** Altyazı ("sub") veya dublaj ("dub"). */
   language?: "sub" | "dub";
+  /**
+   * Harici altyazı izleri. Sağlayıcı destekliyorsa embed adresine eklenir.
+   *
+   * vidsrc.to `?sub.info=<json>` parametresini kabul eder (kendi API dokümanı):
+   *   [{ file: "https://.../tr.vtt", label: "Türkçe", kind: "captions" }]
+   * Böylece KENDİ Türkçe altyazı dosyamız sağlayıcının menüsüne girer.
+   */
+  subtitles?: EmbedSubtitleTrack[];
 }
 
 export interface EmbedProvider {
@@ -164,10 +180,33 @@ export const EMBED_PROVIDERS: Record<EmbedProviderId, EmbedProvider> = {
       if (!request.tmdbId) return null;
       const template = EMBED_PROVIDERS.vidsrc.template;
       if (!template) return null;
-      return fillTemplate(template, request);
+      const base = fillTemplate(template, request);
+      if (!base) return null;
+      return appendSubInfo(base, request.subtitles);
     },
   },
 };
+
+/**
+ * vidsrc.to'nun `?sub.info=` parametresini adrese ekler.
+ *
+ * BELGELENMİŞ BİÇİM (vidsrc.to API dokümanı, "Use custom subtitles"):
+ *   [{ file: "https://domain.com/file1.vtt", label: "English", kind: "captions" }]
+ * ve dosyanın `Access-Control-Allow-Origin: *` başlığıyla servis edilmesi şart.
+ *
+ * NEDEN GEREKLİ: vidsrc.to'nun yerleşik altyazı menüsünde dil seçimini
+ * DIŞARIDAN varsayılan yapmanın bir yolu yok — vsembed.ru sayfası hiçbir
+ * altyazı-dili parametresi okumuyor (ölçüm 25.09.2026: sayfa kodunda
+ * `searchParams` yok, yalnızca sezon/bölüm `<select>`'i ve `TV_SET` postMessage
+ * protokolü var). Tek yol KENDİ dosyamızı bu parametreyle vermek.
+ */
+function appendSubInfo(base: string, subtitles?: EmbedSubtitleTrack[]): string {
+  const tracks = (subtitles ?? [])
+    .filter((track) => /^https?:\/\//i.test(track.file))
+    .map((track) => ({ file: track.file, label: track.label, kind: "captions" }));
+  if (tracks.length === 0) return base;
+  return `${base}?sub.info=${encodeURIComponent(JSON.stringify(tracks))}`;
+}
 
 /** Dizge kimliğinden sağlayıcı getirir (bilinmeyen kimlik → null). */
 function providerById(id: string): EmbedProvider | null {
