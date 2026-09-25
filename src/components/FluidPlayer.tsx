@@ -1,5 +1,7 @@
 import { useEffect, useRef } from "react";
 
+import { prerollVastUrls } from "@/lib/mybid";
+
 /**
  * Fluid Player sarmalayıcısı (React / TanStack Start).
  *
@@ -28,13 +30,6 @@ type FluidPlayerFactory = (id: string, config?: Record<string, unknown>) => Flui
 
 /** Fluid Player'ın resmî CDN adresi (doküman: Integration → quick setup → CDN). */
 const FLUID_CDN = "https://cdn.fluidplayer.com/v3/current/fluidplayer.min.js";
-
-/**
- * MyBid spot adresi — `.env` boşsa kullanılan varsayılan.
- * (Vite `.env` değişikliklerini çalışma anında okumaz; adres koda gömülü ki
- * reklamın görünmemesi gibi bir durum oluşmasın.)
- */
-const MYBID_VAST_DEFAULT = "https://vast.vstserv.com/vast?spot_id=2028774";
 
 export type FluidSubtitle = {
   /**
@@ -88,30 +83,6 @@ function loadFluidPlayer(): Promise<FluidPlayerFactory> {
   return loader;
 }
 
-/**
- * MyBid VAST etiketleri (ön reklam ad-pod'u).
- *
- * Fluid Player `vastTag` alanında bir **URL** bekler; dokümana göre VAST
- * yanıtının Content-Type'ı `application/xml` veya `text/xml` olmalıdır.
- * Panelden yalnızca bir kimlik/hex anahtar kopyalandıysa (ör. 32 karakterlik
- * "7811453b...") bu değer geçersizdir ve oynatıcı reklamı yükleyemez; bu
- * yüzden yalnızca http(s) ile başlayan değerler kullanılır ve diğerleri
- * sessizce atlanır.
- */
-function vastTags(): string[] {
-  const env = import.meta.env as unknown as Record<string, string | undefined>;
-  const tags = [env["VITE_MYBID_VAST_1"] || MYBID_VAST_DEFAULT, env["VITE_MYBID_VAST_2"]]
-    .map((value) => (value ?? "").trim())
-    .filter((value) => /^https?:\/\//i.test(value));
-  // Tek spot tanımlıysa ad-pod yine iki reklam olsun: aynı etiket iki kez
-  // çağrılır ve her çağrı ayrı bir açık artırma açar (büyük olasılıkla farklı
-  // kreatif döner). MyBid'de ikinci bir spot açılırsa VITE_MYBID_VAST_2 onu
-  // kullanır ve tekrar çağrı olmaz.
-  const first = tags[0];
-  if (tags.length === 1 && first) return [first, first];
-  return tags;
-}
-
 export function FluidPlayer({
   src,
   poster,
@@ -130,7 +101,7 @@ export function FluidPlayer({
   // Diziyi referans yerine içeriğe göre karşılaştır: her render'da yeni dizi
   // üretilse bile oynatıcı boşuna yeniden kurulmasın.
   const subsKey = JSON.stringify(subtitles);
-  const vastKey = vastTags().join("|");
+  const vastKey = prerollVastUrls().join("|");
 
   useEffect(() => {
     const host = hostRef.current;
@@ -170,7 +141,7 @@ export function FluidPlayer({
     // 2) Reklam listesi: VAST etiketi başına bir preRoll = ad-pod.
     // Fluid Player birden fazla preRoll'u sırayla oynatır
     // (docs.fluidplayer.com/configuration/advertisements → "multiple preRoll Ads").
-    const adList = vastTags().map((vastTag, index) => ({
+    const adList = prerollVastUrls().map((vastTag, index) => ({
       roll: "preRoll",
       vastTag,
       adText: index === 0 ? "Reklam · siteyi ayakta tutan gelir" : "Reklam",

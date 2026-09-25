@@ -30,6 +30,15 @@ export type Show = {
   year: string;
   genre: string;
   watch_url: string;
+  /**
+   * MyAnimeList kimliği. Embed sağlayıcısı (megaplay) bölüm adresini bu kimlikle
+   * üretir: `https://megaplay.buzz/stream/mal/{mal_id}/{bölüm}/sub`.
+   *
+   * Kolon veritabanında yoksa ya da boşsa `undefined`/`null` gelir; o durumda
+   * sağlayıcı adres ÜRETEMEZ (bölümde "video yok" durumu oluşur).
+   * `fetchShowDetail` `select("*")` kullandığı için kolon eklenir eklenmez gelir.
+   */
+  mal_id?: number | null;
 };
 
 export type Season = {

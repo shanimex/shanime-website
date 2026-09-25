@@ -26,7 +26,14 @@ export type VastAd = {
   clickThrough?: string;
 };
 
-const DEFAULT_MAX_REDIRECTS = 3;
+/**
+ * Wrapper zincirinde en fazla kaç yönlendirme takip edilir.
+ *
+ * 25.09.2026 ölçümü: MyBid spotu `2028789`ın InLine'ı **5. hopta** geliyor
+ * (vstserv → sensitiveclick → visitstats → …). Eski değer 3 idi; zincirin sonuna
+ * ulaşamadığı için ad-pod tamamen boş dönüyordu ve ön reklam hiç çıkmıyordu.
+ */
+const DEFAULT_MAX_REDIRECTS = 5;
 
 /** Alan adı önekini yok sayarak (vast:Ad gibi) etiket arar. */
 function childrenByLocalName(root: Document | Element, name: string): Element[] {
@@ -62,6 +69,22 @@ function absoluteUrl(raw: string): string | undefined {
   return /^https?:\/\//i.test(text) ? text : undefined;
 }
 
+/**
+ * `<video>` ile oynatılamayan MIME türleri (VPAID / JS / HTML kreatifleri).
+ *
+ * Neden gerekli: bu dosyalar <video> elementine atandığında oynatıcı hata verir,
+ * reklam HİÇ görünmez — ama eski kod bunları "en yüksek puanlı MediaFile" sayıp
+ * seçiyor ve başlangıçta gösterim sayaçlarını tetikliyordu. Görünmeyen bir reklam
+ * için gösterim saymak hem kullanıcıya bozuk oynatıcı gösterir hem reklam ağının
+ * şartlarına aykırıdır. Bu yüzden video olmayan türler tamamen elenir.
+ */
+const NON_VIDEO_MEDIA_TYPES = [
+  "application/javascript",
+  "text/javascript",
+  "application/x-javascript",
+  "text/html",
+];
+
 /** MediaFile'lar arasından en yüksek çözünürlüklü progressive mp4'ü seçer. */
 function pickMediaFile(inLine: Element): string | undefined {
   const files = childrenByLocalName(inLine, "MediaFile");
@@ -71,6 +94,10 @@ function pickMediaFile(inLine: Element): string | undefined {
       if (!url) return null;
       const type = (file.getAttribute("type") ?? "").toLowerCase();
       const delivery = (file.getAttribute("delivery") ?? "").toLowerCase();
+      const apiFramework = (file.getAttribute("apiFramework") ?? "").toLowerCase();
+      // VPAID ve JS/HTML kreatifleri <video> ile oynatılamaz → hiç seçilmesin.
+      if (apiFramework.includes("vpaid")) return null;
+      if (NON_VIDEO_MEDIA_TYPES.some((needle) => type.includes(needle))) return null;
       const height = Number.parseFloat(file.getAttribute("height") ?? "0");
       // mp4 + progressive tercih edilir; puan yükseklikle artar.
       let score = Number.isNaN(height) ? 0 : height;

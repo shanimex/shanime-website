@@ -8,6 +8,8 @@ import { AdsterraLeaderboard, AdsterraNative } from "@/components/AdsterraUnit";
 import { EpisodeCover } from "@/components/EpisodeCover";
 import { FluidPlayer, type FluidSubtitle } from "@/components/FluidPlayer";
 import { PrerollGate } from "@/components/PrerollGate";
+import { resolveEpisodeEmbed } from "@/lib/embed-provider";
+import { prerollVastUrls } from "@/lib/mybid";
 import {
   episodeCoverFromWatchUrl,
   fetchShowDetail,
@@ -42,26 +44,17 @@ export const Route = createFileRoute("/izle/$slug")({
 });
 
 /**
- * Video öncesi reklam (VAST) etiketleri.
+ * Video öncesi reklam (VAST) etiketleri — MyBid **çift spot** (ad-pod).
  *
  * Kapı GERÇEK video reklamı oynatır: etiket çekilir, reklam mp4'ü oynatılır,
  * "Reklamı geç" geri sayımı biter ve ancak ondan sonra bölüm oynatıcısı yüklenir.
  * Reklam gelmezse kapı beklemeden açılır (ziyaretçi asla reklam yüzünden
  * videoyu izleyemez durumda kalmaz).
  *
- * MyBid spot adresi koda GÖMÜLÜ: Vite `.env` değişikliklerini çalışma anında
- * yeniden okumaz (dev sunucusunun yeniden başlatılması gerekir), o yüzden adres
- * varsayılan olarak burada durur — "reklam görünmüyor" durumu oluşmaz.
- * Farklı bir spot kullanmak için `.env` içindeki VITE_MYBID_VAST_1 bu varsayılanı
- * geçersiz kılar.
+ * Adreslerin TEK kaynağı `src/lib/mybid.ts`: gömülü varsayılanlar orada ve
+ * `.env` içindeki VITE_MYBID_VAST_1 / VITE_MYBID_VAST_2 onları geçersiz kılar.
  */
-const MYBID_VAST_DEFAULT = "https://vast.vstserv.com/vast?spot_id=2028774";
-
-const PREROLL_VAST_URLS = [
-  (import.meta.env as unknown as Record<string, string | undefined>)["VITE_MYBID_VAST_1"] ||
-    MYBID_VAST_DEFAULT,
-  (import.meta.env as unknown as Record<string, string | undefined>)["VITE_MYBID_VAST_2"] ?? "",
-].filter((value) => /^https?:\/\//i.test(value));
+const PREROLL_VAST_URLS = prerollVastUrls();
 
 function seasonLabel(season: SeasonWithEpisodes): string {
   return season.title.trim() || `${season.number}. Sezon`;
@@ -204,7 +197,22 @@ function WatchPage() {
   }
 
   const { show } = detail;
-  const watching = Boolean(currentEpisode?.watch_url) && gateDone;
+
+  // Bölümün oynatılacak adresi: ÖNCE kayıttaki `watch_url`, BOŞSA aktif embed
+  // sağlayıcısından (megaplay) MAL kimliğiyle üretilir.
+  //
+  // `watch_url` dolu olduğu sürece `resolveEpisodeEmbed` birebir aynı değeri
+  // döndürür → mevcut yayın davranışı değişmez. Sağlayıcı yalnızca watch_url'i
+  // boş olan bölümlerde devreye girer (ör. yalnızca MAL kimliğiyle eklenen yeni
+  // bölümler).
+  const episodeEmbed = currentEpisode
+    ? resolveEpisodeEmbed(currentEpisode.watch_url, {
+        malId: show.mal_id ?? null,
+        season: currentEpisode.season,
+        episode: currentEpisode.number,
+      })
+    : null;
+  const watching = Boolean(episodeEmbed) && gateDone;
 
   return (
     <div className="min-h-screen bg-background">
@@ -271,7 +279,7 @@ function WatchPage() {
             watching={watching}
             showTitle={show.title}
             epNumber={currentEpisode?.number ?? 0}
-            epUrl={currentEpisode?.watch_url ?? ""}
+            epUrl={episodeEmbed ?? ""}
             directSrc={directSrc}
             subtitles={episodeSubtitles}
             vastUrls={PREROLL_VAST_URLS}
@@ -285,6 +293,7 @@ function WatchPage() {
               activeSeason={activeSeason}
               currentEpisodeId={currentEpisode.id}
               multipleSeasons={multipleSeasons}
+              seriesPoster={show.image}
             />
           )}
         </div>
@@ -364,16 +373,21 @@ function PlayerBox({
             src={epUrl}
             title={`${showTitle} bölüm ${epNumber}`}
             loading="lazy"
-            // `sandbox` bilinçli olarak YOK — denendi, geri alındı.
+            // `sandbox` YOK — popunder'ı engellemek için DENENDİ ve BAŞARISIZ OLDU.
             //
-            // Amaç sağlayıcının popunder'ını (yeni sekme açma, sayfa başlığını
-            // değiştirme) engellemekti. Ölçüm sonucu: VidMoly oynatıcısı sandbox
-            // altında çalışmayı reddediyor ve kutuda "The embed could not be
-            // loaded." çıkıyor. Kanıt: aynı iframe, aynı adres, tek fark sandbox —
-            // sandbox'sız hâli hem 390×844 hem 1600×1000'de sorunsuz oynuyor,
-            // sandbox'lı hâli her iki genişlikte de hata veriyor. Yani bu
-            // sağlayıcıyla popunder'ı dışarıdan engellemenin yolu yok; reklamlar
-            // sağlayıcının kendi belgesinde kaldığı sürece bu davranış kabul.
+            // Ölçüm (25.09.2026 · aynı URL + aynı sayfa + aynı referrer,
+            // TEK değişken `sandbox`):
+            //   sandbox="allow-scripts allow-same-origin allow-forms
+            //            allow-presentation allow-orientation-lock"
+            //   → Streamtape: "Client blocked! / Your browser or the embed you are
+            //     viewing are doing nasty things!"  (sandbox'ı ALGILIYOR)
+            //   → VidMoly:    "The embed could not be loaded."
+            //   → sandbox'SIZ aynı iframe: VidMoly gerçek oynatıcıyı yüklüyor
+            //     (poster + play), Streamtape CAPTCHA kapısına geliyor.
+            //
+            // Yani sağlayıcılar sandbox'lı embed'i reddediyor → "popup engelle +
+            // video oynat" birlikte MÜMKÜN DEĞİL. Embed'in kendi belgesi içindeki
+            // davranış dışarıdan kontrol edilemiyor. Kanıt: OYNATICI-FLUIDPLAYER.md §6.
             allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
             allowFullScreen
             // bg-black: iframe kendi belgesini boyayana kadar geçen sürede
@@ -404,12 +418,15 @@ function EpisodeSidebar({
   activeSeason,
   currentEpisodeId,
   multipleSeasons,
+  seriesPoster,
 }: {
   slug: string;
   seasons: SeasonWithEpisodes[];
   activeSeason: SeasonWithEpisodes;
   currentEpisodeId: string;
   multipleSeasons: boolean;
+  /** Seri posteri: kapağı üretilemeyen bölümler için son çare (bkz. EpisodeCard). */
+  seriesPoster?: string | undefined;
 }) {
   // Ref doğrudan <li> üzerinde tutulur: `Link` bileşeninin ref'i DOM düğümüne
   // iletilmediği için kaydırma çalışmıyordu.
@@ -507,7 +524,7 @@ function EpisodeSidebar({
                       active ? "bg-accent/15" : "hover:bg-secondary focus-visible:bg-secondary"
                     }`}
                   >
-                    <SidebarCover slug={slug} episode={episode} />
+                    <SidebarCover slug={slug} episode={episode} seriesPoster={seriesPoster} />
                     <span className="min-w-0 flex-1">
                       <span
                         className={`block text-xs font-bold ${active ? "text-accent" : "text-foreground"}`}
@@ -536,7 +553,16 @@ function EpisodeSidebar({
  * `onLoad`'a güvenilmez; görsel önbellekten gelirse durum `complete` ile
  * doğrulanır (bkz. EpisodeCard).
  */
-function SidebarCover({ slug, episode }: { slug: string; episode: Episode }) {
+function SidebarCover({
+  slug,
+  episode,
+  seriesPoster,
+}: {
+  slug: string;
+  episode: Episode;
+  /** Zincirin son adımı — bkz. EpisodeCard'daki `seriesPoster` açıklaması. */
+  seriesPoster?: string | undefined;
+}) {
   return (
     <span className="relative grid aspect-video w-20 shrink-0 place-items-center overflow-hidden rounded-lg bg-secondary">
       <EpisodeCover
@@ -548,6 +574,8 @@ function SidebarCover({ slug, episode }: { slug: string; episode: Episode }) {
           episode.poster ?? "",
           episodeCoverFromWatchUrl(episode.watch_url),
           localCoverPath(slug, episode.season, episode.number),
+          // Son çare: seri posteri (sağlayıcı kapağı üretilemeyen bölümler için).
+          seriesPoster ?? "",
         ]}
         // Kayıtlı adres bayatlamışsa (sağlayıcı CDN'i dönüyor) güncelini çeker.
         resolveFallback={() => resolvePosterForEpisode(episode.watch_url)}

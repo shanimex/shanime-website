@@ -1,0 +1,168 @@
+/**
+ * Global yayın sağlayıcıları için TEK giriş noktası.
+ *
+ * Neden ayrı modül: sağlayıcı adresleri sık değişir ve alan adları çöker.
+ * URL biçimi burada tek yerde durur; sağlayıcı değişince oynatıcı kodu değişmez.
+ *
+ * ⚠️ KURAL: Buraya **yalnızca doğrulanmış** şablon yazılır. Doğrulanmamış bir
+ * adres videoyu tamamen kırar ve fark edilmesi zor olur. Doğrulanmamış sağlayıcı
+ * `template: null` ile durur ve `buildUrl` her zaman `null` döner.
+ *
+ * ── 25.09.2026 doğrulama günlüğü (hepsi ölçümle) ──────────────────────────
+ *
+ * 1) `animesrc.me` → **DNS'te YOK.** Ölçüm: `animesrc.me`, `animesrc.pro`,
+ *    `animesrc.to`, `animesrc.com`, `animesrc.net` → hepsi "Uzak ad çözülemedi".
+ *    `animesrc.xyz` yanıt veriyor ama GoDaddy'de **satılık park alanı**
+ *    ("The domain name animesrc.xyz is for sale", $599). Yani kullanılamaz.
+ *
+ * 2) `vidsrc.pro` → **erişilemiyor** (kök: bağlantı yok, `/40748/1/1`: HTTP 522).
+ *    Canlı vidsrc.to SSS'inden birebir: "Can i use this API for anime?" →
+ *    "Currently we do not support anime, we may do that in the future."
+ *    Belgelenen biçimler yalnızca `/embed/movie/{id}` ve
+ *    `/embed/tv/{id}/{season}/{episode}` — **anime yolu yok**.
+ *
+ * 3) `megaplay.buzz` → **GERÇEK sağlayıcı.** Kendi dokümanında birebir:
+ *      "Endpoint (MAL id + episode): https://megaplay.buzz/stream/mal/{mal-id}/{ep-num}/{language}"
+ *      "Endpoint (AniList id + episode): https://megaplay.buzz/stream/ani/{anilist-id}/{ep-num}/{language}"
+ *      "Note: Direct Access to Embed Links are Disabled. Links only work as Embed on your Websites"
+ *    ⚠️ Ama MAL eşlemesi TAM DEĞİL. `https://megaplay.buzz/stream/mal/40748/1/sub`
+ *    (Jujutsu Kaisen S1B1) → **HTTP 410**: "We can't find the file you are looking
+ *    for. It maybe got deleted by the owner or was removed due a copyright violation."
+ *    Doküman da bunu kabul ediyor: "not every show is synced or mapped to MAL and
+ *    AniList IDs yet."
+ *    Şablon DİKKAT: **sezon parametresi YOK** — sezon, MAL kimliğinin kendisinde
+ *    kodludur (her sezonun ayrı MAL kaydı vardır).
+ */
+
+export type EmbedProviderId = "none" | "megaplay";
+
+export interface EmbedProviderRequest {
+  /** MyAnimeList kimliği. Şemada yoksa null. */
+  malId: number | null;
+  /** AniList kimliği (megaplay `ani` yolu için). */
+  anilistId?: number | null;
+  /** Sezon numarası (1 tabanlı) — şu anki doğrulanmış şablonlarda KULLANILMAZ. */
+  season: number;
+  /** Bölüm numarası (1 tabanlı). */
+  episode: number;
+  /** Altyazı ("sub") veya dublaj ("dub"). */
+  language?: "sub" | "dub";
+}
+
+export interface EmbedProvider {
+  id: EmbedProviderId;
+  label: string;
+  /**
+   * Doğrulanmış adres şablonu. `{mal}`, `{ep}`, `{lang}` yer tutucularını kullanır.
+   * `null` = doğrulanmadı → bu sağlayıcı adres ÜRETMEZ.
+   */
+  template: string | null;
+  /** Şablonun çalışması için mal_id zorunlu mu? */
+  requiresMalId: boolean;
+  /** Şablonun nereden doğrulandığı (denetlenebilir kaynak notu). */
+  evidence: string;
+  buildUrl(request: EmbedProviderRequest): string | null;
+}
+
+/** Yer tutucuları doldurur ve sonucun geçerli bir https adresi olduğunu doğrular. */
+function fillTemplate(template: string, request: EmbedProviderRequest): string | null {
+  const lang = request.language ?? "sub";
+  const url = template
+    .replace("{mal}", String(request.malId ?? ""))
+    .replace("{ani}", String(request.anilistId ?? ""))
+    .replace("{ep}", String(request.episode))
+    .replace("{lang}", lang);
+
+  // Boş yer tutucu kalmışsa (ör. mal_id yok) üretme.
+  if (url.includes("//") && /\/\/(?=\/|$)/.test(url)) return null;
+  if (/[{}]/.test(url)) return null;
+  if (!/^https:\/\/[^\s]+$/.test(url)) return null;
+  if (/\/(null|undefined|nan)(\/|$)/i.test(url)) return null;
+  return url;
+}
+
+export const EMBED_PROVIDERS: Record<EmbedProviderId, EmbedProvider> = {
+  /**
+   * Kapalı. Bölüm adresi veritabanındaki `watch_url`'den gelir (bugünkü davranış).
+   */
+  none: {
+    id: "none",
+    label: "Sağlayıcı yok (watch_url kullanılır)",
+    template: null,
+    requiresMalId: false,
+    evidence: "Varsayılan. Mevcut davranışı korur.",
+    buildUrl: () => null,
+  },
+
+  /**
+   * megaplay.buzz — MAL/AniList kimliğiyle embed. **AKTİF SAĞLAYICI.**
+   *
+   * Şablon megaplay'in kendi `/api` dokümanından alındı (tahmin değil, bkz. dosya
+   * başındaki doğrulama günlüğü).
+   *
+   * Embed'de ÇALIŞTIĞI doğrulandı (4/4 dizi, iframe içinde). Yeni bir dizi
+   * eklerken adresi tarayıcıda TEK BAŞINA açma — sağlayıcı top-level isteklerde
+   * hata sayfası döndürür. Bunun yerine adresi bir iframe içine gömüp oynatıcının
+   * gelip gelmediğine bak.
+   */
+  megaplay: {
+    id: "megaplay",
+    label: "MegaPlay (MAL kimliği)",
+    template: "https://megaplay.buzz/stream/mal/{mal}/{ep}/{lang}",
+    requiresMalId: true,
+    evidence:
+      "megaplay.buzz /api dokümanı: 'Endpoint (MAL id + episode): https://megaplay.buzz/stream/mal/{mal-id}/{ep-num}/{language}'. " +
+      "Risk: MAL eşlemesi tam değil — 40748 için HTTP 410 ('removed due a copyright violation' örüntüsü).",
+    buildUrl(request) {
+      if (!request.malId) return null;
+      const template = EMBED_PROVIDERS.megaplay.template;
+      if (!template) return null;
+      return fillTemplate(template, request);
+    },
+  },
+};
+
+/**
+ * Aktif sağlayıcı — **"megaplay"** (25.09.2026, kullanıcı onayı).
+ *
+ * ÇALIŞMA SIRASI: `resolveEpisodeEmbed` önce kayıttaki `watch_url`'e bakar.
+ * Sitedeki 24 bölümün tamamında `watch_url` dolu olduğu için (22 VidMoly +
+ * 2 Streamtape) bugün hiçbir bölüm sağlayıcıya düşmez → mevcut yayın değişmez.
+ * Sağlayıcı yalnızca `watch_url` BOŞ olan bölümlerde devreye girer.
+ *
+ * ✅ EMBED'DE ÇALIŞTIĞI DOĞRULANDI (25.09.2026, iframe içinde): megaplay bu 4
+ * dizinin **hepsinde** gerçek oynatıcı veriyor — 40748 (Jujutsu Kaisen),
+ * 31240 (Re:Zero), 39535 (Mushoku Tensei), 31043 (Erased). Oynatıcıda play/pause,
+ * ±10 sn, CC (altyazı), ayarlar, PiP, tam ekran ve "Skip Intro" çalışıyor.
+ *
+ * ⚠️ ÖNCEKİ YANLIŞ ALARMIN DÜZELTMESİ: Daha önce "410 → eşleme yok, kullanılamaz"
+ * diye not düşmüştüm. O ölçüm **doğrudan (top-level) erişim** korumasıydı, embed
+ * davranışı değil: sağlayıcı iframe DIŞI isteklerde hata sayfası döndürüyor
+ * (gövdede 410/404 metni, HTTP durumu yine 200). Yani adresi tarayıcıda tek başına
+ * açıp "çalışmıyor" sonucu çıkarmak YANLIŞ. Doğru test: adresi bir iframe içine
+ * gömüp oynatıcının gelip gelmediğine bakmak.
+ *
+ * Ayrıca `/embed/{mal}/{sezon}/{bölüm}` biçimi megaplay'de YOK — o yol 404 verir.
+ * Doğru biçim: `/stream/mal/{mal}/{bölüm}/{dil}`.
+ *
+ * Kapatmak için: aşağıdaki değeri "none" yap.
+ */
+export const ACTIVE_EMBED_PROVIDER: EmbedProviderId = "megaplay";
+
+/**
+ * Bir bölüm için oynatılacak adresi çözer.
+ *
+ * Sıra:
+ *  1. `watch_url` DOLUYSA o kazanır → mevcut çalışan davranış birebir korunur.
+ *  2. Boşsa ve aktif sağlayıcı varsa ondan üretilir.
+ *  3. Hiçbiri yoksa null → oynatıcı "video yok" ekranını gösterir.
+ */
+export function resolveEpisodeEmbed(
+  watchUrl: string | null | undefined,
+  request: EmbedProviderRequest,
+  providerId: EmbedProviderId = ACTIVE_EMBED_PROVIDER,
+): string | null {
+  const direct = (watchUrl ?? "").trim();
+  if (direct) return direct;
+  return EMBED_PROVIDERS[providerId].buildUrl(request);
+}

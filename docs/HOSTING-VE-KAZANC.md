@@ -566,7 +566,7 @@ hostların/Adsterra'nın **resmî sayfalarından**; tahminler ayrıca işaretlen
 | Depolama (ücretsiz) | **5 TB** (hesabında 15 TB) | 3 TB | sınırsız (50 GB/dosya) | sınırsız (15 GB/dosya) | 5 GB | sınırsız | 30 GB (panel) |
 | Dosya ömrü | — | 60 gün hareketsizlik | 120 gün | — | 60 gün | — | 60 gün |
 | **Altyazı** | ✅ (kullanıcı kullanıyor) | ✅ (oynatıcıda CC + API'de `subtitles[]`) | doğrulanamadı | ✅ SRT/VTT | doğrulanamadı | doğrulanamadı | ✅ (oynatıcıda Subtitles menüsü) |
-| Reklam yoğunluğu ayarı | Full/Medium/**Low** | **5 kademe + reklamsız trafik satın alınabilir** | doğrulanamadı | ❌ yok (yüksek) | premium | doğrulanamadı | ad modes var |
+| Reklam yoğunluğu ayarı | **4 kademe: Kapalı %0 / Lite %25 / Medium %50 / Full %100** (25.09 doğrulandı) | **5 kademe: %0 / %25 / %50 / %75 / %100** (25.09 doğrulandı) | doğrulanamadı | **4 kademe: %100 / %60 / %30 / %0** (25.09 doğrulandı — eski "yok" bilgisi YANLIŞTI) | premium | doğrulanamadı | ad modes var |
 | Hız / CDN | global CDN, TR verisi yok | global, TR verisi yok | gigabit CDN, TR verisi yok | sınırsız bandwidth | doodcdn | HLS, çok sunucu | global HLS |
 | Oynatıcı dili | — | **panel Türkçe** | — | — | — | — | ❌ İngilizce (TR yok) |
 
@@ -802,3 +802,309 @@ başlar. En hızlı ilk çekim yolu: **Voe LTC ($10 eşik, $0,25 ücret)**.
 - **Doğrulanamayanlar:** Voe'nun güncel TR oranı · VidMoly'nin ödeme yöntemleri · her hostun Türkiye'ye
   özel hız/CDN bilgisi · Adsterra'nın TR'ye özel CPM'i · StreamWish/VidHide/LuluStream/StreamHub/
   StreamRuby altyazı desteği · BigWarp ödeme yöntemleri.
+
+---
+
+## 9. Host reklam kademeleri — panel doğrulaması (25.09.2026)
+
+> Bu bölümdeki **her değer**, ilgili host'un **kendi panelinden birebir okunarak** doğrulanmıştır.
+> Hiçbir ayar değiştirilmedi. Tahmin yoktur; görülemeyen kalemler "görülemedi" olarak yazılmıştır.
+
+### 9.0 ÖNCE DURUM: sitede hangi host canlı?
+
+`show_episodes` tablosundan okundu (24 bölüm, tek dizi: **Jujutsu Kaisen**, show_id `76c6384d-…`)
+· ikinci okuma: **25.09.2026 ~08:20**
+
+| Host | Bölüm sayısı |
+|---|---|
+| **VidMoly** | **22** |
+| **Streamtape** | **2** ← S1B1 + S1B2 |
+| Voe | **0** |
+| Filemoon | **0** |
+
+> ⚠️ **Düzeltme (kendi kaydım):** §9.0'ın ilk sürümünde "VidMoly 23 · Voe 1 · Streamtape 0" yazmıştım.
+> Bu, o anki okumada doğruydu ama **artık geçersiz**: `show_episodes.updated_at` alanına göre
+> **S1B1 ve S1B2 satırları 25.09.2026 08:13:29'da Streamtape'e çevrilmiş** (`https://streamtape.com/e/…`).
+> Yani Streamtape **canlıda** ve oynatıcıda pop-up + CAPTCHA + 18+ kapısı olarak görünüyor. Bkz. §11.
+
+### 9.1 VidMoly — reklam kademesi (asıl host)
+
+Panel: `https://vidmoly.me` (Kullanıcı: **shanime**) → **Ayarlar → Gelir Ayarları**
+
+| Kademe | Açıklama (birebir) | Kazanç | Mevcut |
+|---|---|---|---|
+| **Kapalı** | Reklam gösterme | **%0** | ✅ **SEÇİLİ** |
+| **Lite** | Minimum reklam yoğunluğu | **%25** | |
+| **Medium** | Dengeli reklam akışı | **%50** | |
+| **Full** | Maksimum gelir odaklı | **%100** | |
+
+- **Tek ayar** — "video sayfası" ve "embed" için **ayrı grup YOK**.
+- ⚠️ "Para Kazan" sayfasındaki CPM tablosu **3 kolon** kullanıyor (TAM REKLAM / ORTA / DÜŞÜK) → kademe adları **farklı**; karıştırma.
+- **Adult / +18 anahtarı: YOK** (tüm sekmeler tarandı) → VidMoly'de adult reklamı **kontrol edilemiyor**.
+- **"AdBlock ziyaretçiler"** (Oynatıcı Ayarları) = **AÇIK** → AdBlock kullananlar engellenmiyor (iyi).
+- Diğer oynatıcı ayarları: İndirme iframe **Kapalı** · Doğrudan erişim **Kapalı** · SRT **Açık** · Varsayılan altyazı dili **Turkish**.
+- **"Reklamsız ziyaretçi paketi"** (ücretli): 1.100 play + 1 TB = **$10,95** … 55.000 play + 10 TB = **$379,95**.
+- Ödeme: **USDT TRC20 ✅** · min çekim **$15** (kripto) / **$50** (e-cüzdan) · $50 altı çekimde $1–2 kesinti.
+- Depolama: **14,65 TB limit** (kullanılan 13,5 GB) — sınırsız değil, ama bu ölçekte fiilen sınırsız.
+- **API VAR** — `https://vidmoly.me/api/...`, günlük 50 istek, yol: Settings → API Ayarları.
+- Embed formatı: `https://vidmoly.org/embed-{12 karakter}.html`
+- Hesap: **24 video** (5 silinmiş) · bakiye **$0,00** · plan **Standart** · izlenme: 17 Eyl 1 · 23 Eyl 1 · 24 Eyl 2.
+
+> **KRİTİK BULGU:** VidMoly şu an **"Kapalı" (%0)** → yani **23 bölümün tamamı reklamsız**, kazanç sıfır.
+> Yani "sadece Adsterra + MyBid'den kazan" durumu **zaten kurulu**. VidMoly'nin ödediği TR CPM
+> ($1,00 / 1.000 izlenme — bkz. §8.1) bu ayarla **devre dışı**.
+
+### 9.2 Voe — reklam kademesi
+
+Panel: `https://voe.sx` (Kademe: **Free**) → **Ayarlar → PARA KAZANMA**
+
+| Kademe (birebir) | Kazanç |
+|---|---|
+| Düşük reklamlar | **%0** |
+| Küçük reklamlar | **%25** |
+| Orta ölçekli reklamlar | **%50** |
+| Tam ilanlar | **%75** |
+| Maksimum reklam | **%100** |
+
+- **İki grup ayrı ayarlanıyor:** "Doğrudan video sayfası" ve "Video sayfası yerleştirme" (embed) → ikisi de **Tam ilanlar (%75)**.
+- ⚠️ Panel uyarısı (birebir): *"Ülkeye, trafiğe ve web sitesine bağlı olarak, işlemi ekonomik tutmak için
+  tercihlerin üzerine otomatik olarak yazarız."* → **Voe seçimini ezip üstüne yazabilir.**
+- "Adblock erişimini reddetme" = **kapalı** · "Yalnızca Premium Kullanıcı" = **kapalı**.
+- Adult: **"Ana akım içerik" seçili** (yetişkin içerik kapalı) · "Kısa video yetişkin sitesi" bu hesap için **mevcut değil (gri)**.
+- Reklamsız (ücretli): **VOE Premium $9,99/ay** (12 ay $7,99/ay) · **Premium Trafik $2/TB** (10 TB = $20, 50 TB = $100).
+- Ödeme: **USDT TRC20 seçili** (adres kayıtlı) · başlıkta min **$10**, TRC20 satırında **$50+** · fee **$4,00** · haftalık.
+- Depolama: **3,00 TB** (kullanılan 201,49 MB) · 60 gün hareketsizlik.
+- **API VAR** — Ayarlar → HESAP → API Ayrıntıları (`https://voe.sx/api/account/info?key=...`).
+- Toplu yükleme: **Uzaktan (çoklu URL)** + **Klon** + **FTP** (maks. 25 GB / 120 dk).
+- Embed formatı: `https://voe.sx/e/{kod}` · Hesap: 1 video (201,49 MB) · bakiye **$0,00** · Dünkü görüşler **1**, kazanç **$0**.
+
+### 9.3 Streamtape — reklam kademesi (canlı DEĞİL, yalnız yedek)
+
+Panel: `streamtape.com/accpanel#adsettings` → sayfa açıklaması: *"Make a trade-off between ad amounts and earnings!"*
+
+| Kademe | Kazanç |
+|---|---|
+| Maximum Ads | **%100** |
+| Normal Ads | **%60** |
+| Medium Ads | **%30** |
+| Minimal Ads | **Kazanç yok** |
+
+- **İki grup var:** "Adlevel for video site" ve "Adlevel for embeds" → ikisi de **Maximum Ads (%100)**.
+- **%50 diye bir kademe YOK.** Kayan yüzde yok.
+- **%0 = "Minimal Ads - No Earnings"** → reklam asgarîye iner ama kazanç **tamamen sıfırlanır**; yine de tamamen reklamsız olmaz.
+- "Allow Adult Ads" = **KAPALI** · "Disallow using Adblocker" = **KAPALI**.
+- Premium / ad-free / "Golden" plan = **YOK**.
+- Hesap: `shanime.co@outlook.com` · bakiye **$0,00045** · son 24 saat izlenme **0** · depolama **6,56 GB**.
+
+> **Sonuç:** Streamtape bugün **zaten hiç kazandırmıyor** (0 izlenme). Reklam kademesini düşürmenin
+> bugünkü kazanca etkisi **sıfır**; kazancı sıfırlamanın da anlamı yok. Oradaki 6,56 GB **bedava yedek** —
+> dokunmaya gerek yok.
+
+### 9.4 "%50 / %0 çeksem ne olur?" — net cevap
+
+| Host | %50 var mı | %0 (reklamsız) var mı | Şu an |
+|---|---|---|---|
+| **VidMoly** | ✅ **Medium (%50)** | ✅ **Kapalı (%0)** | **Kapalı (%0)** |
+| **Voe** | ✅ **Orta ölçekli (%50)** | ✅ Düşük (%0) | Tam ilanlar (%75) |
+| **Streamtape** | ❌ yok (en yakın %60) | ✅ Minimal (%0 **kazanç**) | Maximum (%100) |
+
+**Mantık her host'ta aynı:** reklam ↓ ⇒ kazanç ↓. Yani "%50 çekmek" = host payının **yarısını bırakmak**.
+Ama kazanç yalnızca **izlenme varsa** oluşur; şu an üç hesapta da toplam izlenme **birkaç tane**.
+
+### 9.5 "Reklamsız + sınırsız depolama + sadece Adsterra/MyBid" — durum
+
+Bunu bir host'ta aramaya gerek yok:
+
+- **Yapısal olarak imkânsız:** ücretsiz host'lar depolamayı **kendi reklamlarıyla** finanse eder.
+  "Bana sınırsız bedava depo ver, hiç reklam koyma, ben kendi reklamımı koyup %100 alayım" = host'un gelir modeli sıfır.
+- **Ama zaten oradasın:** VidMoly **"Kapalı (%0)"** iken 23 bölüm **reklamsız** yayında ve tek gelir
+  **Adsterra + MyBid**. Depolama limiti **14,65 TB** (bu ölçekte fiilen sınırsız).
+
+**Cloudflare R2 artık gerekli değil.** Önceki plan (R2 + kendi oynatıcı) Streamtape popunder'ından kaçmak içindi;
+VidMoly reklamsız olduğu için bu ihtiyaç ortadan kalktı. Yine de istenirse doğrulanmış maliyet tablosu:
+
+| Kütüphane | Aylık (Standard) |
+|---|---|
+| **6,56 GB (bugünkü)** | **$0** — 10 GB/ay ücretsiz kota içinde |
+| 50 GB | ~$0,60 |
+| 100 GB | ~$1,35 |
+| 250 GB | ~$3,60 |
+| 500 GB | ~$7,35 |
+| 1 TB | ~$14,85 |
+
+Kaynak: <https://developers.cloudflare.com/r2/pricing/> (son güncelleme 07.08.2026) — **egress ÜCRETSİZ**.
+⚠️ **Infrequent Access kullanma:** $0,01/GB daha ucuz görünür ama **30 gün minimum saklama** + **$0,01/GB veri çekme**
+ücreti vardır → video streaming için uygun değil. **Standard** kullan.
+⚠️ **r2.dev'yi üretimde kullanma:** resmî doküman bunu *"non-production traffic"* olarak tanımlıyor;
+WAF/cache/Bot Management yalnız **özel alan adıyla** çalışır → kovayı özel alan adına bağla (ör. `media.shanime.xyz`).
+
+### 9.6 MyBid 2/2 sorunu — kök neden: arz (fill), panelden çözülmez
+
+Spot **#2028774** ("Video VAST #1") · AD Code **#465971** · panel `publishers.mybid.io`
+
+| Ayar | Değer |
+|---|---|
+| Number of video(s) | **2** (zaten hedef) |
+| Refresh time (per user) | **0 min** (zaten minimum) |
+| Skip time | 5 sec |
+| Device | All |
+| Ad-pod / "Max ads per break" | **böyle bir alan YOK** |
+| Kategori / Adult filtresi | **YOK / görülemedi** |
+
+`https://vast.vstserv.com/vast?spot_id=2028774` — **3 kez arka arkaya**:
+
+| İstek | `<Ad>` | sequence | wrapper | NoAd |
+|---|---|---|---|---|
+| 1 | **1** | yok | yok | hayır |
+| 2 | **1** | yok | yok | hayır |
+| 3 | **1** | yok | yok | hayır |
+
+→ **Capping değil:** her istekte tam **1 reklam** (aynı kreatif: "Get Your Super Bonus", 17 sn).
+İkinci slot boş çünkü reklam sunucusunda (vstserv/SSP) **ikinci talep yok** → publisher panelinden
+yapılabilecek bir düzeltme **yok**; konu MyBid/demand tarafı. Destek talebi gerekir.
+
+**Kodun davranışı (doğrulandı — `src/components/PrerollGate.tsx`):** 1 reklam gelince oynatıcı
+`Reklam 1/1` gösterir; `goNext()` ikinci slota geçmeyip `finish()` çağırır → **akış takılmaz, bölüm açılır.**
+Yani tek reklamda kullanıcı mağdur olmuyor.
+
+### 9.7 Taşıma (migration) durumu — 25.09.2026
+
+`scripts/migrate-streamtape.mjs` → hedef klasör `media/`
+
+| | |
+|---|---|
+| İnen | **2 / 24 dosya** = 0,41 GB |
+| Kaynak toplam | 6,56 GB |
+| Durum | **duraklamış** |
+| Kesilebilir mi | ✅ Evet — tam inen dosya atlanır, yarım dosya `Range` ile sürdürülür |
+| R2 anahtarları | `.env` içinde **yok** → R2 henüz bağlanmadı |
+
+Devam komutu: `node scripts/migrate-streamtape.mjs --download`
+
+---
+
+## 10. Streamtape "ham link bypass" talebi — **yapılmadı** (gerekçeli, 25.09.2026)
+
+Talep: `/file/dld` veya `/file/get` endpoint'iyle ham .mp4/.m3u8 adresini çekip Fluid Player'ın `src` alanına
+vermek, iframe'i hiç render etmemek, **izlenmenin PPD'ye yazılmaya devam etmesi**.
+
+**Üç bağımsız sebeple uygulanamaz:**
+
+### 10.1 Talep edilen endpoint'ler YOK
+
+`streamtape.com/api` dokümanındaki "Stream" başlığı altındaki üç endpoint birebir şunlar:
+
+- `generate Download Ticket` → `https://api.streamtape.com/file/dlticket?file={file}&login={login}&key={key}`
+- `get Download Link` → `https://api.streamtape.com/file/dl?file={file}&ticket={ticket}&captcha_response={captcha_response}`
+- `check File Info` → `https://api.streamtape.com/file/info?file={file}&login={login}&key={key}`
+
+**`/file/dld` diye bir endpoint yok. `/file/get` diye bir endpoint yok.**
+(Dokümandaki tam liste: Account Infos · generate Download Ticket · get Download Link · check File Info · Upload ·
+Add/Remove/Check Remote Upload · List Folder/Files · Create/Rename/Delete Folder · Rename/Move/Delete File ·
+Show running/failed converts · Get splash image · Player.js Support.)
+
+### 10.2 Şartlar ve Koşullar bunu açıkça yasaklıyor (birebir alıntı)
+
+`streamtape.com/terms-and-conditions` → **Prohibited Activities**:
+
+> "use content obtained from Streamtape or via the Services for **commercial purposes**;"
+
+> "modify, copy, distribute, transmit, **display, perform**, reproduce, publish, rent, lease, loan, license, or
+> create derivative works based on the Services **except by using functionality provided by Streamtape**;"
+
+Yaptırım (aynı doküman, birebir):
+
+> "We may also **terminate your account without prior notice** under appropriate circumstances if you violate these Terms…"
+
+> "Company **may withhold some or all payment** to you for any reason it deems reasonable."
+
+→ Yani "hesabın banlanma riskini almadan" ifadesi tam tersidir: **bu yol doğrudan ban yoludur.**
+
+### 10.3 İzlenme PPD'ye **yazılmaz** — matematik tutmuyor
+
+ToS, Publisher Program'ı birebir şöyle tanımlıyor:
+
+> "(2) **'Publisher Program'**, which involves the Company making payments to users that enroll in the program and
+> based on the number of Views of **Streamtape videos embedded by that user into its own website**."
+
+Ödeme, **Streamtape'in kendi oynatıcısı embed edilmişken** oluşan görüntülemeye bağlıdır. Embed'i kaldırıp ham dosyayı
+kendi oynatıcında oynatırsan **hiç görüntüleme kaydedilmez** → **PPD = $0**.
+
+**Sonuç:** Bu yol "reklamsız + yine kazanç" sağlamaz; **"reklamsız + sıfır kazanç + ban riski"** sağlar.
+Ayrıca `/file/dl` dönen adres `tapecontent.net` üzerinde bir **indirme** adresidir; akış `wait_time` (doküman
+örneğinde 10 sn) + `captcha_response` parametreli uç-kullanıcı indirme akışıdır — CDN API'si değildir.
+
+**Meşru alternatif:** aynı sonucu (popup yok + %100 kendi reklamın) **VidMoly** veriyor — bkz. §11.6.
+
+---
+
+## 11. Canlı site denetimi (25.09.2026) + uygulanacak düzeltme
+
+### 11.1 Adsterra anahtarları — **değişmemiş**
+
+| Birim (class) | Script host | Anahtar | Canlı sonuç |
+|---|---|---|---|
+| `.adsterra-unit--leaderboard` | `www.highrevenueformat.com` | `58f6928e3bd225665ca3d3141314d61e` | ✅ çalışıyor (90 px) |
+| `.adsterra-unit--native` | `pl31353754.profitableratecpmnetwork.com` | `42bcaa59193806d090844b6e622e8495` | ✅ çalışıyor |
+| (birim yok) | `www.highrevenueformat.com` | `8a5dc100511ee4d17b59adeaf586abcd` | ⚠️ invoke.js yükleniyor ama **hiçbir elemana bağlı değil**, görünür çıktı yok |
+
+Yükleyici paket: `/assets/AdsterraUnit-ZiZbpR63.js` · Kaynak kod: `src/components/AdsterraUnit.tsx` (üç anahtar satır 24–26).
+
+### 11.2 Adult durumu — **açık pornografi gitti, "suggestive" kaldı**
+
+- ✅ **Hardcore/pornografik görsel YOK** (Adsterra desteği kampanyaları kaldırdı, kullanıcı "yes" dedi).
+- ⚠️ Ama hâlâ: native birimde **dating/hookup** kreatifleri — başlık birebir: *"One message could change your night 🔥"*
+  (kreatif CDN: `cdn.storageimagedisplay.com`). Detay sayfasında 4 kreatifin ikisi **suggestive** (çıplak omuz/dekolte),
+  açık nüdite yok.
+- ⚠️ Üç sayfada da **1win casino/bahis** banner'ı — hedef: `https://one-vv3942.com/casino?p=39xe&…&sub6=31253256`.
+
+### 11.3 Pop-up / katman / popunder — **sitenin kendisinde YOK**
+
+`window.open` hiç çağrılmadı, yeni sekme açılmadı, sayfa seviyesinde sahte çarpılı (X) katman yok.
+
+**Ama izleme sayfasında iki katman var ve ikisi de Streamtape iframe'inin İÇİNDE:**
+1. **"Confirm you're not a robot"** (CAPTCHA) paneli
+2. **"18 YAŞINDAYIM. / ÇIKIŞ"** yaş kapısı
+
+→ Kullanıcının şikayeti **doğru**; kaynak: S1B1/S1B2'nin Streamtape embed'i (§9.0).
+
+### 11.4 Pröroll (video öncesi reklam)
+
+- Oynat'a basınca **1 adet** pröroll oynadı: ekranda **"Reklam 1/1"** + **"Reklamı geç"** butonu çıktı.
+- Reklam medyası birebir: `https://i.imgkcdn.com/video/video/6280/280/6aabdb65118f76.87666707t1789647717r8727_high.mp4`
+- Not: sağlayıcı embed'li bölümlerde pröroll'u **`PrerollGate.tsx`** oynatıyor (kendi VAST istemcimiz), Fluid Player değil.
+  MyBid tek yanıtta **1 reklam** döndüğü için sayaç "1/1" gösteriyor (§9.6).
+
+### 11.5 VidMoly'de 24 bölümün tamamı zaten yüklü (kod eşlemesi)
+
+`vidmoly.me` → Tüm Dosyalar = **24 dosya**, hepsi `JujutsuKaisen-1080p-S1B{n}`.
+**Reklam kademesi hâlâ "Kapalı" (%0 — Reklam gösterme).** İzlenmeler: hepsi 0, yalnız S1B24 = 1.
+
+| Bölüm | Kod | Bölüm | Kod | Bölüm | Kod |
+|---|---|---|---|---|---|
+| S1B1 | `hb7hywxd7t1l` | S1B9 | `x4mzewfy28xa` | S1B17 | `95nin4i4r7ab` |
+| S1B2 | `qrcnrp6fz0g1` | S1B10 | `ggl2bm9gr5me` | S1B18 | `sfsd97soct77` |
+| S1B3 | `g0cxffba5dhc` | S1B11 | `dnsp9huypzox` | S1B19 | `wngjp63kifzp` |
+| S1B4 | `9oqc1uwrk2cf` | S1B12 | `f6fu2e677gba` | S1B20 | `akozp6mzrsva` |
+| S1B5 | `mt5u96memf8n` | S1B13 | `e6wu4v4fw1uv` | S1B21 | `ttbxfoywslip` |
+| S1B6 | `o1w2ejyjzs2u` | S1B14 | `blj5p3ewootd` | S1B22 | `odiwjt7ezxh5` |
+| S1B7 | `4a379rkbki2d` | S1B15 | `21qw9eobijv7` | S1B23 | `gvueqrdxmnd1` |
+| S1B8 | `ap7k2rol2hbq` | S1B16 | `bs5vnpdeun2s` | S1B24 | `832h1mijy6t3` |
+
+Embed biçimi: `https://vidmoly.org/embed-{kod}.html` · Direkt: `https://vidmoly.me/v/{kod}`
+
+### 11.6 UYGULANACAK DÜZELTME (tek meşru çözüm)
+
+Streamtape'in kötü UX'i (CAPTCHA + 18+ kapısı + pop-up) **oynatıcı sayfasının kendisinden** gelir; kodla bypass
+edilemez (§10). Ama **gerek de yok**: aynı bölümler VidMoly'de **zaten var** ve VidMoly **reklamsız (%0 kademe)**.
+
+`show_episodes` tablosunda **2 satır** güncellenir:
+
+| Bölüm | Şu anki `watch_url` | Yeni `watch_url` |
+|---|---|---|
+| S1B1 | `https://streamtape.com/e/YB2xWzzO7bUBlK` | `https://vidmoly.org/embed-hb7hywxd7t1l.html` |
+| S1B2 | `https://streamtape.com/e/RDqlwvQBjXh7Kq` | `https://vidmoly.org/embed-qrcnrp6fz0g1.html` |
+
+**Sonuç:** 24/24 bölüm reklamsız, CAPTCHA'sız, 18+ kapısız, pop-up'sız; site içi tek gelir **Adsterra + MyBid**.
+**Kod değişikliği gerekmez** (oynatıcı zaten `watch_url`'i iframe'e veriyor — `src/routes/izle.$slug.tsx`,
+`PlayerBox` → `epUrl`) ve işlem **geri alınabilir**.

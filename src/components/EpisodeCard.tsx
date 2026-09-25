@@ -10,6 +10,19 @@ type EpisodeCardProps = {
   /** `row`: animecix tarzı satır düzeni · `grid`: kapak ızgarası. */
   variant?: "row" | "grid";
   href: string;
+  /**
+   * Serinin ana posteri. Zincirin **son** adımı.
+   *
+   * Neden gerekli: sağlayıcı embed'iyle (megaplay) gelen bölümlerde `watch_url`
+   * boş olduğu için sağlayıcı kapağı ÜRETİLEMİYOR (megaplay poster/thumb servis
+   * etmiyor — ağ kaydında görsel isteği yok). O durumda kart tamamen boş/kırık
+   * kalıyordu. Seri posteri, kırık görsel yerine tutarlı bir kapak verir.
+   *
+   * NOT: Bu gerçek bir "videodan kare" DEĞİLDİR. Cross-origin iframe'in
+   * içindeki videodan kare alınamaz; gerçek kare ancak videoyu kendimiz
+   * barındırırsak (R2 + kendi oynatıcı) üretilebilir.
+   */
+  seriesPoster?: string | undefined;
 };
 
 /**
@@ -20,7 +33,13 @@ type EpisodeCardProps = {
  * değil, düz bir "numara kartına" düşer: gerçek kapakların yanında bulanık
  * görsel "bozuk/yarım yüklenmiş" izlenimi veriyordu.
  */
-export function EpisodeCard({ slug, episode, variant = "row", href }: EpisodeCardProps) {
+export function EpisodeCard({
+  slug,
+  episode,
+  variant = "row",
+  href,
+  seriesPoster,
+}: EpisodeCardProps) {
   const label = episode.title?.trim() || `Bölüm ${episode.number}`;
   const summary = episode.summary?.trim();
 
@@ -38,6 +57,9 @@ export function EpisodeCard({ slug, episode, variant = "row", href }: EpisodeCar
           episode.poster ?? "",
           episodeCoverFromWatchUrl(episode.watch_url),
           localCoverPath(slug, episode.season, episode.number),
+          // Son çare: seri posteri. Sağlayıcı kapağı üretilemeyen bölümlerde
+          // (megaplay) kırık görsel yerine tutarlı bir kapak gösterir.
+          seriesPoster ?? "",
         ]}
         // Kayıtlı adres bayatlamışsa (sağlayıcı CDN'i dönüyor) güncelini çeker.
         resolveFallback={() => resolvePosterForEpisode(episode.watch_url)}

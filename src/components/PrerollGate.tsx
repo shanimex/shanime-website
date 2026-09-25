@@ -19,6 +19,39 @@ import { fetchVastAds, fireBeacons, type VastAd } from "@/lib/vast";
  * açılmıyordu. Artık video hep DOM'da; poster/overlay onun üzerine çizilir.
  */
 const MAX_ADS = 2;
+/**
+ * Ad-pod için en fazla kaç tur istek atılır (ilk tur + ek turlar).
+ *
+ * Neden: her etiket AYRI bir açık artırma açar ve bazen biri BOŞ döner. Ölçümde
+ * aynı sayfa bir açılışta "Reklam 1/2 → 2/2", başka açılışta "Reklam 1/1" verdi.
+ * Ek tur, boş dönen slotu yeniden dener ve ikinci reklamı bulma şansını artırır.
+ *
+ * Üst sınır bilinçli: kapı asla reklam yüzünden takılı kalmamalı. Tur başına
+ * maliyet ~0,5 sn; hepsi zaman aşımına düşse bile kapı `finish()` ile açılır.
+ * Aynı kreatif ikinci kez oynatılmaz (bkz. `seen` kümesi).
+ */
+const MAX_ADS_ROUNDS = 3;
+/**
+ * Aynı kreatifin ad-pod'da İKİ KEZ oynatılıp oynatılmayacağı.
+ *
+ * Ölçüm (25.09.2026, sayfa bağlamı — sunucu tarafı değil): iki MyBid spotu da
+ * DOLU dönüyor (6/6 örnekte `ads=1, noad=false, HTTP 200`) ama **çoğu zaman AYNI
+ * kreatifi** veriyor — birebir aynı `mediaFile` (`i.imgkcdn.com/...mp4`, ikisi de
+ * 15 sn, skip 5 sn).
+ *
+ *  - `false` → ikinci kopya elenir; pod 1 reklama düşer, sayaç **"Reklam 1/1"**.
+ *  - `true`  → iki slot da oynar, sayaç **"Reklam 1/2 → 2/2"**; ama aynı video
+ *               iki kez görünebilir.
+ *
+ * `false` seçildi: kullanıcı şartı **"2 tane AYNI reklam olmaz"**. Tekilleştirme
+ * açıkken MyBid iki farklı kreatif verirse **2 reklam** oynar (2/2); iki spot aynı
+ * kreatifi verirse dürüstçe **1 reklam** oynar (1/1) — aynı video iki kez
+ * gösterilmez.
+ *
+ * `true` yapılırsa sayaç her zaman 2/2 olur ama iki slotta **aynı reklam** oynar
+ * (ölçüm: aynı mp4, 15,1 sn × 2 ≈ 30 sn). Kullanıcı bunu istemedi.
+ */
+const ALLOW_REPEAT_CREATIVE = false;
 /** VAST skipoffset vermediyse kullanılacak atlama süresi (saniye). */
 const DEFAULT_SKIP_SECONDS = 5;
 
@@ -28,7 +61,7 @@ export function PrerollGate({
   title,
   onFinish,
 }: {
-  /** VAST etiket adresleri; ilk dolu olan kullanılır. */
+  /** VAST etiket adresleri — ad-pod: her etiket ayrı bir reklam üretir. */
   vastUrls: string[];
   poster?: string | undefined;
   title: string;
@@ -56,19 +89,48 @@ export function PrerollGate({
   // anında reklam hazır olur ve unmuted oynatma izni korunur.
   useEffect(() => {
     let alive = true;
-    const first = vastUrls.find((url) => /^https?:\/\//i.test(url));
-    if (!first) {
+    // AD-POD: HER etiket AYRI bir açık artırma açar. Daha önce yalnızca İLK etiket
+    // çekiliyordu (`vastUrls.find(...)`) — bu yüzden canlıda sayaç hep "Reklam 1/1"
+    // kalıyordu ve ikinci spot hiç kullanılmıyordu.
+    const urls = vastUrls.filter((url) => /^https?:\/\//i.test(url));
+    if (urls.length === 0) {
       finish();
       return;
     }
-    void fetchVastAds(first, { timeoutMs: 3000 })
-      .then((result) => {
+    // Toplanan reklamlar + kreatif tekilleştirme. Aynı video iki kez oynatılmaz;
+    // ikinci slotu doldurmak için farklı kreatif bulana kadar ek tur atılır.
+    const collected: VastAd[] = [];
+    const seen = new Set<string>();
+
+    const collect = async (): Promise<void> => {
+      for (let round = 0; round < MAX_ADS_ROUNDS; round += 1) {
+        const before = collected.length;
+        const groups = await Promise.all(
+          urls.map((url) =>
+            // Tek etiketin hatası ad-pod'un tamamını düşürmemeli.
+            fetchVastAds(url, { timeoutMs: 3000 }).catch((): VastAd[] => []),
+          ),
+        );
         if (!alive) return;
-        setAds(result);
-        if (result.length === 0) finish();
-      })
-      .catch(() => {
-        if (alive) finish();
+        for (const ad of groups.flat()) {
+          if (collected.length >= MAX_ADS) return;
+          // Tekilleştirme yalnızca kapalıyken uygulanır (bkz. ALLOW_REPEAT_CREATIVE).
+          if (!ALLOW_REPEAT_CREATIVE && seen.has(ad.mediaFile)) continue;
+          seen.add(ad.mediaFile);
+          collected.push(ad);
+        }
+        if (collected.length >= MAX_ADS) return;
+        // Bu tur hiç YENİ kreatif getirmediyse ek tur denemek boşuna.
+        if (collected.length === before) return;
+      }
+    };
+
+    void collect()
+      .catch(() => undefined)
+      .then(() => {
+        if (!alive) return;
+        setAds(collected);
+        if (collected.length === 0) finish();
       });
     return () => {
       alive = false;

@@ -326,6 +326,7 @@ function ShowDetailPage() {
                     key={episode.id}
                     slug={showSlug(show)}
                     episode={episode}
+                    seriesPoster={show.image}
                     variant={view}
                     href={watchHref(show, activeSeason?.number ?? episode.season, episode.number)}
                   />

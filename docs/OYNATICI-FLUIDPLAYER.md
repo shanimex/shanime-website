@@ -141,3 +141,79 @@ STREAMTAPE_KEY=
 - Streamtape: `streamtape.com/api` (embed biçimi `streamtape.com/e/<id>`, `c1_label`/`c1_file`
   altyazı parametreleri, `?thumb`, `?color`, login+key zorunluluğu) ·
   `streamtape.com/terms-and-conditions` (yukarıdaki alıntılar)
+
+---
+
+## 6. iframe `sandbox` ile popunder engelleme — DENENDİ, BAŞARISIZ (25.09.2026)
+
+**Talep:** Embed iframe'inin etrafına tarayıcı koruması (iframe sandbox) koyup, sağlayıcı arka planda
+pop-up açmaya çalıştığında tarayıcının yeni sekme iznini engellemesi; video oynatmaya devam etmesi.
+
+### 6.1 Denenen koruma
+
+`src/routes/izle.$slug.tsx` içindeki sağlayıcı `<iframe>`'ine eklendi:
+
+```
+sandbox="allow-scripts allow-same-origin allow-forms allow-presentation allow-orientation-lock"
+```
+
+Değerin mantığı doğruydu:
+
+| Bayrak | Neden |
+|---|---|
+| `allow-scripts` | Oynatıcı JS ile çalışır — verilmezse **tüm** oynatıcılar bozulur |
+| `allow-same-origin` | Oynatıcı kendi alan adının çerez/depolamasını kullanır; verilmezse "opaque origin" olur |
+| `allow-forms` | Robot doğrulama formu |
+| `allow-presentation` / `allow-orientation-lock` | Tam ekran yayın / mobil yatay kilit |
+| **`allow-popups` YOK** | `window.open` ve `target="_blank"` → **yeni sekme açılamaz** |
+| **`allow-top-navigation` YOK** | Embed bizi **başka siteye yönlendiremez** |
+| `allow-downloads` YOK | Zorla indirme başlatılamaz |
+
+### 6.2 Ölçüm — tek değişken `sandbox`
+
+Yöntem: **aynı URL + aynı sayfa + aynı referrer + aynı tarayıcı**; aynı sayfaya sandbox'lı ve
+sandbox'sız iki iframe basıldı. Tek fark `sandbox`.
+
+| Sağlayıcı | Sandbox'LI sonuç | Sandbox'SIZ (kontrol) |
+|---|---|---|
+| **Streamtape** | **"Client blocked!"** ← *"Your browser or the embed you are viewing are doing nasty things!"* | CAPTCHA kapısına geliyor |
+| **VidMoly** | **"The embed could not be loaded."** | **Gerçek oynatıcı yükleniyor** (poster + play düğmesi) |
+
+- **Ağ seviyesinde engelleme YOK:** `https://vidmoly.org/embed-*.html` her iki durumda da **200 OK**.
+  Fark tamamen sayfa-içi/sandbox kaynaklı. Konsolda **hiç** hata mesajı yok (`kind=errors` → `[]`).
+- **Sandbox mekanizması kendisi doğru çalıştı:** 20 sn tıklamasız beklemede **yeni sekme açılmadı**
+  (9 sekme → 9 sekme) ve değerde `allow-popups` / `allow-top-navigation` yoktu.
+
+### 6.3 SONUÇ — ikisi birlikte mümkün değil
+
+**Sağlayıcılar sandbox'lı embed'i reddediyor.** Streamtape bunu açıkça *algılayıp* engelliyor
+("doing nasty things"); VidMoly yüklemeyi reddediyor. Yani:
+
+> "**popup'ı engelle**" + "**video oynasın**" → bu iki hedef sağlayıcı embed'iyle **birlikte elde edilemez.**
+
+Ek olarak sandbox, hedeflenen koruma sınıfının bir kısmını **zaten kapsamıyor**: yalnızca **yeni sekme**
+ve **üst pencere yönlendirmesini** engeller. Embed'in **kendi belgesi içinde** çizilen katmanları
+(yaş kapısı, robot doğrulama paneli, belge içi reklam overlay'i) **engelleyemez** — onlar iframe'in
+iç DOM'u ve tarayıcı dışarıdan müdahale ettirmez.
+
+**Bu bölüm, §2.1'deki eski "denendi, geri alındı" notunun belirsizliğini kapatır:** başarısızlığın sebebi
+yanlış/fazla katı bir sandbox değeri **değildi** — `allow-scripts` + `allow-same-origin` verilmiş,
+doğru kapsanmış bir sandbox bile reddediliyor. Tekrar denenmesine gerek yok.
+
+### 6.4 Kodda bırakılan iz
+
+`src/routes/izle.$slug.tsx` → sağlayıcı `<iframe>`'inin yanında **kalıcı yorum** olarak duruyor
+(sandbox satırı **eklenmedi**, `sandbox` özniteliği **YOK**). Yorum; denenen tam değeri, iki hata
+metnini ve kontrol sonucunu kaydeder — böylece aynı deneme bir daha yapılmaz.
+Doğrulama: `npx tsc --noEmit` → hata yok · `npx eslint src/routes/izle.$slug.tsx` → hata yok.
+
+### 6.5 Peki popup/CAPTCHA nasıl gerçekten gider?
+
+Sağlayıcı embed'i içindeki davranış **kontrol edilemez**; o yüzden çözüm oynatıcıyı değiştirmek değil
+**sağlayıcıyı değiştirmek**:
+
+| Yol | Sonuç |
+|---|---|
+| **VidMoly'ye taşı** (reklam kademesi "Kapalı" iken) | Reklamsız, CAPTCHA'sız, yaş kapısız, pop-up'sız. Zaten 24 bölümün 22'si orada. |
+| Kendi dosyanı kendi depolamanda tut (R2) + Fluid Player | %100 kontrol, %100 reklam geliri — ama depolama maliyeti sende |
+| Streamtape'te kal | Pop-up + CAPTCHA + 18+ kapısı **kabul edilmiş** olur |
