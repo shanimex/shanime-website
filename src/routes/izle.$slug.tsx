@@ -41,15 +41,15 @@ type WatchSearch = {
   kaynak?: WatchSource | undefined;
 };
 
-const WATCH_SOURCES: { id: WatchSource; label: string; hint: string }[] = [
-  {
-    id: "megaplay",
-    label: "Japonca ses",
-    hint: "Orijinal Japonca dublaj (altyazı: EN ve diğerleri)",
-  },
-  { id: "vidsrc", label: "Türkçe altyazı", hint: "Türkçe altyazı menüsü (ses: İngilizce dublaj)" },
-];
-
+/**
+ * Kaldırıldı: "Türkçe altyazı" (vidsrc.to) düğmesi.
+ *
+ * NEDEN: kullanıcı istemedi — o oynatıcı İngilizce dublaj veriyor ve zinciri
+ * agresif pop-up açıyor. Türkçe altyazı artık bizden geldiği için
+ * (`SubtitleOverlay` + `scripts/sync-tr-subtitles.mjs`) bu seçeneğe gerek yok.
+ * `kaynak` parametresi yalnızca elle zorlama için (ör. `?kaynak=vidsrc`) duruyor;
+ * arayüzde düğmesi YOK.
+ */
 function toWatchSource(value: unknown): WatchSource | undefined {
   return value === "megaplay" || value === "vidsrc" ? value : undefined;
 }
@@ -166,6 +166,13 @@ function WatchPage() {
   // Video öncesi reklam kapısı: gerçek VAST reklamları oynadıktan sonra açılır.
   const [gateDone, setGateDone] = useState(false);
 
+  // Türkçe altyazı durumu. `available` yalnızca katman dosyayı gerçekten
+  // yükleyebildiğinde true olur; düğme o zaman gösterilir (altyazısı olmayan
+  // bölümde arayüz sade kalsın). Kanca sırası için BURADA, erken `return`lerden
+  // önce tanımlanır.
+  const [trSubsAvailable, setTrSubsAvailable] = useState(false);
+  const [trSubsOn, setTrSubsOn] = useState(true);
+
   // Sezonu bölümü olan sezonlar üzerinden çöz: boş bir sezon seçilirse
   // izleyici "bölüm yok" ekranında kalmaz, ilk dolu sezona düşer.
   const playableSeasons: SeasonWithEpisodes[] = (detail?.seasons ?? []).filter(
@@ -266,16 +273,6 @@ function WatchPage() {
         resolveEpisodeEmbed(currentEpisode.watch_url, episodeRequest))
       : null;
 
-  // Kaynak düğmesi yalnızca iki sağlayıcı da adres ÜRETEBİLİYORSA gösterilir.
-  const sourceOptions = WATCH_SOURCES.filter((option) =>
-    episodeRequest ? Boolean(buildProviderUrl(option.id, episodeRequest)) : false,
-  );
-  // Şu an gerçekten hangisi oynuyor? (Adresten tespit edilir.)
-  const activeSource: WatchSource | null = episodeEmbed?.includes("megaplay.buzz")
-    ? "megaplay"
-    : episodeEmbed?.includes("vidsrc.to")
-      ? "vidsrc"
-      : null;
   const watching = Boolean(episodeEmbed) && gateDone;
 
   return (
@@ -346,6 +343,8 @@ function WatchPage() {
             epUrl={episodeEmbed ?? ""}
             directSrc={directSrc}
             subtitles={episodeSubtitles}
+            subsOn={trSubsOn}
+            onSubsAvailable={setTrSubsAvailable}
             subtitleUrl={
               episodeSubtitles[0]?.src ||
               (currentEpisode
@@ -375,43 +374,27 @@ function WatchPage() {
 
         {/* Bilgi satırı + reklam: oynatıcının altında, oynatıcı genişliğinde. */}
         <div className="mt-4 space-y-4 lg:pr-[340px]">
-          {/* Kaynak seçimi. Yalnızca iki sağlayıcı da adres üretebiliyorsa çıkar:
-              "Japonca ses" (megaplay) ve "Türkçe altyazı" (vidsrc.to) aynı anda
-              hiçbir sağlayıcıda yok, seçim izleyiciye bırakılır (bkz. WatchSource).
-              Kaynak değişince iframe yenilenir; reklam kapısı yeniden kurulmaz. */}
-          {sourceOptions.length > 1 && (
+          {/* Altyazı düğmesi — oynatıcının İÇİNDE DEĞİL, ALTINDA durur.
+              Neden: oynatıcının içine konduğunda sağlayıcının kendi CC/ayar
+              simgeleriyle karışıyordu ("TR altyazı açık" yazısı oynatıcının
+              kontrol çubuğunun parçası gibi görünüyordu). Türkçe altyazı dosyası
+              olan bölümlerde çıkar; olmayanlarda arayüz sade kalır. */}
+          {trSubsAvailable && (
             <div className="flex flex-wrap items-center gap-2">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-                Kaynak
+              <button
+                type="button"
+                onClick={() => setTrSubsOn((value) => !value)}
+                className={
+                  trSubsOn
+                    ? "rounded-full border border-accent bg-accent/15 px-3 py-1 text-[12px] font-bold text-accent"
+                    : "rounded-full border border-border px-3 py-1 text-[12px] font-bold text-muted-foreground transition-colors hover:border-accent/60 hover:text-accent"
+                }
+              >
+                {trSubsOn ? "Türkçe altyazı açık" : "Türkçe altyazı kapalı"}
+              </button>
+              <span className="text-[11px] text-muted-foreground">
+                Altyazı oynatıcının kendi altyazısının üstünde gösterilir.
               </span>
-              {sourceOptions.map((option) => {
-                const active = activeSource === option.id;
-                return (
-                  <button
-                    key={option.id}
-                    type="button"
-                    title={option.hint}
-                    onClick={() =>
-                      void navigate({
-                        to: "/izle/$slug",
-                        params: { slug },
-                        search: {
-                          sezon: activeSeason?.number,
-                          b: currentEpisode?.number,
-                          kaynak: option.id,
-                        },
-                      })
-                    }
-                    className={
-                      active
-                        ? "rounded-full border border-accent bg-accent/15 px-3 py-1 text-[12px] font-bold text-accent"
-                        : "rounded-full border border-border px-3 py-1 text-[12px] font-bold text-muted-foreground transition-colors hover:border-accent/60 hover:text-accent"
-                    }
-                  >
-                    {option.label}
-                  </button>
-                );
-              })}
             </div>
           )}
 
@@ -456,6 +439,8 @@ function PlayerBox({
   directSrc,
   subtitles,
   subtitleUrl,
+  subsOn,
+  onSubsAvailable,
   vastUrls,
   onGateFinish,
 }: {
@@ -473,6 +458,10 @@ function PlayerBox({
    * zamanıyla senkronlanır — yani Türkçe altyazı için video yüklemek gerekmez.
    */
   subtitleUrl: string;
+  /** Türkçe altyazı katmanı açık mı? (Düğme oynatıcının ALTINDA durur.) */
+  subsOn: boolean;
+  /** Altyazı dosyası yüklenebildiyse true — düğme o zaman gösterilir. */
+  onSubsAvailable: (available: boolean) => void;
   /** Video öncesi reklam (VAST) etiketleri. */
   vastUrls: string[];
   /** Reklamlar bitince çağrılır; bölüm oynatıcısı o zaman yüklenir. */
@@ -552,6 +541,8 @@ function PlayerBox({
               frameRef={iframeRef}
               url={subtitleUrl}
               active={epUrl.includes("megaplay.buzz")}
+              on={subsOn}
+              onAvailable={onSubsAvailable}
             />
           </div>
         )

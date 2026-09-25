@@ -99,15 +99,39 @@ async function supa(path) {
   return res.json();
 }
 
-/** `00:00:01,000` → `00:00:01.000` · başına WEBVTT ekler. */
+/**
+ * SRT → VTT.
+ *
+ * DİKKAT: virgül yalnızca DAMGA satırında noktaya çevrilir. Önceki sürüm satır
+ * başındaki tek virgülü çevirdiği için bitiş damgası `,` ile kalıyordu
+ * (`00:00:01.000 --> 00:00:05,000`). Metin satırlarındaki virgüllere DOKUNULMAZ.
+ */
 function srtToVtt(srt) {
   const body = srt
     .replace(/\r\n?/g, "\n")
     .replace(/^\uFEFF/, "")
     .split("\n")
-    .map((line) => line.replace(/^(\d{1,2}:\d{2}:\d{2}),(\d{1,3})/, "$1.$2"))
+    .map((line) =>
+      /^\d{1,2}:\d{2}:\d{2},\d{1,3}\s*-->/.test(line)
+        ? line.replace(/(\d{2}:\d{2}:\d{2}),(\d{1,3})/g, "$1.$2")
+        : line,
+    )
     .join("\n");
   return `WEBVTT\n\n${body.trim()}\n`;
+}
+
+/**
+ * Yanıt gövdesini DOĞRU kodlamayla çözer.
+ *
+ * NEDEN: OpenSubtitles bazı dosyalar için `charset=iso-8859-1` bildiriyor ama
+ * içerik UTF-8. `fetch().text()` bildirilen kodlamayı kullandığı için Türkçe
+ * karakterler bozuluyordu (`Çeviren` → `Ã‡eviren`). Artık baytlar UTF-8 olarak
+ * çözülür; bozuk çıkarsa windows-1252 denenir.
+ */
+function decodeBody(buffer) {
+  const utf8 = new TextDecoder("utf-8").decode(buffer);
+  if (!utf8.includes("\uFFFD")) return utf8;
+  return new TextDecoder("windows-1252").decode(buffer);
 }
 
 /** Altyazı dosyasının adı: yerleşik kural (kod da bu yolu arar). */
@@ -160,7 +184,8 @@ async function download(fileId) {
   if (!json.link) throw new Error("indirme bağlantısı yok");
   const file = await fetch(json.link, { headers: { "User-Agent": APP } });
   if (!file.ok) throw new Error(`dosya ${file.status}`);
-  return file.text();
+  // Baytlar üzerinden çöz: sunucunun bildirdiği charset yanıltıcı olabiliyor.
+  return decodeBody(await file.arrayBuffer());
 }
 
 const tmdbMap = existsSync(TMDB_MAP) ? JSON.parse(readFileSync(TMDB_MAP, "utf8")) : {};

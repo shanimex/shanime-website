@@ -256,7 +256,17 @@ function providerById(id: string): EmbedProvider | null {
  *
  * Kapatmak için: aşağıdaki değeri "none" yap.
  */
-export const ACTIVE_EMBED_PROVIDER: EmbedProviderId = "vidsrc";
+/**
+ * Varsayılan sağlayıcı: **megaplay** (orijinal Japonca ses).
+ *
+ * vidsrc.to artık KULLANILMIYOR: İngilizce dublaj veriyor ve oynatıcı zinciri
+ * (vsembed.ru → cloudorchestrana…) agresif pop-up açıyor. Türkçe altyazı zaten
+ * bizden geliyor — `src/components/SubtitleOverlay.tsx` megaplay'in köprüsünden
+ * aldığı oynatma zamanıyla kendi `.vtt` dosyamızı çiziyor
+ * (`scripts/sync-tr-subtitles.mjs` → `public/subs/`). Bu yüzden vidsrc'e gerek
+ * kalmadı; tanımı ileride `@vidsrc` direktifiyle kullanılabilsin diye duruyor.
+ */
+export const ACTIVE_EMBED_PROVIDER: EmbedProviderId = "megaplay";
 
 /**
  * Belirli bir sağlayıcıdan embed adresi üretir (watch_url'i tamamen yok sayar).

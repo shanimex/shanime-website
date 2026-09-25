@@ -14,22 +14,29 @@ import { cueAt, parseSubtitles, type Cue } from "@/lib/subtitles";
  * `postMessage` ile ana sayfaya bildiriyor. Biz de o zamanı kullanıp **kendi
  * altyazımızı kendi katmanımızda** çiziyoruz. Böylece:
  *   · ses      → megaplay (orijinal Japonca),
- *   · altyazı  → bizim dosyamız (istediğimiz dil),
- *   · görünüm  → tamamen bizim (yazı boyutu, rengi, arka planı),
- *   · video YÜKLEMEK GEREKMİYOR (yalnızca küçük bir .vtt metni).
+ *   · altyazı  → bizim dosyamız (Türkçe, `scripts/sync-tr-subtitles.mjs` üretir),
+ *   · görünüm  → tamamen bizim,
+ *   · video YÜKLEMEK GEREKMİYOR.
  *
  * ÖLÇÜLEN HAM YÜKLER (25.09.2026, gerçek tarayıcı, iframe bağlamı):
  *   {"channel":"megacloud","event":"time","time":1324.27742,"duration":1435.022,...,"percent":92.28}
  *   {"event":"CURRENT_TIME","time":1324.27742,"duration":1435.022,"active":false,...}
  *
- * NOT (dürüst sınır): sağlayıcının KENDİ altyazısı (İngilizce, varsayılan iz)
- * açıksa ekranda iki satır görünebilir. Katmanımız onun biraz ÜSTÜNE konumlanır.
- * Sağlayıcının izini kapatmanın bir yolu yok (komut listesinde yok, §15.1).
+ * KONUM NOTU: metin, sağlayıcının KENDİ altyazı satırının **üstüne** konumlanır
+ * (`bottom-[15%]`). Sağlayıcının İngilizce izini kapatmanın bir yolu yok, bu
+ * yüzden ikisi ekranda birlikte görünür; bizimki onun üstünde durur.
+ *
+ * Aç/kapa düğmesi burada DEĞİL: oynatıcının içine konduğunda sağlayıcının kendi
+ * CC/ayar simgeleriyle karışıyordu, oynatıcının kontrol çubuğunun parçası gibi
+ * görünüyordu. Düğme artık sayfada, oynatıcının ALTINDA
+ * (`izle.$slug.tsx` → "Türkçe altyazı açık/kapalı").
  */
 export function SubtitleOverlay({
   frameRef,
   url,
   active,
+  on,
+  onAvailable,
 }: {
   /** Sağlayıcı iframe'inin ref'i — köprüye komut göndermek için. */
   frameRef: React.RefObject<HTMLIFrameElement | null>;
@@ -37,27 +44,38 @@ export function SubtitleOverlay({
   url: string;
   /** Yalnızca köprüyü destekleyen sağlayıcıda (megaplay) çalışır. */
   active: boolean;
+  /** Türkçe altyazı açık mı? (Sayfadaki düğmeden gelir.) */
+  on: boolean;
+  /** Altyazı yüklenebildiyse true — sayfa düğmeyi o zaman gösterir. */
+  onAvailable: (available: boolean) => void;
 }) {
   const [cues, setCues] = useState<Cue[]>([]);
   const [time, setTime] = useState(0);
-  const [on, setOn] = useState(true);
   const frameRefStable = useRef(frameRef);
+  const onAvailableRef = useRef(onAvailable);
+  onAvailableRef.current = onAvailable;
 
   // Altyazı dosyasını bir kez indir ve çöz.
   useEffect(() => {
     if (!url || !active) {
       setCues([]);
+      onAvailableRef.current(false);
       return;
     }
     let alive = true;
     fetch(url, { credentials: "omit" })
       .then((res) => (res.ok ? res.text() : ""))
       .then((text) => {
-        if (alive) setCues(text ? parseSubtitles(text) : []);
+        if (!alive) return;
+        const parsed = text ? parseSubtitles(text) : [];
+        setCues(parsed);
+        onAvailableRef.current(parsed.length > 0);
       })
       .catch(() => {
         // CORS ya da ağ hatası: altyazı sessizce devre dışı kalır, video etkilenmez.
-        if (alive) setCues([]);
+        if (!alive) return;
+        setCues([]);
+        onAvailableRef.current(false);
       });
     return () => {
       alive = false;
@@ -106,32 +124,15 @@ export function SubtitleOverlay({
 
   const current = useMemo(() => cueAt(cues, time), [cues, time]);
 
-  if (!active || cues.length === 0) return null;
+  if (!active || !on || cues.length === 0) return null;
 
   return (
-    <>
-      {/* Altyazı satırı. Arka plan YOK (istenen tasarım), okunurluk gölgeyle. */}
-      <div className="pointer-events-none absolute inset-x-0 bottom-[9%] z-20 flex justify-center px-6 text-center">
-        {on && current ? (
-          <span className="whitespace-pre-line text-[15px] font-semibold leading-snug text-white [text-shadow:0_1px_2px_rgba(0,0,0,.95),0_0_6px_rgba(0,0,0,.85)] sm:text-[19px]">
-            {current.text}
-          </span>
-        ) : null}
-      </div>
-
-      {/* Aç/kapa: sağlayıcının kendi altyazısı da açıksa izleyici kapatabilsin. */}
-      <button
-        type="button"
-        onClick={() => setOn((value) => !value)}
-        className={
-          on
-            ? "absolute bottom-3 right-3 z-20 rounded-lg bg-black/70 px-2.5 py-1 text-[11px] font-bold text-white"
-            : "absolute bottom-3 right-3 z-20 rounded-lg bg-black/50 px-2.5 py-1 text-[11px] font-bold text-white/60"
-        }
-        title="Türkçe altyazıyı aç/kapat"
-      >
-        {on ? "TR altyazı açık" : "TR altyazı kapalı"}
-      </button>
-    </>
+    <div className="pointer-events-none absolute inset-x-0 bottom-[15%] z-20 flex justify-center px-6 text-center">
+      {current ? (
+        <span className="whitespace-pre-line text-[15px] font-semibold leading-snug text-white [text-shadow:0_1px_2px_rgba(0,0,0,.95),0_0_6px_rgba(0,0,0,.85)] sm:text-[19px]">
+          {current.text}
+        </span>
+      ) : null}
+    </div>
   );
 }
