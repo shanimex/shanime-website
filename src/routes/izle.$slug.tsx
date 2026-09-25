@@ -113,9 +113,11 @@ function WatchPage() {
     staleTime: 60_000,
   });
 
-  // Panelde `ad_preroll` kodu var mı? Geri sayım kararı buna bağlı.
+  // Panelde `ad_preroll` kodu var mı? Yoksa koddaki Adsterra birimi gösterilir,
+  // yani 5 saniyelik ön-reklam ekranı HER durumda çalışır (istenen davranış).
   const preroll = useAdCode("ad_preroll");
-  const prerollHasAd = preroll.isFetched && Boolean(preroll.code);
+  const prerollUsesPanel = preroll.isFetched && Boolean(preroll.code);
+  const prerollHasAd = preroll.isFetched;
 
   // Oynatıcının üstü/altı: panelde kod varsa PANEL kazanır, yoksa koddaki
   // Adsterra birimi devreye girer. Böylece panelden kod değiştirmek yayın
@@ -273,6 +275,7 @@ function WatchPage() {
             epUrl={currentEpisode?.watch_url ?? ""}
             directSrc={directSrc}
             subtitles={episodeSubtitles}
+            prerollUsesPanel={prerollUsesPanel}
             onSkip={() => setCountdown(0)}
           />
 
@@ -330,6 +333,7 @@ function PlayerBox({
   epUrl,
   directSrc,
   subtitles,
+  prerollUsesPanel,
   onSkip,
 }: {
   watching: boolean;
@@ -341,6 +345,8 @@ function PlayerBox({
   directSrc: string;
   /** Fluid Player için VTT altyazı listesi (boş olabilir). */
   subtitles: FluidSubtitle[];
+  /** Ön-reklam kodu panelden mi geliyor? Değilse kod içi Adsterra birimi çizilir. */
+  prerollUsesPanel: boolean;
   onSkip: () => void;
 }) {
   return (
@@ -382,7 +388,11 @@ function PlayerBox({
         <div className="flex aspect-video w-full flex-col items-center justify-center gap-4 bg-black/90 px-6 text-center">
           {epUrl ? (
             <>
-              <AdSlot slot="ad_preroll" className="flex justify-center" />
+              {prerollUsesPanel ? (
+                <AdSlot slot="ad_preroll" className="flex justify-center" />
+              ) : (
+                <AdsterraLeaderboard />
+              )}
               <p className="text-sm font-bold text-foreground">
                 Video {countdown} saniye içinde başlayacak
               </p>
