@@ -393,7 +393,7 @@ function WatchPage() {
                 {trSubsOn ? "Türkçe altyazı açık" : "Türkçe altyazı kapalı"}
               </button>
               <span className="text-[11px] text-muted-foreground">
-                Altyazı oynatıcının kendi altyazısının üstünde gösterilir.
+                Oynatıcının İngilizce satırı açıksa CC düğmesinden kapatabilirsin.
               </span>
             </div>
           )}
