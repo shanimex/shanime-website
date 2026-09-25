@@ -2,7 +2,8 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowLeft, ChevronDown, Home, LayoutGrid, List, Play } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { AdSlot } from "@/components/AdSlot";
+import { AdSlot, useAdCode } from "@/components/AdSlot";
+import { AdsterraLeaderboard, AdsterraNative } from "@/components/AdsterraUnit";
 import { EpisodeCard } from "@/components/EpisodeCard";
 import { fetchShowDetail, showSlug, watchHref } from "@/lib/content";
 
@@ -65,6 +66,12 @@ function seasonLabel(season: { number: number; title: string }): string {
 
 function ShowDetailPage() {
   const [selectedSeason, setSelectedSeason] = useState<number | null>(null);
+  // Detay sayfası reklamları: panelde kod varsa PANEL kazanır, boşsa koddaki
+  // Adsterra birimi çalışır (slotlar vardı ama içleri boştu → reklam yoktu).
+  // Üst slot banner, alt slot native: aynı sayfada tek bir `highrevenueformat`
+  // birimi bulunmalıdır, çünkü o birim `window.atOptions` global'ini kullanır.
+  const adDetailTop = useAdCode("ad_detail_top");
+  const adDetailBottom = useAdCode("ad_detail_bottom");
   // Varsayılan görünüm animecix tarzı SATIR düzeni; kapak ızgarası alternatif.
   const [view, setView] = useState<"row" | "grid">("row");
   const [visibleCount, setVisibleCount] = useState(GRID_PAGE_SIZE);
@@ -227,7 +234,11 @@ function ShowDetailPage() {
       </section>
 
       <main className="mx-auto max-w-6xl space-y-12 px-5 py-12 lg:px-8">
-        <AdSlot slot="ad_detail_top" className="flex justify-center" />
+        {adDetailTop.isFetched && adDetailTop.code ? (
+          <AdSlot slot="ad_detail_top" className="flex justify-center" />
+        ) : (
+          <AdsterraLeaderboard />
+        )}
         {/* Katalog, sayfanın geri kalanından daha dar bir sütunda durur: satırlar
             kısalır, kapaklar sayfaya göre daha küçük kalır (animecix düzeni). */}
         <section className="mx-auto w-full max-w-4xl">
@@ -338,7 +349,11 @@ function ShowDetailPage() {
           )}
         </section>
 
-        <AdSlot slot="ad_detail_bottom" className="flex justify-center" />
+        {adDetailBottom.isFetched && adDetailBottom.code ? (
+          <AdSlot slot="ad_detail_bottom" className="flex justify-center" />
+        ) : (
+          <AdsterraNative className="flex justify-center" />
+        )}
       </main>
 
       <footer className="border-t border-border bg-secondary">

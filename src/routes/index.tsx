@@ -11,7 +11,8 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from "react";
 import { Button } from "@/components/ui/button";
-import { AdSlot } from "@/components/AdSlot";
+import { AdSlot, useAdCode } from "@/components/AdSlot";
+import { AdsterraLeaderboard } from "@/components/AdsterraUnit";
 import { fetchShowDetail, fetchShows, showSlug, type ShowWithImage } from "@/lib/content";
 
 /**
@@ -255,6 +256,9 @@ function SearchResultItem({ show, onPick }: { show: HeroCard; onPick?: () => voi
 function Index() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+  // Anasayfa reklamı: panelde `ad_home` kodu varsa PANEL kazanır, boşsa
+  // koddaki Adsterra birimi çalışır (slot vardı ama içi boştu → reklam yoktu).
+  const adHome = useAdCode("ad_home");
   const [query, setQuery] = useState("");
   const [genre, setGenre] = useState(ALL_GENRES);
   const searchRef = useRef<HTMLInputElement>(null);
@@ -952,7 +956,11 @@ function Index() {
           )}
         </section>
 
-        <AdSlot slot="ad_home" className="flex justify-center" />
+        {adHome.isFetched && adHome.code ? (
+          <AdSlot slot="ad_home" className="flex justify-center" />
+        ) : (
+          <AdsterraLeaderboard />
+        )}
 
         <section id="genres" className="mx-auto max-w-7xl px-5 py-16 lg:px-8">
           <div className="rounded-3xl bg-card p-8 md:p-12">

@@ -39,3 +39,8 @@ supabase/.temp/
 
 # Streamtape'tan indirilen ham videolar (repoya girmez)
 media/
+
+# Tarayici testi ekran goruntuleri (repoya girmez)
+shot-*.png
+streamtape_*.png
+streamtape-*.png
