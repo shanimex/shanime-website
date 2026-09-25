@@ -494,3 +494,38 @@ set watch_url = '@megaplay'
 from public.shows s
 where s.id = e.show_id and s.slug = 're-zero';
 ```
+
+**Bütün diziler için hazır SQL:** `scripts/sql/japonca-dublaj-tum-animeler.sql`
+(yedekli, geri alınabilir).
+
+---
+
+## 13. Canlı site ölçümü (25.09.2026) — lokalle aynı mı?
+
+Gerçek tarayıcıyla `shanime.xyz/izle/jujutsu-kaisen` açıldı, "Oynat" tıklandı,
+~50 sn izlendi:
+
+| Ölçüm | Sonuç |
+|---|---|
+| Ön reklam sayısı | **2** — sayaç metinleri birebir `Reklam 1/2` → `Reklam 2/2` |
+| İki reklam aynı mı? | **AYNI** — ikisi de birebir aynı dosya (`i.imgkcdn.com/...6aa3d42aca9066..._high.mp4`, 15,10 sn, Zeus casino slot) |
+| Sonrasında ne yüklendi | `vidsrc.to/embed/tv/95479/1/1` iframe'i + "JUJUTSU KAISEN 2020 S01 E01" + oynat düğmesi |
+| Kendiliğinden açılan pop-under | **0** |
+
+Yani **canlı site lokalle birebir aynı davranıyor**: 2 ön reklam, aynı kreatif.
+Ayrıca canlıda JJK artık vidsrc.to'dan yükleniyor → SQL çalıştırılmış ve yeni
+sürüm yayına girmiş.
+
+### Sayfadaki "farklı farklı" reklamlar nereden geliyor?
+
+Ön reklamlarımız sabit (2 adet, aynı dosya). Değişenler **Adsterra birimleri**:
+
+- Oynatıcının üstünde leaderboard banner (ölçümde MELBET kreatifi, `highrevenueformat.com`),
+- Oynatıcının altında native blok — kreatifleri her açılışta değişiyor
+  (ölçümde: "Single women here hate being alone❤️", "Spider-Man: Across the
+  Spider-Verse", "Your IP is exposed. Click to hide", "Just won 15000$ in bonus
+  game. Try luck").
+
+Yani sitede bizim tarafımızdan **4 reklam yüzeyi** var: 2 ön reklam + 1 banner +
+1 native. Bunun üstünde gördüğün her şey sağlayıcının kendi oynatıcısından gelir
+(vidsrc zinciri).
