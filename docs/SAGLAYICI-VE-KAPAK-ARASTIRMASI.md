@@ -600,3 +600,62 @@ Kod: `src/lib/embed-provider.ts` → `buildProviderUrl()`,
 Videoyu kendimiz barındırmak (R2) + kendi Türkçe `.vtt` dosyamız. O zaman
 Japonca ses, Türkçe altyazı, kalite menüsü, altyazı tasarımı ve pop kontrolü
 aynı anda bizim olur. Aksi halde sağlayıcı seçimi zorunlu bir takas.
+
+---
+
+## 15. Dibi: "o zaman diğerleri nasıl yapıyor?"
+
+Kullanıcının sorusu: *"daima bulana kadar durma, diğerleri nasıl yapıyor o
+zaman? Türk anime sitelerinden bir şey yapamaz mıyız?"* Bu soru iki koldan
+araştırıldı.
+
+### 15.1 megaplay'e dışarıdan altyazı sokmak — İKİ yol da kapalı
+
+**(a) postMessage köprüsü.** megaplay `lib/handle-bridge.min.js` yüklüyor ve
+`window.postMessage` ile komut kabul ediyor. Dosyanın tamamı okundu; desteklenen
+komut listesi tam olarak şu:
+
+```
+SEEK · GET_TIME · GET_PIP · SKP_DATA · PLAY_TOGGLE · MUTE
+```
+
+→ **Altyazı/track ekleme komutu YOK.** (Bu komutlar yine de işe yarar: kendi
+kontrol katmanımızı yapabilir, `SKP_DATA` ile "açılışı/bitişi atla" özelliğini
+kullanabiliriz. `getSources` yanıtı `intro`/`outro` saniyelerini de veriyor.)
+
+**(b) URL parametresi.** Kabuğun kabul ettiği parametreler tarandı:
+
+```
+s · time · unix
+```
+
+→ **`sub`/`subtitle`/`track` parametresi YOK.**
+
+### 15.2 Türk anime siteleri bunu nasıl yapıyor — ölçüldü
+
+| Site | Ne bulundu |
+|---|---|
+| **turkanime.tv** | Vue SPA (kendi oynatıcısı, `/assets/js/app.*.js`). Ana sayfasındaki veda metninde birebir şu yazıyor: *"gecelerini altyazılara adayan fedakâr çevirmenlerimize"* → **altyazıyı insan çevirmenler üretiyor.** Ayrıca site kapanıyor ve alan adlarını satıyor: *"16 Yıllık Bir Masalın Sonu"*, *"Münhasır Portföy Satışı"* |
+| **tranimeizle.live** | Kendi CDN'i: `cdn77.aj2532.bid`, `static.tranimeizle.top` → **videoyu kendisi barındırıyor**, üçüncü taraf embed yok |
+| tranimeizle / turkanime bölüm sayfaları | Dış altyazı dosyası (`.vtt`/`.srt`) HTML'de görünmüyor — oynatıcı verisi API'den çalışma anında geliyor |
+
+### 15.3 Cevap
+
+Türk anime siteleri **bizden farklı bir şey yapmıyor, farklı bir iş modeli
+işletiyor:** videoyu kendileri barındırıyor ve Türkçe altyazıyı
+**kendileri (çevirmenleri) üretiyor**. Yani ortada "bulunamayan bir sağlayıcı"
+yok — o sağlayıcı diye bir şey **yok**, çünkü hiçbir ücretsiz embed kendi
+çevirmen kadrosunu finanse etmiyor.
+
+Bu yüzden arama burada bitiyor: **Türkçe altyazı, sağlayıcı seçimiyle
+çözülebilecek bir problem değil.** Çözüm iki bileşenden oluşuyor:
+
+1. **Türkçe `.vtt` dosyası** (bunu çeviri yoluyla üretmek gerekir — bu bir emek/iş
+   gücü meselesi, teknik değil),
+2. **Onu oynatıcıya sokabileceğimiz bir oynatıcı** (vidsrc.to `sub.info` kabul
+   ediyor, ama İngilizce dublaj veriyor; megaplay Japonca ses veriyor ama altyazı
+   kabul etmiyor).
+
+İkisini aynı anda verebilen tek kurulum: **kendi barındırma + kendi oynatıcı**
+(`play_url` + `episodes.subtitles` alanları bu iş için zaten kodda hazır —
+`directSourceOf()` ve `subtitlesOf()`).
