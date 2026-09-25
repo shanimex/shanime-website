@@ -659,3 +659,61 @@ Bu yüzden arama burada bitiyor: **Türkçe altyazı, sağlayıcı seçimiyle
 İkisini aynı anda verebilen tek kurulum: **kendi barındırma + kendi oynatıcı**
 (`play_url` + `episodes.subtitles` alanları bu iş için zaten kodda hazır —
 `directSourceOf()` ve `subtitlesOf()`).
+
+---
+
+## 16. ÇÖZÜM BULUNDU: kendi altyazı katmanımız (video yüklemek gerekmiyor)
+
+§15'te "kendi barındırma" gerekiyor demiştim — **video için** doğru, ama altyazı
+için değil. megaplay'in köprüsü bize oynatma zamanını veriyor; o zamanı kullanıp
+altyazıyı **kendi katmanımızda** çizersek videoyu hiç yüklememiz gerekmez.
+
+### Nasıl çalışıyor
+
+1. Oynatıcı megaplay (orijinal **Japonca ses**).
+2. Biz `postMessage` ile oynatma zamanını alıyoruz (köprü bunu sürekli gönderiyor).
+3. `src/components/SubtitleOverlay.tsx` elimizdeki `.vtt`/`.srt` metnini çözüp
+   iframe'in **üstüne** doğru satırı çiziyor. Yazı tipi/boyutu/arka planı
+   tamamen bizim (istenen "arka plan yok" stili uygulandı).
+
+### Uçtan uca doğrulama (25.09.2026, gerçek tarayıcı)
+
+Geçici bir Türkçe `.vtt` ile (her satır kendi başlangıç saatini yazıyor) canlı
+sayfada ölçüldü:
+
+| Ölçüm | Sonuç |
+|---|---|
+| Çizilen satır | `TR DEMO ALTYAZI 00:05:35.000` (canlı: 04:50 → 05:10 → 05:20 → 05:35) |
+| Oynatıcının kendi zamanı | `05:35 / 23:55` |
+| Senkron | **birebir** |
+| "TR altyazı açık" düğmesi | DOM'da mevcut |
+| Pop-up | **0** |
+
+Ayrıca test sırasında vidsrc kaynağına geçildiğinde ekranda şu Türkçe satır
+göründü: *"www.OpenSubtitles.org adresinden tüm reklamları kaldırmak için bizi
+destekleyin ve VIP üye olun."* → **vidsrc.to'nun Türkçe altyazı kaynağı
+OpenSubtitles.** (Bilgi olarak kayda değer.)
+
+### Bilinen sınır
+
+Sağlayıcının **kendi** altyazısı (İngilizce varsayılan iz) açıksa ekranda iki
+satır görünebilir; katmanımız onun biraz üstüne konumlanır ve izleyici
+"TR altyazı açık/kapalı" düğmesiyle bizimkini kapatabilir. Sağlayıcının izini
+kapatmanın yolu yok (§15.1).
+
+### Altyazı nasıl eklenir (video yüklemek YOK)
+
+1. `.vtt` dosyasını `public/subs/` altına koy (ör. `public/subs/re-zero-s1b1.vtt`),
+2. Panelde ilgili bölümün `subtitles` alanına şunu yaz:
+
+```json
+[{ "src": "/subs/re-zero-s1b1.vtt", "label": "Türkçe", "srclang": "tr" }]
+```
+
+Göreli yol da kabul edilir (`subtitlesOf()` bunu destekler); sağlayıcıya
+enjekte edilirken tam adrese çevrilir. Dosya kendi alan adımızdan servis
+edildiği için CORS sorunu çıkmaz. `.vtt` şart — tarayıcı `.srt` okumaz, önce
+çevrilmelidir (içerik aynı, sadece biçim).
+
+Böylece: **Japonca ses + Türkçe altyazı + kendi tasarım + pop yok**, üstelik
+bölüm başına yüklenecek şey birkaç kilobaytlık bir metin dosyası.

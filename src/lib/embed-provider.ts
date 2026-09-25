@@ -202,10 +202,28 @@ export const EMBED_PROVIDERS: Record<EmbedProviderId, EmbedProvider> = {
  */
 function appendSubInfo(base: string, subtitles?: EmbedSubtitleTrack[]): string {
   const tracks = (subtitles ?? [])
-    .filter((track) => /^https?:\/\//i.test(track.file))
+    .map((track) => ({ file: toAbsoluteSubtitleUrl(track.file), label: track.label }))
+    .filter((track) => track.file !== "")
     .map((track) => ({ file: track.file, label: track.label, kind: "captions" }));
   if (tracks.length === 0) return base;
   return `${base}?sub.info=${encodeURIComponent(JSON.stringify(tracks))}`;
+}
+
+/**
+ * Göreli altyazı yolunu tam adrese çevirir.
+ *
+ * NEDEN: kendi altyazı dosyalarını `public/subs/` altına koyup panelde
+ * `/subs/bolum-1.vtt` yazmak en kolay yol; ama sağlayıcıya verilen adres TAM
+ * olmak zorunda. Sunucu tarafında `window` yok → boş döner ve o iz atlanır
+ * (video etkilenmez).
+ */
+function toAbsoluteSubtitleUrl(value: string): string {
+  const url = value.trim();
+  if (/^https?:\/\//i.test(url)) return url;
+  if (url.startsWith("/") && typeof window !== "undefined") {
+    return `${window.location.origin}${url}`;
+  }
+  return "";
 }
 
 /** Dizge kimliğinden sağlayıcı getirir (bilinmeyen kimlik → null). */

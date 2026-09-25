@@ -8,6 +8,7 @@ import { AdsterraLeaderboard, AdsterraNative } from "@/components/AdsterraUnit";
 import { EpisodeCover } from "@/components/EpisodeCover";
 import { FluidPlayer, type FluidSubtitle } from "@/components/FluidPlayer";
 import { PrerollGate } from "@/components/PrerollGate";
+import { SubtitleOverlay } from "@/components/SubtitleOverlay";
 import { buildProviderUrl, resolveEpisodeEmbed } from "@/lib/embed-provider";
 import { prerollVastUrls } from "@/lib/mybid";
 import {
@@ -125,10 +126,14 @@ function subtitlesOf(episode: Episode | null): FluidSubtitle[] {
   return value.flatMap((item, index) => {
     if (!item || typeof item !== "object") return [];
     const entry = item as { src?: unknown; label?: unknown; srclang?: unknown };
-    if (typeof entry.src !== "string" || !/^https?:\/\//i.test(entry.src)) return [];
+    // Göreli yol da kabul edilir ("/subs/bolum-1.vtt"): dosyayı `public/subs/`
+    // altına koymak yeterli olur — kendi alan adımızdan servis edildiği için
+    // CORS engeli de çıkmaz. (Sağlayıcıya enjekte edilirken tam adrese çevrilir.)
+    const src = typeof entry.src === "string" ? entry.src.trim() : "";
+    if (!/^(?:https?:\/\/|\/)/i.test(src)) return [];
     return [
       {
-        src: entry.src,
+        src,
         label: typeof entry.label === "string" && entry.label ? entry.label : "Altyazı",
         srclang: typeof entry.srclang === "string" && entry.srclang ? entry.srclang : "tr",
         isDefault: index === 0,
@@ -340,6 +345,7 @@ function WatchPage() {
             epUrl={episodeEmbed ?? ""}
             directSrc={directSrc}
             subtitles={episodeSubtitles}
+            subtitleUrl={episodeSubtitles[0]?.src ?? ""}
             vastUrls={PREROLL_VAST_URLS}
             onGateFinish={() => setGateDone(true)}
           />
@@ -439,6 +445,7 @@ function PlayerBox({
   epUrl,
   directSrc,
   subtitles,
+  subtitleUrl,
   vastUrls,
   onGateFinish,
 }: {
@@ -450,11 +457,20 @@ function PlayerBox({
   directSrc: string;
   /** Fluid Player için VTT altyazı listesi (boş olabilir). */
   subtitles: FluidSubtitle[];
+  /**
+   * Sağlayıcı iframe'inin ÜSTÜNE çizilecek kendi altyazımız (.vtt/.srt adresi).
+   * Bkz. `src/components/SubtitleOverlay.tsx`: megaplay köprüsünden gelen oynatma
+   * zamanıyla senkronlanır — yani Türkçe altyazı için video yüklemek gerekmez.
+   */
+  subtitleUrl: string;
   /** Video öncesi reklam (VAST) etiketleri. */
   vastUrls: string[];
   /** Reklamlar bitince çağrılır; bölüm oynatıcısı o zaman yüklenir. */
   onGateFinish: () => void;
 }) {
+  // Sağlayıcı iframe'inin ref'i: own altyazı katmanı köprüye bununla komut gönderir.
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+
   return (
     <div className="overflow-hidden rounded-2xl border border-border bg-black">
       {watching ? (
@@ -472,48 +488,62 @@ function PlayerBox({
           // şeridimizi çizme denemesi yapıldı (25.09.2026) — kullanıcı istemedi,
           // kaldırıldı. Sağlayıcının yazısı cross-origin iframe'in içinde; bizim
           // katmanımız onu boyuyor ve çirkin duruyor. Metin değiştirilemez.
-          <iframe
-            src={epUrl}
-            title={`${showTitle} bölüm ${epNumber}`}
-            loading="lazy"
-            // `sandbox` YOK — popunder'ı engellemek için DENENDİ ve BAŞARISIZ OLDU.
-            //
-            // Ölçüm (25.09.2026 · aynı URL + aynı sayfa + aynı referrer,
-            // TEK değişken `sandbox`):
-            //   sandbox="allow-scripts allow-same-origin allow-forms
-            //            allow-presentation allow-orientation-lock"
-            //   → Streamtape: "Client blocked! / Your browser or the embed you are
-            //     viewing are doing nasty things!"  (sandbox'ı ALGILIYOR)
-            //   → VidMoly:    "The embed could not be loaded."
-            //   → sandbox'SIZ aynı iframe: VidMoly gerçek oynatıcıyı yüklüyor
-            //     (poster + play), Streamtape CAPTCHA kapısına geliyor.
-            //
-            // Yani sağlayıcılar sandbox'lı embed'i reddediyor → "popup engelle +
-            // video oynat" birlikte MÜMKÜN DEĞİL. Embed'in kendi belgesi içindeki
-            // davranış dışarıdan kontrol edilemiyor. Kanıt: OYNATICI-FLUIDPLAYER.md §6.
-            //
-            // vidsrc.to için de DENENDİ (25.09.2026) — İKİ AYRI ENGEL var:
-            //  1) Zincirin ikinci halkası `vsembed.ru`, `/assets/sbx.js` adlı bir
-            //     "Sandbox-embed blocker" yüklüyor (kendi yorumu birebir:
-            //     "If that page is loaded inside an <iframe sandbox> ... this frame
-            //      is redirected to /sandbox.php?ref=<embedding host>").
-            //  2) A/B ölçümü (aynı sayfa, 3 hücre: sandbox'suz · allow-same-origin'li
-            //     sandbox · allow-same-origin'siz sandbox): HER İKİ sandbox
-            //     varyantında en içteki oynatıcı şunu yazdı —
-            //     "This content can't be embedded in a sandboxed frame /
-            //      The player was loaded inside an <iframe sandbox>, which isn't
-            //      permitted."
-            //     (sandbox'suz aynı adres gerçek oynatıcıyı getirdi.)
-            // Sonuç: vidsrc'te pop-up'ı sandbox ile engellemek MÜMKÜN DEĞİL.
-            // Pop, sağlayıcının kendi belgesi içinde oluşturuluyor (window.open
-            // hook'u + gizli iframe + localStorage 60 sn soğuma).
-            allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
-            allowFullScreen
-            // bg-black: iframe kendi belgesini boyayana kadar geçen sürede
-            // tarayıcının varsayılan BEYAZ zeminini görmemek için (iOS'ta beyaz
-            // kenar/çerçeve gibi görünüyordu). Sarmalayıcı da siyah.
-            className="aspect-video w-full bg-black"
-          />
+          // `relative` sarmalayıcı: kendi altyazı katmanımız iframe'in üstüne
+          // konumlanıyor (bkz. SubtitleOverlay). Üst şerit denemesi gibi bir
+          // kaplama DEĞİL — yalnızca altyazı satırı ve küçük bir aç/kapa düğmesi.
+          <div className="relative">
+            <iframe
+              ref={iframeRef}
+              src={epUrl}
+              title={`${showTitle} bölüm ${epNumber}`}
+              loading="lazy"
+              // `sandbox` YOK — popunder'ı engellemek için DENENDİ ve BAŞARISIZ OLDU.
+              //
+              // Ölçüm (25.09.2026 · aynı URL + aynı sayfa + aynı referrer,
+              // TEK değişken `sandbox`):
+              //   sandbox="allow-scripts allow-same-origin allow-forms
+              //            allow-presentation allow-orientation-lock"
+              //   → Streamtape: "Client blocked! / Your browser or the embed you are
+              //     viewing are doing nasty things!"  (sandbox'ı ALGILIYOR)
+              //   → VidMoly:    "The embed could not be loaded."
+              //   → sandbox'SIZ aynı iframe: VidMoly gerçek oynatıcıyı yüklüyor
+              //     (poster + play), Streamtape CAPTCHA kapısına geliyor.
+              //
+              // Yani sağlayıcılar sandbox'lı embed'i reddediyor → "popup engelle +
+              // video oynat" birlikte MÜMKÜN DEĞİL. Embed'in kendi belgesi içindeki
+              // davranış dışarıdan kontrol edilemiyor. Kanıt: OYNATICI-FLUIDPLAYER.md §6.
+              //
+              // vidsrc.to için de DENENDİ (25.09.2026) — İKİ AYRI ENGEL var:
+              //  1) Zincirin ikinci halkası `vsembed.ru`, `/assets/sbx.js` adlı bir
+              //     "Sandbox-embed blocker" yüklüyor (kendi yorumu birebir:
+              //     "If that page is loaded inside an <iframe sandbox> ... this frame
+              //      is redirected to /sandbox.php?ref=<embedding host>").
+              //  2) A/B ölçümü (aynı sayfa, 3 hücre: sandbox'suz · allow-same-origin'li
+              //     sandbox · allow-same-origin'siz sandbox): HER İKİ sandbox
+              //     varyantında en içteki oynatıcı şunu yazdı —
+              //     "This content can't be embedded in a sandboxed frame /
+              //      The player was loaded inside an <iframe sandbox>, which isn't
+              //      permitted."
+              //     (sandbox'suz aynı adres gerçek oynatıcıyı getirdi.)
+              // Sonuç: vidsrc'te pop-up'ı sandbox ile engellemek MÜMKÜN DEĞİL.
+              // Pop, sağlayıcının kendi belgesi içinde oluşturuluyor (window.open
+              // hook'u + gizli iframe + localStorage 60 sn soğuma).
+              allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
+              allowFullScreen
+              // bg-black: iframe kendi belgesini boyayana kadar geçen sürede
+              // tarayıcının varsayılan BEYAZ zeminini görmemek için (iOS'ta beyaz
+              // kenar/çerçeve gibi görünüyordu). Sarmalayıcı da siyah.
+              className="aspect-video w-full bg-black"
+            />
+
+            {/* Kendi Türkçe altyazı katmanımız. Yalnızca köprüyü destekleyen
+              sağlayıcıda (megaplay) ve altyazı adresi varsa çalışır. */}
+            <SubtitleOverlay
+              frameRef={iframeRef}
+              url={subtitleUrl}
+              active={epUrl.includes("megaplay.buzz")}
+            />
+          </div>
         )
       ) : epUrl ? (
         <PrerollGate
