@@ -2,6 +2,7 @@ import { Play } from "lucide-react";
 import { EpisodeCover } from "@/components/EpisodeCover";
 import { episodeCoverFromWatchUrl, localCoverPath, type Episode } from "@/lib/content";
 import { resolvePosterForEpisode } from "@/lib/episode-covers";
+import { anizipCover } from "@/lib/anizip-covers";
 
 type EpisodeCardProps = {
   /** Serinin slug'ı; yerel kapak yolunu üretmek için gerekir. */
@@ -23,15 +24,25 @@ type EpisodeCardProps = {
    * barındırırsak (R2 + kendi oynatıcı) üretilebilir.
    */
   seriesPoster?: string | undefined;
+  /**
+   * Serinin MyAnimeList kimliği. Verilirse kart, o bölüme ait **gerçek bölüm
+   * görselini** (`episode-thumbs.json`, ani.zip/TVDB) kullanır.
+   *
+   * Neden gerekli: embed sağlayıcıları bölüm kapağı yayınlamıyor ve `watch_url`
+   * boş olduğu için türetme de çalışmıyor; kart seri posterine düşüyordu (tüm
+   * bölümler aynı görsel). Bkz. `src/lib/anizip-covers.ts`.
+   */
+  malId?: number | null | undefined;
 };
 
 /**
  * Bölüm kartı.
  *
- * Kapak zinciri: panelden yüklenen kapak → yerelde üretilmiş kare → oynatıcının
- * yayınladığı kare → bölüm numarası. Hiçbiri gelmezse kart bulanık bir görsele
- * değil, düz bir "numara kartına" düşer: gerçek kapakların yanında bulanık
- * görsel "bozuk/yarım yüklenmiş" izlenimi veriyordu.
+ * Kapak zinciri: panelden yüklenen kapak → sağlayıcı kapağı → bölüme ait GERÇEK
+ * görsel (ani.zip/TVDB, `episode-thumbs.json`) → adresten türetilen kapak →
+ * yerelde üretilmiş kare → seri posteri → bölüm numarası. Hiçbiri gelmezse kart
+ * bulanık bir görsele değil, düz bir "numara kartına" düşer: gerçek kapakların
+ * yanında bulanık görsel "bozuk/yarım yüklenmiş" izlenimi veriyordu.
  */
 export function EpisodeCard({
   slug,
@@ -39,6 +50,7 @@ export function EpisodeCard({
   variant = "row",
   href,
   seriesPoster,
+  malId,
 }: EpisodeCardProps) {
   const label = episode.title?.trim() || `Bölüm ${episode.number}`;
   const summary = episode.summary?.trim();
@@ -55,6 +67,10 @@ export function EpisodeCard({
           // Sağlayıcı kapağı bölüm nesnesiyle gelir (sunucuda çözülür) — modül
           // durumundan okunursa sunucu/istemci farkı hydration hatası veriyor.
           episode.poster ?? "",
+          // Bölüme ait GERÇEK görsel (ani.zip/TVDB, derleme zamanında gömülü).
+          // Sağlayıcı kapağı olmayan bölümlerin asıl çözümü budur; alttaki türetme
+          // ve seri posteri yalnızca yedektir.
+          anizipCover(malId, episode.season, episode.number),
           episodeCoverFromWatchUrl(episode.watch_url),
           localCoverPath(slug, episode.season, episode.number),
           // Son çare: seri posteri. Sağlayıcı kapağı üretilemeyen bölümlerde

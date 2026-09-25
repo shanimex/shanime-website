@@ -19,6 +19,7 @@ import {
   type SeasonWithEpisodes,
 } from "@/lib/content";
 import { resolvePosterForEpisode } from "@/lib/episode-covers";
+import { anizipCover } from "@/lib/anizip-covers";
 
 type WatchSearch = { sezon?: number | undefined; b?: number | undefined };
 
@@ -294,6 +295,7 @@ function WatchPage() {
               currentEpisodeId={currentEpisode.id}
               multipleSeasons={multipleSeasons}
               seriesPoster={show.image}
+              malId={show.mal_id ?? null}
             />
           )}
         </div>
@@ -419,6 +421,7 @@ function EpisodeSidebar({
   currentEpisodeId,
   multipleSeasons,
   seriesPoster,
+  malId,
 }: {
   slug: string;
   seasons: SeasonWithEpisodes[];
@@ -427,6 +430,8 @@ function EpisodeSidebar({
   multipleSeasons: boolean;
   /** Seri posteri: kapağı üretilemeyen bölümler için son çare (bkz. EpisodeCard). */
   seriesPoster?: string | undefined;
+  /** MAL kimliği: bölüme ait gerçek görseli (ani.zip) kullanmak için (bkz. EpisodeCard). */
+  malId?: number | null | undefined;
 }) {
   // Ref doğrudan <li> üzerinde tutulur: `Link` bileşeninin ref'i DOM düğümüne
   // iletilmediği için kaydırma çalışmıyordu.
@@ -524,7 +529,12 @@ function EpisodeSidebar({
                       active ? "bg-accent/15" : "hover:bg-secondary focus-visible:bg-secondary"
                     }`}
                   >
-                    <SidebarCover slug={slug} episode={episode} seriesPoster={seriesPoster} />
+                    <SidebarCover
+                      slug={slug}
+                      episode={episode}
+                      seriesPoster={seriesPoster}
+                      malId={malId}
+                    />
                     <span className="min-w-0 flex-1">
                       <span
                         className={`block text-xs font-bold ${active ? "text-accent" : "text-foreground"}`}
@@ -557,11 +567,14 @@ function SidebarCover({
   slug,
   episode,
   seriesPoster,
+  malId,
 }: {
   slug: string;
   episode: Episode;
   /** Zincirin son adımı — bkz. EpisodeCard'daki `seriesPoster` açıklaması. */
   seriesPoster?: string | undefined;
+  /** Bölüme ait gerçek görsel (ani.zip) — bkz. `src/lib/anizip-covers.ts`. */
+  malId?: number | null | undefined;
 }) {
   return (
     <span className="relative grid aspect-video w-20 shrink-0 place-items-center overflow-hidden rounded-lg bg-secondary">
@@ -572,6 +585,8 @@ function SidebarCover({
           episode.thumbnail ?? "",
           // Sağlayıcı kapağı bölüm nesnesiyle gelir (sunucuda çözülür).
           episode.poster ?? "",
+          // Bölüme ait GERÇEK görsel (ani.zip/TVDB, derleme zamanında gömülü).
+          anizipCover(malId, episode.season, episode.number),
           episodeCoverFromWatchUrl(episode.watch_url),
           localCoverPath(slug, episode.season, episode.number),
           // Son çare: seri posteri (sağlayıcı kapağı üretilemeyen bölümler için).
