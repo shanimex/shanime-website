@@ -113,25 +113,19 @@ export function SubtitleOverlay({
 
   return (
     /**
-     * KONUM — sağlayıcının satırının TAM ALTINA hizalanır.
+     * KONUM — **kullanıcının onayladığı özgün hâl**: arkaplan yok, altta (%15).
      *
-     * ÖLÇÜM (25.09.2026, cetvelli tarayıcı testi, oynatıcı 1034×581 px):
-     *   · kontrol çubuğu              → alt %0 – %6
-     *   · sağlayıcının İngilizce satırı → alt %33 – %36,4
-     * Şeridimiz %28'e oturur: kendi satırımız %28 – ~%33 arasını kaplar, yani
-     * onun satırının hemen altına gelir ve arada boşluk kalmaz.
+     * NOT: "sağlayıcının satırının tam altına hizala" denemesi yapıldı (alt %28,
+     * koyu zemin) ve kullanıcı bunu İSTEMEDİĞİNİ söyledi — istenen şey altyazı
+     * katmanının yerini değiştirmek değil, oynatıcının CC menüsüne bir satır
+     * eklemekti. O yüzden konum bu ilk hâline geri alındı.
      *
-     * GÖRÜNÜM: aynı aile (sans-serif), aynı renk (beyaz), aynı ölçek
-     * (15/19 px) ve aynı koyu zemin. Sağlayıcının birebir fontunu yüklemek
-     * mümkün değil (kendi oynatıcısının içinde tanımlı), ama aynı görünmesi
-     * için aile/renk/zemin/ölçek eşitlendi.
-     *
-     * İNCE AYAR: tek sayı — `bottom-[28%]`. Büyütürsen satır yukarı, küçültürsen
+     * İNCE AYAR: tek sayı — `bottom-[15%]`. Büyütürsen satır yukarı, küçültürsen
      * aşağı kayar.
      */
-    <div className="pointer-events-none absolute inset-x-0 bottom-[28%] z-20 flex justify-center px-6 text-center">
+    <div className="pointer-events-none absolute inset-x-0 bottom-[15%] z-20 flex justify-center px-6 text-center">
       {current ? (
-        <span className="whitespace-pre-line rounded-sm bg-black/75 px-2 py-0.5 font-sans text-[15px] font-normal leading-snug text-white [text-shadow:0_1px_2px_rgba(0,0,0,.95)] sm:text-[19px]">
+        <span className="whitespace-pre-line text-[15px] font-semibold leading-snug text-white [text-shadow:0_1px_2px_rgba(0,0,0,.95),0_0_6px_rgba(0,0,0,.85)] sm:text-[19px]">
           {current.text}
         </span>
       ) : null}
