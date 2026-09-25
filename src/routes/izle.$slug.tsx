@@ -9,6 +9,7 @@ import { EpisodeCover } from "@/components/EpisodeCover";
 import { FluidPlayer, type FluidSubtitle } from "@/components/FluidPlayer";
 import { PrerollGate } from "@/components/PrerollGate";
 import { SubtitleOverlay } from "@/components/SubtitleOverlay";
+import { conventionSubtitlePath } from "@/lib/subtitles";
 import { buildProviderUrl, resolveEpisodeEmbed } from "@/lib/embed-provider";
 import { prerollVastUrls } from "@/lib/mybid";
 import {
@@ -345,7 +346,16 @@ function WatchPage() {
             epUrl={episodeEmbed ?? ""}
             directSrc={directSrc}
             subtitles={episodeSubtitles}
-            subtitleUrl={episodeSubtitles[0]?.src ?? ""}
+            subtitleUrl={
+              episodeSubtitles[0]?.src ||
+              (currentEpisode
+                ? conventionSubtitlePath(
+                    showSlug(show),
+                    currentEpisode.season,
+                    currentEpisode.number,
+                  )
+                : "")
+            }
             vastUrls={PREROLL_VAST_URLS}
             onGateFinish={() => setGateDone(true)}
           />

@@ -53,6 +53,21 @@ export function parseSubtitles(raw: string): Cue[] {
   return cues.sort((a, b) => a.start - b.start);
 }
 
+/**
+ * Altyazı dosyasının YERLEŞİK yolu: `/subs/{slug}-s{sezon}b{bölüm}.vtt`.
+ *
+ * NEDEN KURAL: her bölüm için panelde ayrı ayrı JSON girmek istemiyoruz. Betik
+ * (`scripts/sync-tr-subtitles.mjs`) dosyaları bu adla `public/subs/` altına
+ * yazıyor; kod da bu yolu kendiliğinden arıyor. Dosya yoksa istek 404 döner ve
+ * altyazı sessizce kapalı kalır — hiçbir şey bozulmaz.
+ *
+ * Panelden açıkça bir adres girilmişse (`episodes.subtitles`) o tercih edilir.
+ */
+export function conventionSubtitlePath(slug: string, season: number, episode: number): string {
+  if (!slug) return "";
+  return `/subs/${slug}-s${season}b${episode}.vtt`;
+}
+
 /** Verilen saniyede gösterilecek satırı bulur (yoksa null). */
 export function cueAt(cues: Cue[], time: number): Cue | null {
   return cues.find((cue) => time >= cue.start && time < cue.end) ?? null;
