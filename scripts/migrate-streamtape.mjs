@@ -111,19 +111,41 @@ let failed = 0;
 for (const file of targets) {
   const localPath = join(OUT_DIR, file.name);
 
-  // Zaten indirilmiş ve boyutu tutuyorsa atla (yeniden başlatılabilir).
-  if (existsSync(localPath) && statSync(localPath).size === Number(file.size)) {
-    console.log(`  = atlandı (zaten var): ${file.name}`);
+  const expected = Number(file.size) || 0;
+  const existing = existsSync(localPath) ? statSync(localPath).size : 0;
+
+  // Tamamen inmişse atla (yeniden çalıştırma kaldığı yerden devam eder).
+  if (existing > 0 && expected > 0 && existing === expected) {
+    console.log(`  = atlandı (zaten tam): ${file.name}`);
     done += 1;
     continue;
   }
 
-  process.stdout.write(`  ↓ ${file.name} (${mb(Number(file.size) || 0)}) … `);
+  process.stdout.write(
+    `  ↓ ${file.name} (${mb(expected)})${existing > 0 ? ` [${mb(existing)} noktasından devam]` : ""} … `,
+  );
   try {
     const { url } = await directUrl(file.linkid);
-    const response = await fetch(url);
+    // KALDIĞI YERDEN DEVAM: yarım dosya varsa `Range: bytes=<boyut>-` gönderilir.
+    // Streamtape CDN'i Range destekliyor (doğrulandı: 206 Partial Content +
+    // `Content-Range: bytes 200000000-287181688/287181689`). 206 dönerse veri
+    // dosyanın SONUNA eklenir; 200 dönerse (desteklemiyor) baştan yazılır —
+    // iki durumda da sonuç doğru. Böylece 15 dakikalık arka plan pencerelerine
+    // bölünen indirmeler ilerlemeyi kaybetmez.
+    const headers = existing > 0 ? { Range: `bytes=${existing}-` } : undefined;
+    const response = await fetch(url, headers ? { headers } : {});
     if (!response.ok || !response.body) throw new Error(`HTTP ${response.status}`);
-    await pipeline(Readable.fromWeb(response.body), createWriteStream(localPath));
+
+    const resuming = existing > 0 && response.status === 206;
+    await pipeline(
+      Readable.fromWeb(response.body),
+      createWriteStream(localPath, resuming ? { flags: "a" } : {}),
+    );
+
+    const finalSize = statSync(localPath).size;
+    if (expected > 0 && finalSize !== expected) {
+      throw new Error(`boyut tutmadı: ${finalSize} / ${expected} (sonraki çalıştırmada devam eder)`);
+    }
     console.log("tamam");
     done += 1;
   } catch (error) {
