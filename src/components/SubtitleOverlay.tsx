@@ -127,9 +127,39 @@ export function SubtitleOverlay({
   if (!active || !on || cues.length === 0) return null;
 
   return (
-    <div className="pointer-events-none absolute inset-x-0 bottom-[15%] z-20 flex justify-center px-6 text-center">
+    /**
+     * KONUM — ÖLÇÜLMÜŞ (25.09.2026, cetvelli tarayıcı testi, oynatıcı 1034×581):
+     *   · kontrol çubuğu (simge + ilerleme) → alt %0 – %6
+     *   · SAĞLAYICININ İngilizce altyazısı  → alt %32 – %36   ← kapatılacak alan
+     *
+     * NEDEN BURADA: sağlayıcı kendi altyazısını kapatmaya izin vermiyor (URL
+     * parametresi YOK — kabul ettiği tek parametreler `s`, `time`, `unix`; köprü
+     * komutlarında da altyazı komutu yok: SEEK/GET_TIME/PLAY_TOGGLE/MUTE/
+     * SKP_DATA/GET_PIP). `dub` sürümü de altyazı taşıyor (ölçüldü: tek iz
+     * "English"), yani "altyazısız sürüm" de yok. Bu yüzden şeridimiz onun
+     * bandının TAM ÜSTÜNE oturur ve onu kapatır.
+     *
+     * `min-h-[6%]` ŞART: yükseklik içeriğe bırakılırsa TEK satırlık altyazıda
+     * şerit kısa kalıyor ve sağlayıcının satırının harf tepeleri sızıyordu
+     * (ölçüldü: %90 kapanıyordu, tepeler görünüyordu). Sabit en az yükseklik
+     * bandı sürekli %31–37 arasında tutar; iki satırlık altyazıda şerit yukarı
+     * doğru büyür, kapsama bozulmaz.
+     *
+     * `w-full` + OPAK zemin ŞART: sağlayıcının satırı bizimkinden uzun olabilir;
+     * metin genişliğinde bir kutu bıraksak yanlardan sızardı.
+     *
+     * İNCE AYAR: yalnızca `bottom-[31%]` değerini değiştir; büyüdükçe şerit
+     * yukarı çıkar.
+     */
+    <div
+      className={
+        current
+          ? "pointer-events-none absolute inset-x-0 bottom-[31%] z-20 flex min-h-[6%] items-center justify-center bg-black/95 px-3"
+          : "pointer-events-none absolute inset-x-0 bottom-[31%] z-20 flex min-h-[6%] items-center justify-center px-3"
+      }
+    >
       {current ? (
-        <span className="whitespace-pre-line text-[15px] font-semibold leading-snug text-white [text-shadow:0_1px_2px_rgba(0,0,0,.95),0_0_6px_rgba(0,0,0,.85)] sm:text-[19px]">
+        <span className="w-full whitespace-pre-line text-center text-[15px] font-semibold leading-snug text-white sm:text-[19px]">
           {current.text}
         </span>
       ) : null}
