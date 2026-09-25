@@ -93,9 +93,16 @@ function loadFluidPlayer(): Promise<FluidPlayerFactory> {
  */
 function vastTags(): string[] {
   const env = import.meta.env as unknown as Record<string, string | undefined>;
-  return [env["VITE_MYBID_VAST_1"], env["VITE_MYBID_VAST_2"]]
+  const tags = [env["VITE_MYBID_VAST_1"], env["VITE_MYBID_VAST_2"]]
     .map((value) => (value ?? "").trim())
     .filter((value) => /^https?:\/\//i.test(value));
+  // Tek spot tanımlıysa ad-pod yine iki reklam olsun: aynı etiket iki kez
+  // çağrılır ve her çağrı ayrı bir açık artırma açar (büyük olasılıkla farklı
+  // kreatif döner). MyBid'de ikinci bir spot açılırsa VITE_MYBID_VAST_2 onu
+  // kullanır ve tekrar çağrı olmaz.
+  const first = tags[0];
+  if (tags.length === 1 && first) return [first, first];
+  return tags;
 }
 
 export function FluidPlayer({
