@@ -639,3 +639,166 @@ ben tarayıcıdan yükleme/oynatma sürelerini ölçer karşılaştırırım.
 - CPM aralıkları: AffMaven "Ad Networks CPM Rates 2026" (bağımsız; rate card = tavan, gerçek
   hesaplar genelde **1/3-1/2**'sini ölçüyor — raporda örnek: Brezilya Native CPM **$0,574**)
 - Kur: TCMB günlük kurlar, 24.09.2026
+
+---
+
+# BÖLÜM 9 — TAM PAZAR TARAMASI (25.09.2026)
+
+Kullanıcının itirazı üzerine: *"sadece benim saydıklarımı mı taradın, tüm dünyayı tara."*
+Bölüm 8 yalnız 7 hostu kapsıyordu; bu bölüm 29 domaini kapsar.
+
+## 9.0 Kapsam ve dürüst sınır
+
+- **Taranan domain: 29.** Aktif ve yükleyiciye ödeme yapan: **18**.
+- **Erişilemez / ölü (9):** `upstream.to` (503) · `mixdrop.co` (park edilmiş, satılık) · `vidoza.net`
+  ("not currently open to visitors") · `streamwish.to` (Cloudflare 522) · `filelions.to` (522) ·
+  `streamhub.to`, `vidguard.to`, `fastream.co`, `streamhide.to` (içerik/yanıt yok) · `filemoon.sx` (boş).
+  (Bazıları canlı hostların ölü yansı domainleri: mixdrop.ag, streamwish.com, filemoon.org aktif.)
+- **Model gereği kapsam dışı:** YouTube / Dailymotion (izlenme başı ödeme yok) · Bunny CDN, Cloudflare
+  Stream, api.video, Mux (ücretli CDN — gelir payı yok) · kendi sunucu.
+- **DÜRÜST SINIR:** Geniş dizin/forum taraması kısmen tıkandı (arama motorları CAPTCHA duvarı ve
+  alakasız sonuç verdi). Bu yüzden **"dünyadaki her host" iddiası verilemez**; aşağıdaki liste resmî
+  sayfa + domain testiyle doğrulanabilenlerdir. Ayrıca **hiçbir host Türkiye oranını halka açık
+  yayınlamıyor** — oranların bir kısmı giriş (hesap) gerektirdiği için doğrulanamadı.
+
+## 9.1 Türkiye oranı sıralaması (1.000 izlenme başına)
+
+| # | Host | TR $/1.000 | Kaynak / durum |
+| --- | --- | --- | --- |
+| 1 | **VidMoly** | **$1,00** (Full Ads) · $0,50 Medium · $0,30 Low | `vidmoly.me/make-money` — **bugün bizzat okundu**; TIER 5 listesinde "Turkey" açık |
+| 2 | **Voe** | ~$1,00 | ⚠️ **bugün teyit edilemedi** — `voe.sx/make_money` **404**. Rakam 24.09 tarihli kendi kaydımızdan |
+| — | Fastream | $1,00 **ama >10 dk videoda $0** | `fastream.to/?op=make_money` → anime bölümleri 20-24 dk → **elenir** |
+| 3 | **BigWarp** | $0,50 | `bigwarp.io/?op=make_money` (Tier 5; 20 GB dosya, 90 gün) |
+| 4 | **EarnVids** | $0,50 | `earnvids.com/make_money.html` ($5/10k) |
+| 5 | **LuluStream** | $0,50* | `lulustream.com/make_money` — TR listede yok, "diğer ülkeler $5/10k" |
+| 6 | **Streamtape** | $0,45 | ⚠️ Wayback **23.09.2025** arşivi (partnerprogram sayfası bugün **404**) |
+| 7 | **StreamRuby** | $0,45 | `streamruby.com/?op=make_money` — TR tabloda açık |
+| 8 | **Mixdrop** | $0,40 | `mixpartners.ag/rates` (Tier 5 "All others") |
+| 9 | **StreamHub** | $0,40 | WJunction resmî başlık ($4/10k) |
+| 10 | **StreamWish** | $0,30 | `streamwish.com/make_money.html` ($3/10k "diğer") |
+| 11 | **VidHide** | $0,30 | `vidhide.com/make_money.html` ($3/10k) |
+| 12 | Uqload | $0,15 | `uqload.vc/?op=make_money` (Tier 5) |
+| 13 | DoodStream | $0,15 | `doodstream.com/earn-money` (Tier 5) |
+| 14 | Vidoza | $0,15 | 2023 arşivi; site **erişim kısıtlı** |
+| 15 | **Filemoon** | **$0,07** | `filemoon.org/en/make-money` |
+| — | Player4me | izlenme başı ödeme **yok** | Whitelabel oynatıcı SaaS (kendi reklamını getir modeli) |
+| — | Krakenfiles | izlenme başı ödeme **yok** | PPS (satış başına %50), yalnız PayPal |
+
+## 9.2 Kriter tablosu
+
+| Host | Altyazı | USDT TRC20 | TR banka | Min. ödeme | Depolama | Reklam kontrolü | Durum/güven |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| **VidMoly** | ✅ (kullanılıyor) | doğrulanamadı | ❌ | **$15** (48 saat) | **5 TB** (hesabında 15 TB) | ✅ Full/Medium/Low | ✅ aktif, DMCA süreci var |
+| **Voe** | ✅ (CC + API) | ✅ **panelde doğrulandı** ($50, %0, haftalık) | ❌ | **$10** (LTC) | 3 TB (60 gün) | ✅ 5 kademe + **reklamsız trafik satın alınabilir** | ✅ aktif, panel Türkçe |
+| BigWarp | doğrulanamadı | doğrulanamadı | ❌ | $15 | 20 GB dosya limiti; 90 gün | doğrulanamadı | aktif |
+| EarnVids | doğrulanamadı | doğrulanamadı | ❌ | $20 (Çarşamba) | sınırsız iddia | doğrulanamadı | VidHide ile **aynı marka** |
+| LuluStream | ✅ | doğrulanamadı | ❌ | $20 | sınırsız (60 gün) | premium reklamsız; **AdBlock ×0,1** | Trustpilot 2,4 — ban şikayetleri |
+| Streamtape | ✅ **SRT+VTT** | doğrulanamadı | ❌ | $10 | sınırsız (15 GB dosya) | ✅ "kaç reklam göreceğini sen seç" | aktif, oran kaynağı arşiv |
+| StreamRuby | doğrulanamadı | doğrulanamadı | ❌ | $12 | doğrulanamadı | ❌ adblock kapatma zorlaması | aktif |
+| Mixdrop | doğrulanamadı | ❌ (yalnız PayPal+BTC) | ❌ | $10 (günlük) | 60 gün | ❌ | aktif (mixdrop.ag) |
+| StreamHub | doğrulanamadı | ✅ | ❌ | $30–$50 (çelişkili) | 15/50 GB dosya; 60 gün | doğrulanamadı | ⚠️ ödeme şikayetleri |
+| StreamWish | doğrulanamadı | ✅ | ❌ | $20 | sınırsız (50 GB dosya); 120 gün | ✅ 1 popup modu | aktif; DMCA sayfası 404 |
+| VidHide | doğrulanamadı | doğrulanamadı | ❌ | $20 | doğrulanamadı | doğrulanamadı | StreamWish/StreamSB **aynı çatı** |
+| Uqload | ✅ | doğrulanamadı | ❌ | $20 / $50 (çelişkili) | 5 GB ücretsiz | premium reklamsız | aktif |
+| DoodStream | ✅ | ✅ (10+ yöntem) | ❌ | $10 | sınırsız (5 GB dosya); 60 gün | premium reklamsız | Trustpilot 2,7 — popup şikayeti |
+| Filemoon | ✅ | ❌ (yalnız PayPal) | ❌ | **$100** (çekim kapalı) | 30 GB (panel) | ❌ yok | ⚠️ 0,07 $, İngilizce oynatıcı |
+| Player4me | ✅ Multi Subtitle | doğrulanamadı | ❌ | doğrulanamadı | sınırsız NVMe, silme yok | ✅ Ad Management | DMCA uygulamıyor; ödeme kanıtı yok |
+| VidGuard | ✅ (menü) | kısmen (planlıyor) | ❌ | doğrulanamadı | doğrulanamadı | ✅ kademe var | **DMCA uyguluyor** → anime için riskli |
+
+**Çatı uyarısı:** **StreamWish + VidHide + FileLions + EarnVids (+StreamSB)** tek şirket/panel
+(VidHide bunu resmen kabul etmiş; FileLions paneli "streamhide system" diyor). Bunlardan çok hesap
+açmak **çeşitlilik sağlamaz** — tek kesinti hepsini vurur. StreamHub, VidGuard, Player4me, Fastream,
+StreamRuby ayrı çatılar.
+
+**Türkiye'ye TRY/IBAN banka ödemesi yapan host: YOK.** (Adsterra tarafında var — §8.3.)
+
+## 9.3 Önceki bölümlerdeki DÜZELTMELER
+
+1. **Sıralama değişti: birinci VidMoly.** Bölüm 8'de "Voe" seçilmişti çünkü Voe'nun TR oranı ~$1,00
+   kabul edilmişti. Bugün `voe.sx/make_money` **404** veriyor → Voe'nun oranı halka açık kaynakla
+   **doğrulanamıyor**. VidMoly'nin **$1,00/1.000** rakamı ise bugün resmî sayfadan **bizzat okundu**.
+2. **Adsterra PayPal: Türkiye desteklenmiyor** (Hyperwallet ülke listesinde TR yok) → TR için
+   PayPal kullanılamaz. Bölüm 8.3'teki tabloda bu uyarı eksikti.
+3. **Adsterra Wire ücreti:** $50 **yalnız USD**; **EUR wire'da ücret $0**.
+4. **Adsterra'da iki yöntem daha var:** **USDC** ($100, %1) ve **Bitcoin** ($100, %1 + ağ ücreti).
+5. **WebMoney:** WMZ Türkiye'de geçerli, **WMT geçerli değil**.
+6. **KYC zorunluluğu:** yalnız **Wire + Yerel banka** için (kripto/Paxum için resmî şart yok).
+7. **Fastream elenir:** $1/1.000 görünüyor ama **10 dakikadan uzun videolarda "other countries" = $0**;
+   anime bölümleri 20-24 dk olduğu için bu host anime için **sıfır gelir**.
+8. **Yeni hostlar:** **BigWarp** ($0,50) ve **Byse** (byse.sx) taramada bulundu.
+
+## 9.4 KARAR (25.09.2026)
+
+| Rol | Seçim | Gerekçe |
+| --- | --- | --- |
+| **Ana oynatıcı** | **VidMoly** | TR oranı **$1,00/1.000 — grubun doğrulanmış en yükseği**, zaten kurulu, 15 TB depolama, altyazı çalışıyor, Full/Medium/Low reklam kontrolü |
+| **İkinci / yedek** | **Voe** | **USDT TRC20 çekim panelde doğrulandı**, panel Türkçe, 5 kademe reklam ayarı, reklamsız trafik satın alınabiliyor — hız/erişim yedeği |
+| **Site reklamları** | **Adsterra** | 2× Native Banner + 1× Social Bar. **Çekim: Yerel banka TRY** ($25 eşik, $7 + kur, KYC) ya da USDT TRC20 ($100, %1). PayPal TR'de **yok** |
+| **Bırakılacak** | Filemoon | $0,07 (14 kat düşük) + 30 GB + $100 eşik + İngilizce oynatıcı + çekim kapalı |
+| **Denenebilir yedek** | BigWarp, Streamtape | $0,50 / $0,45 — depolama sınırsız (dosya 20 GB / 15 GB) |
+
+**VidMoly'de kapatılması gereken tek boşluk:** ödeme yöntemleri resmî sayfada yayınlanmıyor
+("doğrulanamadı"). Kendi panelinde *Make Money / Payouts* sayfasından **USDT (TRC20) var mı** diye
+bakmak gerekir; yoksa VidMoly kazancı Paxum/banka üzerinden, USDT ihtiyacı Voe + Adsterra'dan karşılanır.
+
+## 9.5 NET KAZANÇ TABLOSU (VidMoly Full Ads + Adsterra)
+
+**Varsayımlar (açıkça yazılıdır):**
+- Sayfa görüntülemesinin **%40'ı** bölüm izlenmesine dönüşür.
+- **AdBlock kaybı %25** ve bu kesinti **hem oynatıcı hem site reklamı tarafına** uygulanır.
+  (VidMoly resmî: *"AdBlock izlenmeleri gelir üretmez"*; bu yüzden ham izlenmeden %25 düşülüyor.)
+  *Not: Bölüm 8'deki tabloda bu kesinti yalnız reklam tarafına uygulanmıştı — rakamların farkı buradandır.*
+- Adsterra sayfa başına **2 Native Banner + 1 Social Bar = 3 gösterim**.
+- **Adsterra resmî TR CPM'i yayınlamıyor.** Kullanılan bant, Adsterra'nın **kendi blogunda** verilen
+  "Tier-2 / yükselen pazarlar **$0,50–$3,00** CPM" aralığıdır (düşük = $0,50, yüksek = $3,00).
+  **Türkiye, video hostlarının neredeyse tamamında en düşük tier olduğu için gerçek değer bandın
+  alt ucuna yakın beklenmelidir** → **düşük senaryoyu baz al.**
+- **Kur: 1 USD = 48,7671 TRY** (TCMB döviz alış, `tcmb.gov.tr/kurlar/today.xml`, 25.09.2026 — bizzat çekildi).
+
+| Aylık sayfa görüntüleme | Bölüm izlenmesi (×0,40) | VidMoly payı (≈$0,00075/izlenme) | Adsterra **düşük** ($0,50 CPM) | **TOPLAM (düşük)** | Adsterra **yüksek** ($3,00 CPM) | **TOPLAM (yüksek)** |
+| --- | --- | --- | --- | --- | --- | --- |
+| **10.000** | 4.000 | $3,00 | $11,25 | **$14,25 ≈ ₺695** | $67,50 | **$70,50 ≈ ₺3.438** |
+| **50.000** | 20.000 | $15,00 | $56,25 | **$71,25 ≈ ₺3.475** | $337,50 | **$352,50 ≈ ₺17.190** |
+| **250.000** | 100.000 | $75,00 | $281,25 | **$356,25 ≈ ₺17.373** | $1.687,50 | **$1.762,50 ≈ ₺85.952** |
+
+**Oynatıcı payının host'a göre farkı (250.000 PV → 100.000 ham izlenme → 75.000 sayılan):**
+
+| Host | 75.000 sayılan izlenme getirisi | TRY |
+| --- | --- | --- |
+| **VidMoly** (Full Ads) | **$75,00** | ₺3.658 |
+| Voe | ~$75 (teyitsiz) | ~₺3.658 |
+| BigWarp / EarnVids / LuluStream | $37,50 | ₺1.829 |
+| Streamtape / StreamRuby | $33,75 | ₺1.646 |
+| StreamWish / VidHide | $22,50 | ₺1.097 |
+| DoodStream / Uqload | $11,25 | ₺549 |
+| **Filemoon** | **$5,25** | **₺256** |
+| Fastream (>10 dk) | **$0,00** | **₺0** |
+
+**Çekim eşiği gerçeği:** Düşük senaryoda 10.000 PV/ay → toplam **$14,25**. Bu, Adsterra'nın TRY banka
+**$25** eşiğinin ve USDT **$100** eşiğinin altında; VidMoly'nin **$15** eşiğinin de hemen altında.
+Yani ilk aylarda para hesapta birikir — **aylık ~15-20 bin sayfa görüntülemeden sonra** düzenli çekim
+başlar. En hızlı ilk çekim yolu: **Voe LTC ($10 eşik, $0,25 ücret)**.
+
+## 9.6 Kaynaklar (bu bölüm)
+
+- **VidMoly:** `vidmoly.me/make-money` — CPM tablosu (TIER 5: Turkey $10/$5/$3 per 10.000), sayım
+  kuralı (24 saatte ziyaretçi başına 3 izlenme, en az 3 dk, AdBlock ödenmez), min $15 / 48 saat.
+  **Bu sayfa bizzat çekildi.**
+- **Kur:** `tcmb.gov.tr/kurlar/today.xml` (bizzat çekildi).
+- **Voe:** `voe.sx/make-money` → **404** (bugün); `voe.sx/faq` + `voe.sx/premium` → 3 TB (60 gün),
+  "control the amount of advertising". USDT TRC20 ($50, %0, haftalık) → **kullanıcının kendi panel
+  ekran görüntüleri, 24.09.2026** (§5.1).
+- **Adsterra:** `help-publishers.adsterra.com/en/articles/5385757-receiving-and-tracking-payouts` ·
+  `.../6579457-receiving-payments-through-local-bank-transfer` ·
+  `.../6579471-countries-supporting-local-bank-transfer` (Turkey — TRY) ·
+  `.../6141375-countries-supporting-paypal-by-hyperwallet` (TR yok) ·
+  `.../9088359-kyc-process-for-wire-and-local-bank-transfers` · CPM bantları: `adsterra.com/blog/`
+- **Diğer hostlar:** `bigwarp.io/?op=make_money` · `earnvids.com/make_money.html` ·
+  `lulustream.com/make_money` · `streamruby.com/?op=make_money` · `streamwish.com/make_money.html` ·
+  `vidhide.com/make_money.html` · `uqload.vc/?op=make_money` · `doodstream.com/earn-money` ·
+  `filemoon.org/en/make-money` · `mixpartners.ag/rates` · `krakenfiles.com/news/11-make-money-program.html` ·
+  `player4me.com` · Streamtape: `web.archive.org/.../streamtape.com/partnerprogram` (23.09.2025) ·
+  StreamHub/VidGuard/FileLions topluluk kayıtları: `wjunction.com` ilgili başlıklar.
+- **Doğrulanamayanlar:** Voe'nun güncel TR oranı · VidMoly'nin ödeme yöntemleri · her hostun Türkiye'ye
+  özel hız/CDN bilgisi · Adsterra'nın TR'ye özel CPM'i · StreamWish/VidHide/LuluStream/StreamHub/
+  StreamRuby altyazı desteği · BigWarp ödeme yöntemleri.
