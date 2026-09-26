@@ -35,6 +35,16 @@ export function anizmResolvedCount(): number {
 }
 
 /**
+ * Bir dizinin anizm kaydı kaç bölüm için hazır? (Panelde "TR kaynağı" göstergesi.)
+ * Anahtarlar `{malId}-s…` biçiminde olduğu için ön ek sayımı yeterlidir.
+ */
+export function anizmCountForShow(malId: number | null | undefined): number {
+  if (!malId) return 0;
+  const prefix = `${malId}-`;
+  return Object.keys(TABLE).filter((key) => key.startsWith(prefix)).length;
+}
+
+/**
  * Bölümün anizm oynatıcı adresi. Hash yoksa `null`.
  *
  * @param malId   MyAnimeList kimliği (şemada yoksa null)

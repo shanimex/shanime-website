@@ -153,13 +153,19 @@ export function AnizipSyncPanel({
 
   /**
    * Seçim üç durumlu türetilir:
-   *   `excluded[n] === true`  → kullanıcı kapattı,
-   *   `excluded[n] === false` → kullanıcı açtı,
+   *   `excluded[n] === true`  → kullanıcı KAPATTI,
+   *   `excluded[n] === false` → kullanıcı AÇTI,
    *   tanımsız                → varsayılan (`needsWork`).
-   * Böylece hem "hiçbir şey seçemiyorum" hem de "her şey işaretli geliyor"
-   * durumlarından kaçınılır: zayıf başlıklar hazır işaretli, gerçek adlar boş.
+   *
+   * ⚠️ DİKKAT: burada `??` KULLANILMAZ. `false` değeri nullish olmadığı için
+   * `excluded[n] ?? varsayilan` yazıldığında "kullanıcı açtı" durumu `false`
+   * dönüyor ve kutu işaretsiz görünüyordu; bu yüzden "Tümünü seç" her şeyi
+   * kaldırıyor, tek tek tıklamak da hiçbir şey değiştirmiyordu.
    */
-  const selected = rows.filter((ep) => excluded[ep.number] ?? needsWork(ep.number));
+  const isChecked = (number: number) =>
+    excluded[number] === undefined ? needsWork(number) : !excluded[number];
+
+  const selected = rows.filter((ep) => isChecked(ep.number));
   const addCount = selected.filter((ep) => !taken.has(ep.number)).length;
   const updCount = selected.length - addCount;
 

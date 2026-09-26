@@ -7,6 +7,7 @@ import { ShowRow, type ShowCounts } from "@/components/admin/ShowRow";
 import { Button } from "@/components/ui/button";
 import { AD_SLOTS } from "@/components/AdSlot";
 import { defaultAdSource } from "@/lib/ad-defaults";
+import { anizmCountForShow } from "@/lib/anizm";
 import { DataHealthPanel } from "@/components/admin/DataHealthPanel";
 import { checkSchema, db, moveAndPersist, type SchemaState } from "@/lib/admin";
 import { fetchShows, isAdmin, type ShowWithImage } from "@/lib/content";
@@ -323,6 +324,7 @@ function AdminPage() {
               }
               return (
                 <ShowRow
+                  anizmCount={anizmCountForShow(show.mal_id)}
                   key={show.id}
                   show={show}
                   counts={counts[show.id] ?? EMPTY_COUNTS}
@@ -364,25 +366,31 @@ function AdminPage() {
               <b> "Katalogdan çek"</b>.
             </li>
             <li>
-              <b className="text-foreground">Türkçe altyazı:</b> 1) <b>anizm/puffy</b> kaynağı —
-              altyazı videoya gömülü gelir, 1080p, reklamsız; 2) kaydı yoksa <b>bizim dosyamız</b>:{" "}
-              <code>public/subs/&lt;slug&gt;-s1b1.tr.vtt</code> (dosya varsa menüde "Türkçe" hapı
-              çıkar).
+              <b className="text-foreground">Türkçe altyazı → KAYNAK: anizm/puffy.</b> Altyazı
+              videoya gömülü gelir (1080p, reklamsız); ayrı dosya gerekmez. İzleme sayfasındaki{" "}
+              <b>Kaynak</b> düğmesinden seçilir.{" "}
+              <span className="text-xs">
+                Kayıt üretmek:{" "}
+                <code>node scripts/resolve-anizm-hashes.mjs --slug &lt;slug&gt;</code> · puffytr
+                slug'ı farklıysa <code>--puffy &lt;slug&gt;</code> (ölçülmüş farklar betikte
+                tanımlı: erased → boku-dake-ga-inai-machi, re-zero →
+                rezero-kara-hajimeru-isekai-seikatsu, mushoku-tensei →
+                mushoku-tensei-isekai-ittara-honki-dasu).
+              </span>
             </li>
             <li>
-              <b className="text-foreground">İngilizce:</b> <b>megaplay</b> oynatıcısının kendi CC
-              menüsünden seçilir — bizden bir şey gerekmez. İstersen{" "}
-              <code>&lt;slug&gt;-s1b1.en.vtt</code> koyarsan "İngilizce" hapı da çıkar.
+              <b className="text-foreground">İngilizce altyazı → KAYNAK: megaplay.</b> Oynatıcının
+              kendi CC menüsünden seçilir; bizden ayar gerekmez.
+            </li>
+            <li>
+              <b className="text-foreground">Yerel altyazı katmanı kullanılmıyor.</b> Eski{" "}
+              <code>public/subs/*.vtt</code> dosyaları silindi; sistem yalnızca <b>iki kaynak</b>
+              üzerinden çalışır (TR: anizm, EN: megaplay) ve altyazı menüsü artık görünmez.
             </li>
             <li>
               <b className="text-foreground">Kapaklar:</b> önce ani.zip'in gerçek bölüm görseli
               (derleme zamanında gömülü — <code>npm run covers:sync</code>), yoksa oynatıcının kendi
               kapağı, yoksa seri posteri. Yani kaynak değişse bile kapak boşa düşmez.
-            </li>
-            <li>
-              <b className="text-foreground">Anizm kaydı üretmek:</b>{" "}
-              <code>node scripts/resolve-anizm-hashes.mjs --slug &lt;slug&gt;</code> (dizinin
-              puffytr'daki slug'ı aynı olmalı).
             </li>
           </ul>
         </section>

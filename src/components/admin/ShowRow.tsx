@@ -12,6 +12,7 @@ export type ShowCounts = { seasons: number; episodes: number };
 export function ShowRow({
   show,
   counts,
+  anizmCount,
   first,
   last,
   onEdit,
@@ -20,6 +21,8 @@ export function ShowRow({
 }: {
   show: ShowWithImage;
   counts: ShowCounts;
+  /** Bu dizi için anizm (Türkçe altyazı) kaydı hazır olan bölüm sayısı. */
+  anizmCount: number;
   first: boolean;
   last: boolean;
   onEdit: () => void;
@@ -40,8 +43,30 @@ export function ShowRow({
       />
       <div className="min-w-[9rem] flex-1">
         <p className="truncate text-sm font-extrabold text-foreground">{show.title}</p>
-        <p className="truncate font-mono text-[11px] text-muted-foreground">/{showSlug(show)}</p>
+        <p className="truncate font-mono text-[11px] text-muted-foreground">
+          /{showSlug(show)} · MAL {show.mal_id ?? "—"}
+        </p>
       </div>
+      {/* KAYNAK DURUMU — sistem iki kaynak üzerinden çalışır:
+          TR: anizm (altyazı videoda), EN: megaplay (oynatıcının CC menüsü). */}
+      <span
+        className={`hidden shrink-0 rounded-full px-3 py-1 text-[11px] font-bold md:inline ${
+          counts.episodes > 0 && anizmCount >= counts.episodes
+            ? "bg-primary/15 text-primary"
+            : anizmCount > 0
+              ? "bg-amber-500/15 text-amber-600"
+              : "bg-destructive/15 text-destructive"
+        }`}
+        title="Türkçe altyazı: anizm kaydı hazır olan bölüm sayısı / toplam bölüm"
+      >
+        TR {anizmCount}/{counts.episodes}
+      </span>
+      <span
+        className="hidden shrink-0 rounded-full bg-secondary px-3 py-1 text-[11px] font-bold text-foreground md:inline"
+        title="İngilizce altyazı: megaplay oynatıcısının kendi CC menüsünden seçilir"
+      >
+        EN megaplay
+      </span>
       {show.is_featured && (
         <span
           className="hidden shrink-0 rounded-full bg-primary/15 px-2.5 py-1 text-[11px] font-bold text-primary sm:inline"

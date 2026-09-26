@@ -52,6 +52,28 @@ const ONLY_SLUG = (() => {
   const at = args.indexOf("--slug");
   return at >= 0 ? String(args[at + 1] ?? "").trim() : "";
 })();
+/**
+ * puffytr'daki dizi slug'ı bizimkinden FARKLI olabiliyor. Ölçüm (26.09.2026):
+ *   erased  → boku-dake-ga-inai-machi            (puffytr Japonca adı kullanıyor)
+ *   re-zero → rezero-kara-hajimeru-isekai-seikatsu
+ *   mushoku-tensei → mushoku-tensei-isekai-ittara-honki-dasu
+ *   jujutsu-kaisen → aynı
+ * Eşleşmiyorsa `--puffy <slug>` ile elle verilir (tek dizi için).
+ */
+const PUFFY_SLUG = (() => {
+  const at = args.indexOf("--puffy");
+  return at >= 0 ? String(args[at + 1] ?? "").trim() : "";
+})();
+/**
+ * Ölçülmüş slug farkları (26.09.2026, tarayıcıyla doğrulandı). Yeni dizi
+ * eklerken puffytr'da aynı adres yoksa buraya bir satır eklenir; tek seferlik
+ * denemeler için `--puffy <slug>` de kullanılabilir.
+ */
+const PUFFY_SLUG_OVERRIDES = {
+  erased: "boku-dake-ga-inai-machi",
+  "re-zero": "rezero-kara-hajimeru-isekai-seikatsu",
+  "mushoku-tensei": "mushoku-tensei-isekai-ittara-honki-dasu",
+};
 
 /** .env / .env.local okur (bağımlılık eklememek için elle). */
 function readEnv() {
@@ -104,12 +126,25 @@ async function http(url, { method = "GET", referer } = {}) {
   };
 }
 
-/** Dizi sayfasından bölüm numarası → bölüm adresi haritası. */
+/**
+ * Dizi sayfasından bölüm anahtarı → bölüm adresi haritası.
+ *
+ * Anahtar tam sayı olmayabilir: Re:Zero gibi dizilerde puffytr "1a", "1b" diye
+ * numaralıyor (`rezero-…-1a-bolum-izle`). Bu yüzden harf son eki kabul edilir;
+ * eşleşme önce tam numarayla, olmazsa sıralı konumla yapılır (bkz. ana döngü).
+ */
 function episodeLinks(html, slug) {
   const map = new Map();
-  const re = new RegExp(`href="(?:https://puffytr\\.com)?/(${slug})-(\\d+)-bolum-izle"`, "g");
-  for (const m of html.matchAll(re)) map.set(Number(m[2]), `${PUFFY}/${slug}-${m[2]}-bolum-izle`);
+  const re = new RegExp(`href="(?:https://puffytr\\.com)?/(${slug})-(\\d+[a-z]?)-bolum-izle"`, "g");
+  for (const m of html.matchAll(re)) map.set(m[2], `${PUFFY}/${slug}-${m[2]}-bolum-izle`);
   return map;
+}
+
+/** Bölüm anahtarlarını doğru sıraya dizer ("2" < "1a" < "10a" gibi karışmasın). */
+function sortLinkKeys(keys) {
+  return [...keys].sort(
+    (a, b) => Number.parseFloat(a) - Number.parseFloat(b) || a.localeCompare(b),
+  );
 }
 
 /**
@@ -202,12 +237,26 @@ for (const show of shows) {
   }
   const seasons = [...bySeason.keys()].sort((a, b) => a - b);
 
-  let series = await http(`${PUFFY}/${show.slug}`);
+  const puffySlug =
+    PUFFY_SLUG && ONLY_SLUG ? PUFFY_SLUG : (PUFFY_SLUG_OVERRIDES[show.slug] ?? show.slug);
+  if (puffySlug !== show.slug) console.log(`  puffytr slug farkı: ${show.slug} → ${puffySlug}`);
+
+  const series = await http(`${PUFFY}/${puffySlug}`);
   if (series.status !== 200 || !series.body.includes("bolum-izle")) {
-    problems.push(`${show.slug}: puffytr dizi sayfası yok (${series.status})`);
+    problems.push(
+      `${show.slug}: puffytr dizi sayfası yok (${series.status}) — slug farklı olabilir, --puffy <slug> ile ver`,
+    );
     continue;
   }
-  const links = episodeLinks(series.body, show.slug);
+  const links = episodeLinks(series.body, puffySlug);
+  const linkKeys = sortLinkKeys(links.keys());
+  /**
+   * Bu dizide hangi puffytr bölüm sayfaları kullanıldı. Sıralı eşleşme
+   * (ör. Re:Zero'nun 24 sayfasına karşı bizde 25 bölüm) iki bölümü AYNI sayfaya
+   * bağlayabiliyor; bu durumda ikinci kayıt yazılmaz, çünkü yanlış bölümü
+   * göstermek boş göstermekten kötüdür.
+   */
+  const usedPages = new Set();
   if (links.size === 0) {
     problems.push(`${show.slug}: bölüm linki bulunamadı`);
     continue;
@@ -218,13 +267,29 @@ for (const show of shows) {
     const list = bySeason.get(season).sort((a, b) => a.number - b.number);
     for (const ep of list) {
       const n = offset + ep.number;
-      const url = links.get(n);
+      // Önce tam numara eşleşmesi ("12"), yoksa sıralı konumdan n. giriş
+      // (Re:Zero'nun "1a/1b" numaralandırması gibi durumlar).
+      let url = links.get(String(n));
+      const byPosition = !url && linkKeys.length >= n ? links.get(linkKeys[n - 1]) : undefined;
+      if (byPosition) {
+        url = byPosition;
+        problems.push(
+          `${show.slug} S${season}B${ep.number}: tam numara yok, SIRALI eşleşme kullanıldı (${url})`,
+        );
+      }
       const key = `${show.mal_id ?? show.slug}-s${season}b${ep.number}`;
 
       if (!url) {
         problems.push(`${show.slug} S${season}B${ep.number}: puffytr'da ${n}. bölüm yok`);
         continue;
       }
+      if (usedPages.has(url)) {
+        problems.push(
+          `${show.slug} S${season}B${ep.number}: aynı puffytr sayfası başka bölüme bağlı (${url}) — atlandı`,
+        );
+        continue;
+      }
+      usedPages.add(url);
 
       const previous = store[key];
       if (previous?.hash && !FORCE) {

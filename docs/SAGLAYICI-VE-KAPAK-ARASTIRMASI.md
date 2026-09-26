@@ -1634,3 +1634,67 @@ JJK'da 23 hash olduğu için Kaynak satırı görünür; `mushoku`/`re-zero`'da 
 `jujutsu-kaisen` **S0**'da katalogda 1 özel bölüm var, veritabanında yok:
 *"New Year's Special: … It's Not Too Late!"*. Panel "Seçilen 1 bölümü ekle" diyor —
 kullanıcı isterse ekler.
+
+---
+
+## 28. İki kaynak modeli + seçim hatası düzeltmesi (26.09.2026)
+
+Kullanıcı kararı: **her anime iki kaynak üzerinden çalışır — Türkçe: anizm, global
+(İngilizce): megaplay.** Yerel altyazı katmanı istenmiyor.
+
+### 28.1 Yerel altyazı katmanı kaldırıldı
+
+`public/subs/` altındaki 3 dosya (`erased-s1b1/b2/b3.tr.vtt`) silindi → klasör boş.
+Artık hiçbir bölümde `.vtt` dosyası olmadığı için `subsLangs` boş kalıyor ve izleme
+sayfasındaki "Altyazı" satırı **hiç görünmüyor** (koşullu gösterim). `SubtitleOverlay`
+kodu duruyor ama devre dışı; sistem yalnızca iki kaynakla çalışıyor.
+
+### 28.2 puffytr slug farkları (ölçüldü, tarayıcıyla doğrulandı)
+
+| bizim slug | puffytr slug | not |
+|---|---|---|
+| `erased` | `boku-dake-ga-inai-machi` | puffytr Japonca adı kullanıyor; "erased" araması sıfır sonuç |
+| `re-zero` | `rezero-kara-hajimeru-isekai-seikatsu` | tire yok + tam alt başlık; bölümler `1a`/`1b` diye numaralı |
+| `mushoku-tensei` | `mushoku-tensei-isekai-ittara-honki-dasu` | tam alt başlık eklenmiş |
+| `jujutsu-kaisen` | aynı | — |
+
+Çözücüye eklendi: `--puffy <slug>` (tek seferlik) ve `PUFFY_SLUG_OVERRIDES` (kalıcı
+eşleme). Bölüm linki deseni artık harf son ekini de kabul ediyor (`-1a-bolum-izle`).
+
+**Re:Zero tuzağı:** puffytr'da 24 sayfa (1a…24) var, bizde 25 bölüm. Tam numara
+bulunamayınca sıralı eşleşme kullanılıyor, ancak **aynı sayfaya iki bölüm
+bağlanmasın** diye `usedPages` koruması eklendi — yanlış bölümü göstermek yerine
+kayıt atlanıyor. Bu koruma eklenmeden üretilen hatalı `re-zero S1B25` kaydı
+(24. bölümün sayfasını gösteriyordu) silindi.
+
+### 28.3 Anizm (TR) kapsaması — `src/data/anizm-hashes.json` (68 kayıt)
+
+| Dizi | TR kaydı | Bölüm | Not |
+|---|---|---|---|
+| jujutsu-kaisen | 23 | 24 | puffytr'da 24. bölüm yok |
+| re-zero | 24 | 25 | puffytr'da 24 sayfa var (1a/1b numaralandırma) |
+| erased | 11 | 12 | puffytr'da 12. bölüm yok |
+| mushoku-tensei | 10 | 11 | puffytr'da 11. bölüm listelenmiyor |
+
+Kaydı olmayan bölümde "Kaynak" düğmesi çıkmaz; oynatıcı megaplay'de kalır (İngilizce).
+
+### 28.4 Düzeltilen hata: "Tümünü seç" hiçbir şeyi seçmiyordu
+
+`AnizipSyncPanel` içinde işaret durumu üç değerli tutuluyor (`excluded[n]`:
+`true` = kullanıcı kapattı, `false` = kullanıcı açtı, `undefined` = varsayılan).
+Hesaplama `excluded[n] ?? needsWork(n)` yazılmıştı; **`false` nullish olmadığı için**
+"kullanıcı açtı" durumu `false` dönüyordu → "Tümünü seç" her şeyi kaldırıyor, tek tek
+tıklamak da görünürde hiçbir şey değiştirmiyordu. `isChecked()` yardımcısı üç durumu
+doğru çeviriyor:
+`excluded[n] === undefined ? needsWork(n) : !excluded[n]`.
+
+### 28.5 Panel: seriler listesi
+
+`ShowRow` artık **kaynak durumunu** gösteriyor: `TR {anizm}/{bölüm}` (tam kapsamada
+yeşil, kısmi sarı, hiç yoksa kırmızı) + `EN megaplay` rozeti + satırın altında
+`MAL {id}`. Kapsam `admin.tsx` içinde `anizmCountForShow(show.mal_id)` ile gömülü
+tablodan hesaplanıyor (ek istek yok).
+
+### 28.6 Doğrulama
+
+`tsc --noEmit` temiz · `eslint` temiz · `npm run build` başarılı.
