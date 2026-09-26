@@ -579,7 +579,7 @@ function WatchPage() {
             etiketi + sunucu çipleri. Referansta SUB/HSUB/DUB satırları vardı; bizim
             iki kaynağımız olduğu için satırlar dil adıyla: Türkçe / İngilizce. */}
         <div
-          className={`mt-0 flex flex-col overflow-hidden rounded-b-2xl border-x border-b border-border transition-opacity sm:flex-row${
+          className={`mt-0 flex flex-col overflow-hidden rounded-b-2xl border-x border-b border-border bg-secondary/25 transition-opacity sm:flex-row${
             wide ? "" : " lg:mr-[340px]"
           }${dim ? " opacity-40" : ""}`}
         >
@@ -588,7 +588,9 @@ function WatchPage() {
             <br />
             Kaynak çalışmazsa yandaki diğerini dene.
           </p>
-          <div className="flex flex-col justify-center gap-1 bg-secondary/25 px-3 py-2 sm:ml-auto">
+          {/* Sunucu grubu metnin HEMEN yanında durur (sağa yaslanmaz):
+              `ml-auto` kaldırıldı, kullanıcı "çok sağda duruyorlar" dedi. */}
+          <div className="flex flex-col justify-center gap-1 px-3 py-2 sm:ml-6">
             <div className="flex items-center gap-2">
               <span className="inline-flex min-w-[62px] items-center gap-1.5 text-[12px] text-muted-foreground">
                 <Subtitles size={12} /> Türkçe
@@ -692,7 +694,10 @@ function PlayerBox({
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-border bg-black">
+    // Alt köşeler DÜZ ve alt kenarlık YOK: hemen altında kontrol şeridi + bilgi
+    // satırı tek blok hâlinde devam ediyor. Videoyu alttan yuvarlatınca/blok
+    // sınırı çizince arada basamak gibi bir çentik görünüyordu.
+    <div className="overflow-hidden rounded-t-2xl border-x border-t border-border bg-black">
       {watching ? (
         directSrc ? (
           // Kendi oynatıcımız. YALNIZCA bölümün doğrudan (mp4/HLS) adresi
