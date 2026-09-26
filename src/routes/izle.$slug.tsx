@@ -3,10 +3,10 @@ import { useQuery } from "@tanstack/react-query";
 import {
   AlertTriangle,
   Captions,
-  Check,
+  CheckSquare,
+  Expand,
   Home,
   Loader2,
-  Maximize,
   Play,
   SkipBack,
   SkipForward,
@@ -391,17 +391,18 @@ function WatchPage() {
   }
 
   /**
-   * Şerit öğesi sınıfı — referansın CANLI ÖLÇÜMÜYLE aynı: düz yazı + ikon,
-   * yuvarlak kutu/kenarlık/arka plan YOK, renk rgb(128,151,178), 12.825px/400.
+   * Şerit öğesi sınıfı — referansın ölçümüyle aynı DÜZEN: düz yazı + ikon,
+   * yuvarlak kutu/kenarlık/arka plan YOK, 12.825px/400.
+   * Renkler ise referanstaki mavi/gri yerine BİZİM temadan (kullanıcı isteği).
    */
   const stripItem =
-    "inline-flex items-center gap-1.5 px-1.5 text-[12.825px] font-normal text-[#8097b2] transition-colors hover:text-[#a0b1c5]";
+    "inline-flex items-center gap-1.5 px-1.5 text-[12.825px] font-normal text-muted-foreground transition-colors hover:text-foreground";
 
-  /** Sunucu çipi — referans ölçümü: seçili rgb(38,163,214)/beyaz, değilse rgb(17,27,41)/gri. */
+  /** Sunucu çipi — referansın ölçüsü (3px köşe, 5px 10px iç boşluk) ama bizim renklerimiz. */
   function serverChip(active: boolean) {
     return active
-      ? "rounded-[3px] bg-[#26a3d6] px-2.5 py-[5px] text-[13.5px] text-[#eee]"
-      : "rounded-[3px] bg-[#111b29] px-2.5 py-[5px] text-[13.5px] text-[#8097b2] transition-colors hover:text-[#eee]";
+      ? "rounded-[3px] bg-accent px-2.5 py-[5px] text-[12.825px] font-semibold text-accent-foreground"
+      : "rounded-[3px] bg-secondary/40 px-2.5 py-[5px] text-[12.825px] text-muted-foreground transition-colors hover:text-foreground";
   }
 
   return (
@@ -491,19 +492,19 @@ function WatchPage() {
           )}
         </div>
 
-        {/* OYNATICI KONTROL ŞERİDİ — referans siteyle (anikoto/hianime) aynı DÜZEN:
-            videoya BİTİŞİK (ölçüm: arada 0px), yalnızca ALT köşeler yuvarlak (5px),
-            arka plan #050a0f; öğeler DÜZ yazı+ikon — yuvarlak kutu, kenarlık, arka
-            plan YOK. Canlı computed-style ölçümü (26.09.2026):
-              bar → bg rgb(5,10,15) · yazı rgb(160,177,197) · 13.5px/400 ·
-                    padding 0 10px · yükseklik ≈37.8px · radius 0 0 5px 5px
-              öğe → renk rgb(128,151,178) · 12.825px/400 · padding 0 5px
-            Açık/kapalı SADECE ikonla belli olur (kare = kapalı, onay = açık); renk
-            değişmez. İstisna: "Otomatik atlama" sarı (referansta uyarı rengi).
-            Sağda yalnızca "Bildir" var — referanstaki "Add to list" ve
-            "Watch Together" istenmediği için eklenmedi. */}
+        {/* OYNATICI KONTROL ŞERİDİ + ARDINDAN GELEN BİLGİ/SUNUCU SATIRI.
+            Yapı referanstan (anikoto/hianime) CANLI ÖLÇÜMLE alındı:
+              · şerit yüksekliği 38px · yazı 13.5px/400 · öğe 12.825px/400 ·
+                öğe iç boşluğu 0 5px
+              · öğeler DÜZ yazı + ikon (yuvarlak kutu, kenarlık, arka plan YOK)
+              · açık/kapalı SADECE ikonla belli olur (boş kare ↔ onaylı kare)
+              · şerit ile altındaki satır arasında BOŞLUK YOK; yuvarlaklık yalnızca
+                bloğun EN ALTINDA — böylece ikisi tek parça gibi durur
+            Bizdeki bilinçli farklar (kullanıcı isteği):
+              · sağda yalnızca "Bildir" (Add to list / Watch Together istenmedi)
+              · renkler referansın mavi-grisi yerine BİZİM tema (accent + muted) */}
         <div
-          className={`flex h-[38px] items-center justify-between rounded-b-[5px] bg-[#050a0f] px-2.5 text-[13px] font-normal text-[#a0b1c5]${
+          className={`flex h-[38px] items-center justify-between border-x border-border bg-secondary/25 px-2.5 text-[13px] font-normal text-muted-foreground${
             wide ? "" : " lg:mr-[340px]"
           }`}
         >
@@ -514,7 +515,7 @@ function WatchPage() {
               onClick={() => setWide((value) => !value)}
               className={stripItem}
             >
-              <Maximize size={12} /> Genişlet
+              <Expand size={12} /> Genişlet
             </button>
             {(
               [
@@ -544,11 +545,11 @@ function WatchPage() {
                 onClick={item.toggle}
                 className={
                   item.warn
-                    ? "inline-flex items-center gap-1.5 px-1.5 text-[12.825px] font-normal text-[#ffc107] transition-colors"
+                    ? "inline-flex items-center gap-1.5 px-1.5 text-[12.825px] font-normal text-accent transition-colors"
                     : stripItem
                 }
               >
-                {item.on ? <Check size={12} /> : <Square size={12} />} {item.label}
+                {item.on ? <CheckSquare size={12} /> : <Square size={12} />} {item.label}
               </button>
             ))}
 
@@ -573,23 +574,23 @@ function WatchPage() {
           </button>
         </div>
 
-        {/* SUNUCU/KAYNAK BÖLÜMÜ — referanstaki `#w-servers` düzeni: solda bilgi
-            metni (bg rgb(20,32,48)), sağda satır etiketi + sunucu çipleri
-            (bg rgb(5,10,15)). Referansta SUB/HSUB/DUB satırları vardı; bizim iki
-            kaynağımız olduğu için satırlar dil adıyla: Türkçe / İngilizce. */}
+        {/* BİLGİ + SUNUCU SATIRI — şeridin DEVAMI (arada boşluk yok); referanstaki
+            `#w-servers` düzeninin bizdeki karşılığı: solda bilgi metni, sağda satır
+            etiketi + sunucu çipleri. Referansta SUB/HSUB/DUB satırları vardı; bizim
+            iki kaynağımız olduğu için satırlar dil adıyla: Türkçe / İngilizce. */}
         <div
-          className={`mt-2.5 flex flex-col overflow-hidden rounded-[5px] transition-opacity sm:flex-row${
+          className={`mt-0 flex flex-col overflow-hidden rounded-b-2xl border-x border-b border-border transition-opacity sm:flex-row${
             wide ? "" : " lg:mr-[340px]"
           }${dim ? " opacity-40" : ""}`}
         >
-          <p className="bg-[#142030] p-[15px] text-[13.5px] text-[#a0b1c5]">
-            <b className="text-[#eee]">{currentEpisode?.number ?? "-"}. bölümü</b> izliyorsun.
+          <p className="bg-secondary/15 px-3 py-2.5 text-[13px] leading-relaxed text-muted-foreground">
+            <b className="text-foreground">{currentEpisode?.number ?? "-"}. bölümü</b> izliyorsun.
             <br />
             Kaynak çalışmazsa yandaki diğerini dene.
           </p>
-          <div className="flex flex-col justify-center gap-1.5 bg-[#050a0f] p-2.5 sm:ml-auto">
+          <div className="flex flex-col justify-center gap-1 bg-secondary/25 px-3 py-2 sm:ml-auto">
             <div className="flex items-center gap-2">
-              <span className="inline-flex min-w-[70px] items-center gap-1.5 text-[12px] text-[#8097b2]">
+              <span className="inline-flex min-w-[62px] items-center gap-1.5 text-[12px] text-muted-foreground">
                 <Subtitles size={12} /> Türkçe
               </span>
               {anizmUrl ? (
@@ -601,11 +602,11 @@ function WatchPage() {
                   Anizm
                 </button>
               ) : (
-                <span className="text-[12px] text-[#5b6b7f]">bu bölümde yok</span>
+                <span className="text-[12px] text-muted-foreground/70">bu bölümde yok</span>
               )}
             </div>
             <div className="flex items-center gap-2">
-              <span className="inline-flex min-w-[70px] items-center gap-1.5 text-[12px] text-[#8097b2]">
+              <span className="inline-flex min-w-[62px] items-center gap-1.5 text-[12px] text-muted-foreground">
                 <Captions size={12} /> İngilizce
               </span>
               <button
