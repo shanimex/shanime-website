@@ -4,7 +4,6 @@ import {
   AlertTriangle,
   Captions,
   CheckSquare,
-  Circle,
   Expand,
   Home,
   Loader2,
@@ -589,10 +588,11 @@ function WatchPage() {
           }${dim ? " opacity-40" : ""}`}
         >
           {/* Sol panel — referansta metin ORTALANMIŞ durur; aynı düzeni kurduk. */}
-          {/* Ton: `bg-secondary/30` bu temada şeritle BİREBİR aynı piksele düşüyordu
-              (ikisi de #040507) — panel ayırt edilemiyordu. Ölçüm sonrası paneli
-              öne çıkarmak için hafif bir açık katman kullanılıyor. */}
-          <p className="flex items-center justify-center bg-foreground/[0.06] px-4 py-3 text-center text-[13px] leading-relaxed text-muted-foreground sm:w-[300px] sm:shrink-0">
+          {/* Ton: ölçümde `bg-secondary/30` şeritle BİREBİR aynı piksele düşüyordu
+              (ikisi de #040507) — panel ayırt edilemiyordu. `--secondary` kart
+              renginden yalnızca ~1 seviye açık olduğu için opaklıkla kurtarılamıyor;
+              bu yüzden ön plandan hafif bir açık katman (%8) kullanılıyor. */}
+          <p className="flex items-center justify-center bg-foreground/[0.08] px-4 py-3 text-center text-[13px] leading-relaxed text-muted-foreground sm:w-[300px] sm:shrink-0">
             <span>
               <b className="text-foreground">{currentEpisode?.number ?? "-"}. bölümü</b> izliyorsun.
               <br />
@@ -613,10 +613,12 @@ function WatchPage() {
                   onClick={() => switchSource("anizm")}
                   className={serverChip((kaynak ?? "megaplay") === "anizm")}
                 >
-                  {/* Dolu nokta: lucide `Circle` varsayılan olarak içi boş halka
-                      çiziyor; referanstaki ● görünümü için `fill` verildi. */}
+                  {/* Dolu nokta: lucide `Circle`'ın İÇ `<circle>` öğesi kendi
+                      `fill="none"` özniteliğini taşıdığı için dışarıdan verilen fill
+                      işe yaramıyordu (boş halka çiziliyordu). Referanstaki ● için
+                      nokta doğrudan çiziliyor. */}
                   {(kaynak ?? "megaplay") !== "anizm" && (
-                    <Circle size={7} className="shrink-0" fill="currentColor" />
+                    <span aria-hidden className="size-1.5 shrink-0 rounded-full bg-current" />
                   )}
                   Anizm
                 </button>
@@ -634,7 +636,7 @@ function WatchPage() {
                 className={serverChip((kaynak ?? "megaplay") !== "anizm")}
               >
                 {(kaynak ?? "megaplay") === "anizm" && (
-                  <Circle size={7} className="shrink-0" fill="currentColor" />
+                  <span aria-hidden className="size-1.5 shrink-0 rounded-full bg-current" />
                 )}
                 Megaplay
               </button>
