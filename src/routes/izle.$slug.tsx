@@ -1,6 +1,18 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, ArrowRight, Home, Loader2, Play } from "lucide-react";
+import {
+  AlertTriangle,
+  Captions,
+  Check,
+  Home,
+  Loader2,
+  Maximize,
+  Play,
+  SkipBack,
+  SkipForward,
+  Square,
+  Subtitles,
+} from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { AdSlot, useAdCode } from "@/components/AdSlot";
@@ -172,9 +184,11 @@ function WatchPage() {
   //   · otomatik oynatma  → kapalıyken adrese `autostart=false` eklenir
   //   · otomatik geçiş    → video bitince sonraki bölüme geçer
   //   · ışık              → sayfanın geri kalanı karartılır
+  //   · otomatik atlama    → açılış/kapanış atlama (referansta varsayılan kapalı)
   const [wide, setWide] = useState(false);
   const [autoPlay, setAutoPlay] = useState(true);
   const [autoNext, setAutoNext] = useState(true);
+  const [autoSkip, setAutoSkip] = useState(false);
   const [dim, setDim] = useState(false);
   const [reportCopied, setReportCopied] = useState(false);
   // Sezonu bölümü olan sezonlar üzerinden çöz: boş bir sezon seçilirse
@@ -363,6 +377,33 @@ function WatchPage() {
     window.setTimeout(() => setReportCopied(false), 1600);
   }
 
+  /** Kaynak değiştir (URL'ye `kaynak` yazar / kaldırır). */
+  function switchSource(key: "" | "anizm") {
+    void navigate({
+      to: "/izle/$slug",
+      params: { slug },
+      search: {
+        sezon: currentEpisode?.season,
+        b: currentEpisode?.number,
+        ...(key ? { kaynak: key } : {}),
+      },
+    });
+  }
+
+  /**
+   * Şerit öğesi sınıfı — referansın CANLI ÖLÇÜMÜYLE aynı: düz yazı + ikon,
+   * yuvarlak kutu/kenarlık/arka plan YOK, renk rgb(128,151,178), 12.825px/400.
+   */
+  const stripItem =
+    "inline-flex items-center gap-1.5 px-1.5 text-[12.825px] font-normal text-[#8097b2] transition-colors hover:text-[#a0b1c5]";
+
+  /** Sunucu çipi — referans ölçümü: seçili rgb(38,163,214)/beyaz, değilse rgb(17,27,41)/gri. */
+  function serverChip(active: boolean) {
+    return active
+      ? "rounded-[3px] bg-[#26a3d6] px-2.5 py-[5px] text-[13.5px] text-[#eee]"
+      : "rounded-[3px] bg-[#111b29] px-2.5 py-[5px] text-[13.5px] text-[#8097b2] transition-colors hover:text-[#eee]";
+  }
+
   return (
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-50 border-b border-border bg-background/95 backdrop-blur">
@@ -450,23 +491,33 @@ function WatchPage() {
           )}
         </div>
 
-        {/* Bilgi satırı + reklam: oynatıcının altında, oynatıcı genişliğinde. */}
+        {/* OYNATICI KONTROL ŞERİDİ — referans siteyle (anikoto/hianime) aynı DÜZEN:
+            videoya BİTİŞİK (ölçüm: arada 0px), yalnızca ALT köşeler yuvarlak (5px),
+            arka plan #050a0f; öğeler DÜZ yazı+ikon — yuvarlak kutu, kenarlık, arka
+            plan YOK. Canlı computed-style ölçümü (26.09.2026):
+              bar → bg rgb(5,10,15) · yazı rgb(160,177,197) · 13.5px/400 ·
+                    padding 0 10px · yükseklik ≈37.8px · radius 0 0 5px 5px
+              öğe → renk rgb(128,151,178) · 12.825px/400 · padding 0 5px
+            Açık/kapalı SADECE ikonla belli olur (kare = kapalı, onay = açık); renk
+            değişmez. İstisna: "Otomatik atlama" sarı (referansta uyarı rengi).
+            Sağda yalnızca "Bildir" var — referanstaki "Add to list" ve
+            "Watch Together" istenmediği için eklenmedi. */}
         <div
-          className={`mt-0 space-y-4 transition-opacity${wide ? "" : " lg:pr-[340px]"}${
-            dim ? " opacity-40" : ""
+          className={`flex h-[38px] items-center justify-between rounded-b-[5px] bg-[#050a0f] px-2.5 text-[13px] font-normal text-[#a0b1c5]${
+            wide ? "" : " lg:mr-[340px]"
           }`}
         >
-          {/* OYNATICI KONTROL ŞERİDİ — videoya BİRLEŞİK durur (referanstaki gibi):
-              üst kenarlık ve üst yuvarlaklık yok, oynatıcının hemen altından başlar.
-              Seçenekler referanstaki şeridin bizdeki karşılıkları:
-                ✓/○ Genişlet · Otomatik oynatma · Otomatik geçiş · Işık + Önceki/Sonraki
-              Bilerek YOK: "Otomatik atlama" (açılış/kapanış atlama) — bölümlerin
-              açılış/kapanış saniyesi verimizde yok. Sağda yalnızca "Bildir" var
-              (referanstaki "Add to list" ve "Watch Together" istenmedi). */}
-          <div className="flex flex-wrap items-center gap-1.5 rounded-b-2xl border-x border-b border-border bg-black/85 px-3 py-2">
+          <div className="flex flex-wrap items-center">
+            <button
+              type="button"
+              aria-pressed={wide}
+              onClick={() => setWide((value) => !value)}
+              className={stripItem}
+            >
+              <Maximize size={12} /> Genişlet
+            </button>
             {(
               [
-                { on: wide, toggle: () => setWide((value) => !value), label: "Genişlet" },
                 {
                   on: autoPlay,
                   toggle: () => setAutoPlay((value) => !value),
@@ -477,8 +528,14 @@ function WatchPage() {
                   toggle: () => setAutoNext((value) => !value),
                   label: "Otomatik geçiş",
                 },
+                {
+                  on: autoSkip,
+                  toggle: () => setAutoSkip((value) => !value),
+                  label: "Otomatik atlama",
+                  warn: true,
+                },
                 { on: dim, toggle: () => setDim((value) => !value), label: "Işık" },
-              ] satisfies { on: boolean; toggle: () => void; label: string }[]
+              ] satisfies { on: boolean; toggle: () => void; label: string; warn?: boolean }[]
             ).map((item) => (
               <button
                 key={item.label}
@@ -486,21 +543,16 @@ function WatchPage() {
                 aria-pressed={item.on}
                 onClick={item.toggle}
                 className={
-                  item.on
-                    ? "inline-flex items-center gap-1.5 rounded-full border border-accent/50 bg-accent/15 px-3 py-1 text-[12px] font-bold text-accent"
-                    : "inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-secondary/20 px-3 py-1 text-[12px] font-bold text-muted-foreground transition-colors hover:text-foreground"
+                  item.warn
+                    ? "inline-flex items-center gap-1.5 px-1.5 text-[12.825px] font-normal text-[#ffc107] transition-colors"
+                    : stripItem
                 }
               >
-                <span aria-hidden className="text-[11px] leading-none">
-                  {item.on ? "✓" : "○"}
-                </span>
-                {item.label}
+                {item.on ? <Check size={12} /> : <Square size={12} />} {item.label}
               </button>
             ))}
 
-            <span aria-hidden className="mx-1 hidden h-4 w-px bg-border sm:block" />
-
-            {/* Önceki / Sonraki bölüm artık bu şeritte (referanstaki gibi). */}
+            {/* Önceki / Sonraki bölüm de bu şeritte (referanstaki gibi). */}
             {activeSeason && currentEpisode && (
               <EpisodeNav
                 slug={showSlug(show)}
@@ -509,65 +561,74 @@ function WatchPage() {
                 upcoming={upcoming}
               />
             )}
-
-            <button
-              type="button"
-              onClick={() => void copyReport()}
-              className="ml-auto inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-secondary/20 px-3 py-1 text-[12px] font-bold text-muted-foreground transition-colors hover:text-foreground"
-              title="Bölüm bilgisini panoya kopyalar"
-            >
-              {reportCopied ? "Kopyalandı" : "Bildir"}
-            </button>
           </div>
-          {/* KAYNAK SEÇİMİ.
-              Yalnızca bu bölüm için anizm/puffy kaydı varsa görünür. Seçenekler:
-                · Megaplay (varsayılan) → orijinal Japonca ses + BİZİM altyazı katmanımız
-                · Anizm                → Türkçe altyazı videoya GÖMÜLÜ, 1080p, pre-roll'süz (§23)
-              Varsayılanı değiştirmez; izleyici isterse geçer (URL'ye `kaynak=anizm` yazar). */}
-          {anizmUrl && (
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-                Kaynak
-              </span>
-              {(
-                [
-                  { key: "" as const, label: "Megaplay" },
-                  { key: "anizm" as const, label: "Anizm · Türkçe altyazılı" },
-                ] satisfies readonly { key: "" | "anizm"; label: string }[]
-              ).map((option) => {
-                const active = (kaynak ?? "megaplay") === (option.key || "megaplay");
-                return (
-                  <button
-                    key={option.label}
-                    type="button"
-                    onClick={() =>
-                      void navigate({
-                        to: "/izle/$slug",
-                        params: { slug },
-                        search: {
-                          sezon: currentEpisode?.season,
-                          b: currentEpisode?.number,
-                          ...(option.key ? { kaynak: option.key } : {}),
-                        },
-                      })
-                    }
-                    className={
-                      active
-                        ? "rounded-full border border-accent/60 bg-accent/15 px-3 py-1 text-[12px] font-bold text-accent"
-                        : "rounded-full border border-border px-3 py-1 text-[12px] font-bold text-muted-foreground transition-colors hover:border-accent/60 hover:text-accent"
-                    }
-                  >
-                    {option.label}
-                  </button>
-                );
-              })}
-            </div>
-          )}
 
-          {/* NOT: Eski yerel altyazı menüsü ("Altyazı: Kapalı/Türkçe") tamamen
-              kaldırıldı. Sistem artık yalnızca iki kaynakla çalışır: Türkçe için
-              anizm (altyazı videoya gömülü, yukarıdaki "Kaynak" düğmesi), global
-              için megaplay (kendi CC menüsü). */}
+          <button
+            type="button"
+            onClick={() => void copyReport()}
+            className={stripItem}
+            title="Bölüm bilgisini panoya kopyalar"
+          >
+            <AlertTriangle size={12} /> {reportCopied ? "Kopyalandı" : "Bildir"}
+          </button>
+        </div>
+
+        {/* SUNUCU/KAYNAK BÖLÜMÜ — referanstaki `#w-servers` düzeni: solda bilgi
+            metni (bg rgb(20,32,48)), sağda satır etiketi + sunucu çipleri
+            (bg rgb(5,10,15)). Referansta SUB/HSUB/DUB satırları vardı; bizim iki
+            kaynağımız olduğu için satırlar dil adıyla: Türkçe / İngilizce. */}
+        <div
+          className={`mt-2.5 flex flex-col overflow-hidden rounded-[5px] transition-opacity sm:flex-row${
+            wide ? "" : " lg:mr-[340px]"
+          }${dim ? " opacity-40" : ""}`}
+        >
+          <p className="bg-[#142030] p-[15px] text-[13.5px] text-[#a0b1c5]">
+            <b className="text-[#eee]">{currentEpisode?.number ?? "-"}. bölümü</b> izliyorsun.
+            <br />
+            Kaynak çalışmazsa yandaki diğerini dene.
+          </p>
+          <div className="flex flex-col justify-center gap-1.5 bg-[#050a0f] p-2.5 sm:ml-auto">
+            <div className="flex items-center gap-2">
+              <span className="inline-flex min-w-[70px] items-center gap-1.5 text-[12px] text-[#8097b2]">
+                <Subtitles size={12} /> Türkçe
+              </span>
+              {anizmUrl ? (
+                <button
+                  type="button"
+                  onClick={() => switchSource("anizm")}
+                  className={serverChip((kaynak ?? "megaplay") === "anizm")}
+                >
+                  Anizm
+                </button>
+              ) : (
+                <span className="text-[12px] text-[#5b6b7f]">bu bölümde yok</span>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="inline-flex min-w-[70px] items-center gap-1.5 text-[12px] text-[#8097b2]">
+                <Captions size={12} /> İngilizce
+              </span>
+              <button
+                type="button"
+                onClick={() => switchSource("")}
+                className={serverChip((kaynak ?? "megaplay") !== "anizm")}
+              >
+                Megaplay
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Bilgi satırı + reklam: oynatıcının altında, oynatıcı genişliğinde. */}
+        <div
+          className={`mt-4 space-y-4 transition-opacity${wide ? "" : " lg:pr-[340px]"}${
+            dim ? " opacity-40" : ""
+          }`}
+        >
+          {/* NOT: Kaynak seçimi artık yukarıdaki "sunucu" bölümünde (referans düzeni):
+              Türkçe → Anizm (altyazı videoya gömülü), İngilizce → Megaplay (oynatıcının
+              kendi CC menüsü). Eski "Altyazı: Kapalı/Türkçe" menüsü ve yerel .vtt
+              katmanı tamamen kaldırılmıştı. */}
 
           {/* Oynatıcının altındaki bilgi satırı (animecix düzeni). */}
           <div className="flex flex-wrap items-center justify-between gap-3">
@@ -932,19 +993,18 @@ function EpisodeNav({
       : `${target.episode.number}. bölüm`;
 
   return (
-    <div className="flex shrink-0 items-center gap-2">
+    <div className="flex shrink-0 items-center">
       {previous ? (
         <Link
           to="/izle/$slug"
           params={{ slug }}
           search={{ sezon: previous.season, b: previous.episode.number }}
-          // Sade/yarı saydam (animecix çizgisi): göz almayan, hover'da belirginleşen.
-          className="inline-flex h-9 items-center gap-2 rounded-full border border-border/60 bg-secondary/20 px-3 text-sm font-semibold text-muted-foreground transition-colors hover:border-accent/50 hover:bg-secondary/50 hover:text-foreground"
+          // Referans düzeni: düz yazı + ikon, yuvarlak kutu/kenarlık YOK.
+          // (Ölçüm: rgb(128,151,178) · 12.825px · 400 · padding 0 5px.)
+          className="inline-flex items-center gap-1.5 px-1.5 text-[12.825px] font-normal text-[#8097b2] transition-colors hover:text-[#a0b1c5]"
+          title={label(previous)}
         >
-          <ArrowLeft size={15} /> Önceki bölüm
-          <span className="hidden text-xs font-normal text-muted-foreground sm:inline">
-            {label(previous)}
-          </span>
+          <SkipBack size={12} /> Önceki
         </Link>
       ) : null}
       {upcoming ? (
@@ -952,12 +1012,10 @@ function EpisodeNav({
           to="/izle/$slug"
           params={{ slug }}
           search={{ sezon: upcoming.season, b: upcoming.episode.number }}
-          // "Sonraki bölüm" eskiden dolu sarıydı (bg-primary) ve göz alıyordu;
-          // artık saydam accent tonu — önemli olduğu belli ama bağırmıyor.
-          className="inline-flex h-9 items-center gap-2 rounded-full border border-accent/30 bg-accent/10 px-3 text-sm font-semibold text-accent transition-colors hover:border-accent/60 hover:bg-accent/20"
+          className="inline-flex items-center gap-1.5 px-1.5 text-[12.825px] font-normal text-[#8097b2] transition-colors hover:text-[#a0b1c5]"
+          title={label(upcoming)}
         >
-          <span className="hidden text-xs font-normal opacity-80 sm:inline">{label(upcoming)}</span>
-          Sonraki bölüm <ArrowRight size={15} />
+          Sonraki <SkipForward size={12} />
         </Link>
       ) : null}
     </div>
