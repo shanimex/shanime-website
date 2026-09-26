@@ -1698,3 +1698,56 @@ tablodan hesaplanıyor (ek istek yok).
 ### 28.6 Doğrulama
 
 `tsc --noEmit` temiz · `eslint` temiz · `npm run build` başarılı.
+
+---
+
+## 29. "Bölüm yok" yalanı düzeltildi: 72/72 tam + oynatıcı altı sadeleşti (26.09.2026)
+
+Kullanıcı, sistemin "yok" dediği 4 final bölümünün **var olduğunu** elle bulup
+gösterdi:
+
+```
+https://puffytr.com/jujutsu-kaisen-24-bolum-final-izle
+https://puffytr.com/rezero-kara-hajimeru-isekai-seikatsu-25-bolum-final-izle
+https://anizm.net/boku-dake-ga-inai-machi-12-bolum-final-izle
+https://puffytr.com/mushoku-tensei-isekai-ittara-honki-dasu-11-bolum-final-izle
+```
+
+### 29.1 Kök neden: ÜÇ ayrı kusur üst üste
+
+| # | Kusur | Sonuç |
+|---|---|---|
+| 1 | Link deseni dardı: `-(\d+)-bolum-izle` | Son bölümler `-24-bolum-final-izle` biçiminde olduğu için **hiç görülmüyordu** |
+| 2 | Adres **yeniden kuruluyordu**: `${slug}-${n}-bolum-izle` | Yakalanan yoldaki `-final` eki düşüyor, olmayan bir sayfaya istek gidiyordu |
+| 3 | 302 yönlendirme takip edilmiyordu | Yönlendiren sayfalar "bölüm sayfası 302" diye başarısız sayılıyordu |
+
+Düzeltmeler: desen `-bolum(?:-[a-z0-9]+)*-izle` oldu, **adres artık kaptığımız yolun
+kendisi** (`${PUFFY}/${m[1]}`), ve `http()` içine `follow` seçeneği eklendi
+(`-final-izle` sayfaları 302 ile kanonik adrese gidiyor).
+
+### 29.2 Sonuç: kapsama TAM
+
+```
+MAL 31043 (erased)        -> 12/12   TAM
+MAL 31240 (re-zero)       -> 25/25   TAM
+MAL 39535 (mushoku-tensei)-> 11/11   TAM
+MAL 40748 (jujutsu-kaisen)-> 24/24   TAM
+Toplam: 72 kayıt, başarısız 0
+```
+
+Tek kalan not: `re-zero S1B1` puffytr'da `1a` olarak geçtiği için sıralı eşleşmeyle
+bağlandı (Re:Zero bölümleri 1a/1b diye numaralıyor) — doğru sayfa.
+
+### 29.3 Oynatıcı altı sadeleşti (animecix çizgisi)
+
+- "**Önceki bölüm**" ve "**Sonraki bölüm**" düğmeleri göz alıyordu; artık yarı saydam:
+  önceki `border-border/60 + bg-secondary/20` (hover'da belirginleşir), sonraki
+  `border-accent/30 + bg-accent/10` (dolu sarı yerine saydam accent tonu).
+- Bilgi satırına **aktif kaynak rozeti** eklendi (animecix'teki "Tempest Fansub"
+  çizgisi): oynatıcı anizm ise `Anizm · TR gömülü`, değilse `Megaplay`.
+
+Alınmayanlar (kullanıcı: "gereksiz gördüklerini ekleme"): hianime'ın `Auto Play /
+Auto Skip / Light` şeridi — bizde karşılığı olan davranış yok, sadece görsel olurdu.
+Sunucu sekmeleri (SUB/DUB) zaten "Kaynak" satırıyla karşılanıyor.
+
+Doğrulama: `tsc --noEmit` temiz · `eslint` temiz · `npm run build` başarılı.

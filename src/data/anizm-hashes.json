@@ -474,5 +474,33 @@
     "server": "Aincrad (Reklamsız)",
     "titleNumber": 10,
     "resolvedAt": "2026-09-26"
+  },
+  "31043-s1b12": {
+    "hash": "617e53d130358a136b2d4e42c3fa9ff1",
+    "playerUrl": "https://anizmplayer.com/video/617e53d130358a136b2d4e42c3fa9ff1",
+    "server": "Aincrad (Reklamsız)",
+    "titleNumber": 12,
+    "resolvedAt": "2026-09-26"
+  },
+  "31240-s1b25": {
+    "hash": "3e477743dda87ebc24d3c93bfb817d58",
+    "playerUrl": "https://anizmplayer.com/video/3e477743dda87ebc24d3c93bfb817d58",
+    "server": "Aincrad (Reklamsız)",
+    "titleNumber": 25,
+    "resolvedAt": "2026-09-26"
+  },
+  "40748-s1b24": {
+    "hash": "94f317056bfb93ae0c276fa9b1690ba7",
+    "playerUrl": "https://anizmplayer.com/video/94f317056bfb93ae0c276fa9b1690ba7",
+    "server": "Aincrad (Reklamsız)",
+    "titleNumber": 24,
+    "resolvedAt": "2026-09-26"
+  },
+  "39535-s1b11": {
+    "hash": "d48da2445baf1640d0b54e229e860c16",
+    "playerUrl": "https://anizmplayer.com/video/d48da2445baf1640d0b54e229e860c16",
+    "server": "Aincrad (Reklamsız)",
+    "titleNumber": 11,
+    "resolvedAt": "2026-09-26"
   }
 }

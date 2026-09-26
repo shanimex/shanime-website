@@ -114,14 +114,26 @@ async function supa(path) {
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-/** Sayfayı/JSON'u çeker. `redirect: "manual"` → 302'nin `location`'ı okunabilir. */
-async function http(url, { method = "GET", referer } = {}) {
+/**
+ * Sayfayı/JSON'u çeker. `redirect: "manual"` → 302'nin `location`'ı okunabilir.
+ *
+ * `follow`: kaç yönlendirme adımı takip edilsin. NEDEN GEREKLİ: son bölüm
+ * sayfaları (`…-24-bolum-final-izle`) 302 ile kanonik adrese yönlendiriyor;
+ * takip edilmeyince bölüm "yok" sanılıyordu.
+ */
+async function http(url, { method = "GET", referer, follow = 0 } = {}) {
   const headers = { "User-Agent": UA, Accept: "text/html,application/json,*/*" };
   if (referer) headers["Referer"] = referer;
   const res = await fetch(url, { method, headers, redirect: "manual" });
+  const location = res.headers.get("location") ?? "";
+  const redirected = [301, 302, 303, 307, 308].includes(res.status) && location !== "";
+  if (follow > 0 && redirected) {
+    const next = new URL(location, url).toString();
+    return http(next, { method, referer, follow: follow - 1 });
+  }
   return {
     status: res.status,
-    location: res.headers.get("location") ?? "",
+    location,
     body: method === "HEAD" ? "" : await res.text(),
   };
 }
@@ -135,8 +147,17 @@ async function http(url, { method = "GET", referer } = {}) {
  */
 function episodeLinks(html, slug) {
   const map = new Map();
-  const re = new RegExp(`href="(?:https://puffytr\\.com)?/(${slug})-(\\d+[a-z]?)-bolum-izle"`, "g");
-  for (const m of html.matchAll(re)) map.set(m[2], `${PUFFY}/${slug}-${m[2]}-bolum-izle`);
+  // ⚠️ İKİ TUZAK (ikisi de sahada yaşandı, ikisi de "bölüm yok" yalanına yol açtı):
+  //   1. Desen dar olmamalı: son bölümler `-bolum-final-izle` biçiminde
+  //      (ör. `jujutsu-kaisen-24-bolum-final-izle`), `-bolum-izle` deseni bunları
+  //      hiç görmez.
+  //   2. Adres YENİDEN KURULMAMALI: kaptığımız yolu olduğu gibi kullanmak şart.
+  //      Yeniden kurunca `-final` eki düşüyor ve olmayan bir sayfaya istek gidiyordu.
+  const re = new RegExp(
+    `href="(?:https://puffytr\\.com)?/(${slug}-(\\d+[a-z]?)-bolum(?:-[a-z0-9]+)*?-izle)"`,
+    "g",
+  );
+  for (const m of html.matchAll(re)) map.set(m[2], `${PUFFY}/${m[1]}`);
   return map;
 }
 
@@ -155,7 +176,8 @@ function sortLinkKeys(keys) {
  *                    translatorId?:string, titleNumber?:number, reason?:string}>}
  */
 async function resolveEpisode(episodeUrl) {
-  const page = await http(episodeUrl);
+  // `follow: 2` — `-final-izle` sayfaları 302 ile kanonik adrese gider.
+  const page = await http(episodeUrl, { follow: 2 });
   if (page.status !== 200) return { ok: false, reason: `bölüm sayfası ${page.status}` };
 
   const episodeId = /episode\/(\d+)/.exec(page.body)?.[1];

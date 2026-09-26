@@ -429,9 +429,16 @@ function WatchPage() {
                   ? `${currentEpisode.number}. Bölüm${currentEpisode.title ? ` · ${currentEpisode.title}` : ""}`
                   : "Bölüm yok"}
               </p>
-              <p className="truncate text-xs text-muted-foreground">
-                {show.title}
-                {activeSeason && multipleSeasons ? ` · ${seasonLabel(activeSeason)}` : ""}
+              <p className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                <span className="truncate">
+                  {show.title}
+                  {activeSeason && multipleSeasons ? ` · ${seasonLabel(activeSeason)}` : ""}
+                </span>
+                {/* AKTİF KAYNAK rozeti (animecix'teki "Tempest Fansub" çizgisi):
+                    izleyici hangi kaynağın oynadığını bir bakışta görsün. */}
+                <span className="shrink-0 rounded-full border border-border/60 bg-secondary/20 px-2 py-0.5 text-[10px] font-bold">
+                  {episodeEmbed?.includes("anizmplayer.com") ? "Anizm · TR gömülü" : "Megaplay"}
+                </span>
               </p>
             </div>
             <EpisodeNav
@@ -779,7 +786,8 @@ function EpisodeNav({
           to="/izle/$slug"
           params={{ slug }}
           search={{ sezon: previous.season, b: previous.episode.number }}
-          className="inline-flex h-9 items-center gap-2 rounded-full border border-input bg-background px-3 text-sm font-bold text-foreground transition-colors hover:bg-secondary"
+          // Sade/yarı saydam (animecix çizgisi): göz almayan, hover'da belirginleşen.
+          className="inline-flex h-9 items-center gap-2 rounded-full border border-border/60 bg-secondary/20 px-3 text-sm font-semibold text-muted-foreground transition-colors hover:border-accent/50 hover:bg-secondary/50 hover:text-foreground"
         >
           <ArrowLeft size={15} /> Önceki bölüm
           <span className="hidden text-xs font-normal text-muted-foreground sm:inline">
@@ -792,7 +800,9 @@ function EpisodeNav({
           to="/izle/$slug"
           params={{ slug }}
           search={{ sezon: upcoming.season, b: upcoming.episode.number }}
-          className="inline-flex h-9 items-center gap-2 rounded-full bg-primary px-3 text-sm font-bold text-primary-foreground transition-colors hover:bg-primary/90"
+          // "Sonraki bölüm" eskiden dolu sarıydı (bg-primary) ve göz alıyordu;
+          // artık saydam accent tonu — önemli olduğu belli ama bağırmıyor.
+          className="inline-flex h-9 items-center gap-2 rounded-full border border-accent/30 bg-accent/10 px-3 text-sm font-semibold text-accent transition-colors hover:border-accent/60 hover:bg-accent/20"
         >
           <span className="hidden text-xs font-normal opacity-80 sm:inline">{label(upcoming)}</span>
           Sonraki bölüm <ArrowRight size={15} />
