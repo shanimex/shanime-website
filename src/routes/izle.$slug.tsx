@@ -589,7 +589,10 @@ function WatchPage() {
           }${dim ? " opacity-40" : ""}`}
         >
           {/* Sol panel — referansta metin ORTALANMIŞ durur; aynı düzeni kurduk. */}
-          <p className="flex items-center justify-center bg-secondary/30 px-4 py-3 text-center text-[13px] leading-relaxed text-muted-foreground sm:w-[300px] sm:shrink-0">
+          {/* Ton: `bg-secondary/30` bu temada şeritle BİREBİR aynı piksele düşüyordu
+              (ikisi de #040507) — panel ayırt edilemiyordu. Ölçüm sonrası paneli
+              öne çıkarmak için hafif bir açık katman kullanılıyor. */}
+          <p className="flex items-center justify-center bg-foreground/[0.06] px-4 py-3 text-center text-[13px] leading-relaxed text-muted-foreground sm:w-[300px] sm:shrink-0">
             <span>
               <b className="text-foreground">{currentEpisode?.number ?? "-"}. bölümü</b> izliyorsun.
               <br />
@@ -610,7 +613,11 @@ function WatchPage() {
                   onClick={() => switchSource("anizm")}
                   className={serverChip((kaynak ?? "megaplay") === "anizm")}
                 >
-                  {(kaynak ?? "megaplay") !== "anizm" && <Circle size={7} className="shrink-0" />}
+                  {/* Dolu nokta: lucide `Circle` varsayılan olarak içi boş halka
+                      çiziyor; referanstaki ● görünümü için `fill` verildi. */}
+                  {(kaynak ?? "megaplay") !== "anizm" && (
+                    <Circle size={7} className="shrink-0" fill="currentColor" />
+                  )}
                   Anizm
                 </button>
               ) : (
@@ -626,7 +633,9 @@ function WatchPage() {
                 onClick={() => switchSource("")}
                 className={serverChip((kaynak ?? "megaplay") !== "anizm")}
               >
-                {(kaynak ?? "megaplay") === "anizm" && <Circle size={7} className="shrink-0" />}
+                {(kaynak ?? "megaplay") === "anizm" && (
+                  <Circle size={7} className="shrink-0" fill="currentColor" />
+                )}
                 Megaplay
               </button>
             </div>
