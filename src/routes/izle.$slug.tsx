@@ -8,13 +8,6 @@ import { AdsterraLeaderboard, AdsterraNative } from "@/components/AdsterraUnit";
 import { EpisodeCover } from "@/components/EpisodeCover";
 import { FluidPlayer, type FluidSubtitle } from "@/components/FluidPlayer";
 import { PrerollGate } from "@/components/PrerollGate";
-import { SubtitleOverlay } from "@/components/SubtitleOverlay";
-import {
-  conventionSubtitlePath,
-  SUBTITLE_LABELS,
-  SUBTITLE_LANGS,
-  type SubtitleLang,
-} from "@/lib/subtitles";
 import { buildProviderUrl, resolveEpisodeEmbed } from "@/lib/embed-provider";
 import { anizmPlayerUrl } from "@/lib/anizm";
 import { prerollVastUrls } from "@/lib/mybid";
@@ -179,13 +172,6 @@ function WatchPage() {
   // sunucusundan geliyor, URL parametresi ve köprü komutu yok — ölçüm §15).
   // Bu yüzden dil seçimi sitenin KENDİ menüsünden yapılır; menü yalnızca
   // dosyası gerçekten var olan dilleri listeler.
-  // Kanca sırası için BURADA, erken `return`lerden önce tanımlanır.
-  const [subsLang, setSubsLang] = useState<SubtitleLang | "off">("tr");
-
-  const [subsLangs, setSubsLangs] = useState<SubtitleLang[]>([]);
-  /** Altyazı dosyası yoklaması bitti mi? Bitmeden dil kararı verilmez (aşağıya bak). */
-  const [subsProbed, setSubsProbed] = useState(false);
-
   // Sezonu bölümü olan sezonlar üzerinden çöz: boş bir sezon seçilirse
   // izleyici "bölüm yok" ekranında kalmaz, ilk dolu sezona düşer.
   const playableSeasons: SeasonWithEpisodes[] = (detail?.seasons ?? []).filter(
@@ -216,73 +202,6 @@ function WatchPage() {
   // Oynatıcı kaynağı: doğrudan adres varsa Fluid Player, yoksa sağlayıcı embed'i.
   const directSrc = directSourceOf(currentEpisode);
   const episodeSubtitles = subtitlesOf(currentEpisode);
-
-  // Bu bölüm için aday altyazı dosyaları: panelde açıkça girilmiş adres varsa o,
-  // yoksa yerleşik yol `/subs/{slug}-s{sezon}b{bölüm}.{dil}.vtt`.
-  const subCandidates = currentEpisode
-    ? SUBTITLE_LANGS.map((lang) => ({
-        lang,
-        label: SUBTITLE_LABELS[lang],
-        url:
-          episodeSubtitles.find((track) => track.srclang === lang)?.src ||
-          conventionSubtitlePath(slug, currentEpisode.season, currentEpisode.number, lang),
-      }))
-    : [];
-  const subKey = subCandidates.map((entry) => entry.url).join("|");
-
-  // Hangi diller GERÇEKTEN var? Olmayan dil menüde hiç görünmez (dosya yoksa
-  // istek 404 döner). Böylece boş seçenek gösterilmez.
-  //
-  // `subsProbed` — yoklama bitti mi? BİTMEDEN dil kararı VERİLMEZ.
-  // NEDEN: yoklama asenkron çalışıyor. İlk karede `subsLangs` boş olduğu için
-  // aşağıdaki "yoksa kapalıya düş" kuralı hemen devreye giriyor ve dili KALICI
-  // olarak "off"a kilitliyordu. Ölçüm (26.09.2026): sayfa taze açıldığında
-  // menü "Kapalı" görünüyor ve Türkçe altyazı hiç çıkmıyordu — yoklama bittiğinde
-  // `subsLang` artık "off" olduğu için efekt erken `return` ediyor ve bir daha
-  // düzelmiyordu. Artık karar yalnızca yoklama bitince veriliyor.
-  useEffect(() => {
-    if (subKey === "") {
-      // Dizi verisi henüz gelmedi (bölüm yok) → "yoklama bitti" DEME. Aksi
-      // hâlde boş liste "kesin sonuç" sayılıp dil "off"a kilitleniyordu; veri
-      // gelince de `subsLang === "off"` olduğu için bir daha düzelmiyordu.
-      // (Ölçüm 26.09.2026: sayfa açılışında menü yine "Kapalı" görünüyordu.)
-      setSubsLangs([]);
-      setSubsProbed(false);
-      return;
-    }
-    let alive = true;
-    setSubsProbed(false);
-    void Promise.all(
-      subCandidates.map(async (entry) => {
-        try {
-          const res = await fetch(entry.url, { method: "HEAD" });
-          return res.ok ? entry.lang : null;
-        } catch {
-          return null;
-        }
-      }),
-    ).then((found) => {
-      if (!alive) return;
-      setSubsLangs(found.filter((lang): lang is SubtitleLang => lang !== null));
-      setSubsProbed(true);
-    });
-    return () => {
-      alive = false;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [subKey]);
-
-  // Seçili dil bu bölümde yoksa ilk bulunana (yoksa "kapalı"ya) düş.
-  // Yalnızca yoklama BİTİNCE çalışır: aksi hâlde varsayılan "tr" boş listeye
-  // bakıp "off"a düşüyordu (yukarıdaki nota bak).
-  useEffect(() => {
-    if (!subsProbed) return;
-    if (subsLang === "off" || subsLangs.includes(subsLang)) return;
-    setSubsLang(subsLangs[0] ?? "off");
-  }, [subsProbed, subsLangs, subsLang]);
-
-  const selectedSubUrl =
-    subsLang === "off" ? "" : (subCandidates.find((entry) => entry.lang === subsLang)?.url ?? "");
 
   // Bölüm değişince (istemci içi geçişte de) reklam kapısı yeniden kurulur.
   const currentKey = currentEpisode ? `${currentEpisode.season}-${currentEpisode.number}` : "yok";
@@ -433,7 +352,6 @@ function WatchPage() {
             epUrl={episodeEmbed ?? ""}
             directSrc={directSrc}
             subtitles={episodeSubtitles}
-            subtitleUrl={selectedSubUrl}
             vastUrls={PREROLL_VAST_URLS}
             onGateFinish={() => setGateDone(true)}
           />
@@ -498,37 +416,10 @@ function WatchPage() {
             </div>
           )}
 
-          {/* SİTENİN KENDİ ALTYAZI MENÜSÜ.
-              Sağlayıcının CC menüsüne satır eklenemiyor (menü verisi onların
-              sunucusundan geliyor; URL parametresi ve köprü komutu yok), bu
-              yüzden dil seçimi burada. Yalnızca dosyası olan diller listelenir.
-              Oynatıcının İÇİNDE değil ALTINDA durur — içerideyken sağlayıcının
-              CC/ayar simgeleriyle karışıyordu. */}
-          {subsLangs.length > 0 && (
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-                Altyazı
-              </span>
-              {[
-                { key: "off" as const, label: "Kapalı" },
-                ...subsLangs.map((lang) => ({ key: lang, label: SUBTITLE_LABELS[lang] })),
-              ].map((option) => (
-                <button
-                  key={option.key}
-                  type="button"
-                  aria-pressed={subsLang === option.key}
-                  onClick={() => setSubsLang(option.key)}
-                  className={
-                    subsLang === option.key
-                      ? "rounded-full border border-accent/60 bg-accent/15 px-3 py-1 text-[12px] font-bold text-accent"
-                      : "rounded-full border border-border px-3 py-1 text-[12px] font-bold text-muted-foreground transition-colors hover:border-accent/60 hover:text-accent"
-                  }
-                >
-                  {option.label}
-                </button>
-              ))}
-            </div>
-          )}
+          {/* NOT: Eski yerel altyazı menüsü ("Altyazı: Kapalı/Türkçe") tamamen
+              kaldırıldı. Sistem artık yalnızca iki kaynakla çalışır: Türkçe için
+              anizm (altyazı videoya gömülü, yukarıdaki "Kaynak" düğmesi), global
+              için megaplay (kendi CC menüsü). */}
 
           {/* Oynatıcının altındaki bilgi satırı (animecix düzeni). */}
           <div className="flex flex-wrap items-center justify-between gap-3">
@@ -570,7 +461,6 @@ function PlayerBox({
   epUrl,
   directSrc,
   subtitles,
-  subtitleUrl,
   vastUrls,
   onGateFinish,
 }: {
@@ -582,13 +472,6 @@ function PlayerBox({
   directSrc: string;
   /** Fluid Player için VTT altyazı listesi (boş olabilir). */
   subtitles: FluidSubtitle[];
-  /**
-   * Sağlayıcı iframe'inin ÜSTÜNE çizilecek kendi altyazımız (.vtt/.srt adresi).
-   * Bkz. `src/components/SubtitleOverlay.tsx`: megaplay köprüsünden gelen oynatma
-   * zamanıyla senkronlanır — yani Türkçe altyazı için video yüklemek gerekmez.
-   */
-  /** Seçili altyazı dosyası ("" = kapalı). Menü oynatıcının ALTINDA durur. */
-  subtitleUrl: string;
   /** Video öncesi reklam (VAST) etiketleri. */
   vastUrls: string[];
   /** Reklamlar bitince çağrılır; bölüm oynatıcısı o zaman yüklenir. */
@@ -660,14 +543,6 @@ function PlayerBox({
               // tarayıcının varsayılan BEYAZ zeminini görmemek için (iOS'ta beyaz
               // kenar/çerçeve gibi görünüyordu). Sarmalayıcı da siyah.
               className="aspect-video w-full bg-black"
-            />
-
-            {/* Kendi Türkçe altyazı katmanımız. Yalnızca köprüyü destekleyen
-              sağlayıcıda (megaplay) ve altyazı adresi varsa çalışır. */}
-            <SubtitleOverlay
-              frameRef={iframeRef}
-              url={subtitleUrl}
-              active={epUrl.includes("megaplay.buzz") || epUrl.includes("videasy")}
             />
           </div>
         )

@@ -169,7 +169,7 @@ export const EMBED_PROVIDERS: Record<EmbedProviderId, EmbedProvider> = {
    *     tarayıcı belleğinde tutulur → ziyaretçi başına, sunucuya gitmez.
    *   · Altyazı için URL parametresi YOK (yalnızca `progress` ve `color`).
    *   · Dışarıdan mesaj dinlemiyor (gelen `message` API'si yok) → track enjekte edilemez.
-   *   Bu yüzden Türkçe altyazı yine BİZİM katmanımızdan gelir (SubtitleOverlay).
+   *   Bu yüzden Türkçe için anizm/puffy kaynağı kullanılır (altyazı videoda gömülü).
    *
    * ⚠️ Top-level açılmayı reddediyor (HTTP hata) → yalnızca iframe ile gömülür.
    */
@@ -245,9 +245,8 @@ export const EMBED_PROVIDERS: Record<EmbedProviderId, EmbedProvider> = {
    *     scripts/resolve-anizm-hashes.mjs  →  src/data/anizm-hashes.json
    * Tabloda kaydı olmayan bölümde `null` döner → oynatıcı megaplay'e düşer.
    *
-   * NOT: altyazı gömülü olduğu için `SubtitleOverlay` bu sağlayıcıda KAPALI
-   * kalmalı (bkz. `izle.$slug.tsx` → `epUrl.includes("megaplay.buzz")`), yoksa iki
-   * altyazı üst üste biner.
+   * NOT: altyazı videoya gömülü olduğu için ayrı bir altyazı katmanı KULLANILMAZ
+   * (yerel altyazı sistemi kaldırıldı), yoksa iki altyazı üst üste biner.
    */
   anizm: {
     id: "anizm",
@@ -338,7 +337,7 @@ function providerById(id: string): EmbedProvider | null {
  *
  * vidsrc.to artık KULLANILMIYOR: İngilizce dublaj veriyor ve oynatıcı zinciri
  * (vsembed.ru → cloudorchestrana…) agresif pop-up açıyor. Türkçe altyazı zaten
- * bizden geliyor — `src/components/SubtitleOverlay.tsx` megaplay'in köprüsünden
+ * anizm kaynağından geliyor — eskiden megaplay'in köprüsünden
  * aldığı oynatma zamanıyla kendi `.vtt` dosyamızı çiziyor
  * (`scripts/sync-tr-subtitles.mjs` → `public/subs/`). Bu yüzden vidsrc'e gerek
  * kalmadı; tanımı ileride `@vidsrc` direktifiyle kullanılabilsin diye duruyor.
