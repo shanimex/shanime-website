@@ -72,10 +72,39 @@ export function SubtitleOverlay({
         }
       }
       if (!data || typeof data !== "object") return;
-      const payload = data as { event?: unknown; time?: unknown };
-      if (payload.event !== "time" && payload.event !== "CURRENT_TIME") return;
-      if (typeof payload.time !== "number" || !Number.isFinite(payload.time)) return;
-      setTime(payload.time);
+      const payload = data as {
+        event?: unknown;
+        time?: unknown;
+        type?: unknown;
+        data?: unknown;
+      };
+
+      // ── megaplay köprüsü ────────────────────────────────────────────────
+      //   { event: "time", time: <saniye>, duration, percent }
+      //   { event: "CURRENT_TIME", time: <saniye> }
+      if (payload.event === "time" || payload.event === "CURRENT_TIME") {
+        if (typeof payload.time === "number" && Number.isFinite(payload.time)) {
+          setTime(payload.time);
+        }
+        return;
+      }
+
+      // ── videasy köprüsü ─────────────────────────────────────────────────
+      //   { type: "PLAYER_EVENT",
+      //     data: { event: "timeupdate", currentTime: <saniye>, duration, … } }
+      //
+      // Ölçüm (26.09.2026): saniyede ~10 mesaj (60 sn'de 618 mesaj, 504'ü
+      // PLAYER_EVENT) → megaplay'in ~1/s çözünürlüğünden daha isabetli.
+      // İki varyant gönderiyor: birinde `currentTime`, diğerinde `timestamp`.
+      if (payload.type === "PLAYER_EVENT") {
+        const inner = payload.data as
+          | { event?: unknown; currentTime?: unknown; timestamp?: unknown }
+          | undefined;
+        if (!inner || inner.event !== "timeupdate") return;
+        const value =
+          typeof inner.currentTime === "number" ? inner.currentTime : inner.timestamp;
+        if (typeof value === "number" && Number.isFinite(value)) setTime(value);
+      }
     };
     window.addEventListener("message", onMessage);
 

@@ -1,11 +1,13 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { AlertTriangle, Loader2, LogOut, Save, Search } from "lucide-react";
+import { AlertTriangle, Loader2, Lock, LogOut, Search } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AddShowButton } from "@/components/admin/AddShowButton";
 import { ShowEditor } from "@/components/admin/ShowEditor";
 import { ShowRow, type ShowCounts } from "@/components/admin/ShowRow";
 import { Button } from "@/components/ui/button";
 import { AD_SLOTS } from "@/components/AdSlot";
+import { defaultAdSource } from "@/lib/ad-defaults";
+import { DataHealthPanel } from "@/components/admin/DataHealthPanel";
 import { checkSchema, db, moveAndPersist, type SchemaState } from "@/lib/admin";
 import { fetchShows, isAdmin, type ShowWithImage } from "@/lib/content";
 import { supabase } from "@/integrations/supabase/client";
@@ -111,18 +113,6 @@ function AdminPage() {
       setAdCodes(map);
     })();
   }, [status]);
-
-  async function saveAd(key: string) {
-    const slot = AD_SLOTS.find((item) => item.key === key);
-    const { error } = await db
-      .from("site_settings")
-      .upsert({ key, value: (adCodes[key] ?? "").trim() });
-    if (error) {
-      alert("Reklam kodu kaydedilemedi: " + error.message);
-      return;
-    }
-    setNotice(`${slot ? slot.label : key} kodu kaydedildi.`);
-  }
 
   const handleReload = useCallback(
     (message: string) => {
@@ -357,61 +347,95 @@ function AdminPage() {
           </div>
         </section>
 
-        <AdSection
-          adCodes={adCodes}
-          onChange={(key, value) => setAdCodes((map) => ({ ...map, [key]: value }))}
-          onSave={saveAd}
-        />
+        {/* KAYNAK / ALTYAZI AKIŞI.
+            Kullanıcının "bölümler nereden geliyor, TR/EN nasıl oluyor, kapaklar
+            kaynağa göre değişiyor mu" sorularına panel içinden cevap. Statik metin:
+            veri okumaz, bozulma riski yok. */}
+        <section className="admin-card">
+          <h2 className="flex items-center gap-3 font-display text-2xl text-foreground">
+            <span className="admin-card-label" aria-hidden />
+            Bölümler nereden geliyor?
+          </h2>
+          <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
+            <li>
+              <b className="text-foreground">Bölüm listesi:</b> <code>ani.zip</code> API'si —
+              internetten, <b>MAL kimliğiyle</b>. Projeye zip indirilmez; panel tarayıcıdan doğrudan
+              çağırır. Seriyi eklerken MAL kimliğini girmen yeterli, sonra her sezon için
+              <b> "Katalogdan çek"</b>.
+            </li>
+            <li>
+              <b className="text-foreground">Türkçe altyazı:</b> 1) <b>anizm/puffy</b> kaynağı —
+              altyazı videoya gömülü gelir, 1080p, reklamsız; 2) kaydı yoksa <b>bizim dosyamız</b>:{" "}
+              <code>public/subs/&lt;slug&gt;-s1b1.tr.vtt</code> (dosya varsa menüde "Türkçe" hapı
+              çıkar).
+            </li>
+            <li>
+              <b className="text-foreground">İngilizce:</b> <b>megaplay</b> oynatıcısının kendi CC
+              menüsünden seçilir — bizden bir şey gerekmez. İstersen{" "}
+              <code>&lt;slug&gt;-s1b1.en.vtt</code> koyarsan "İngilizce" hapı da çıkar.
+            </li>
+            <li>
+              <b className="text-foreground">Kapaklar:</b> önce ani.zip'in gerçek bölüm görseli
+              (derleme zamanında gömülü — <code>npm run covers:sync</code>), yoksa oynatıcının kendi
+              kapağı, yoksa seri posteri. Yani kaynak değişse bile kapak boşa düşmez.
+            </li>
+            <li>
+              <b className="text-foreground">Anizm kaydı üretmek:</b>{" "}
+              <code>node scripts/resolve-anizm-hashes.mjs --slug &lt;slug&gt;</code> (dizinin
+              puffytr'daki slug'ı aynı olmalı).
+            </li>
+          </ul>
+        </section>
+
+        <DataHealthPanel onNotice={setNotice} />
+
+        <AdSection adCodes={adCodes} />
       </main>
     </div>
   );
 }
 
-function AdSection({
-  adCodes,
-  onChange,
-  onSave,
-}: {
-  adCodes: Record<string, string>;
-  onChange: (key: string, value: string) => void;
-  onSave: (key: string) => Promise<void> | void;
-}) {
+function AdSection({ adCodes }: { adCodes: Record<string, string> }) {
   return (
     <section className="admin-card admin-card--ads">
       <h2 className="flex items-center gap-3 font-display text-2xl text-foreground">
         <span className="admin-card-label" aria-hidden />
         Reklam kodları
       </h2>
-      <p className="mt-1 text-sm text-muted-foreground">
-        Sadece <b>Banner</b> kodlarını yapıştır. Popunder / Social Bar koyma — kullanıcı siteyi terk
-        eder.
+      <p className="mt-1 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+        <span className="inline-flex items-center gap-1 rounded-full border border-border px-2 py-0.5 text-[11px] font-bold text-foreground">
+          <Lock size={11} /> Kilitli
+        </span>
+        <span>
+          Kodlar burada <b>görünür</b>, panelden <b>değiştirilemez</b>. Kayıt yoksa koddaki
+          varsayılan birim çalışır — yani kutu boş görünse de sitede reklam vardır.
+        </span>
       </p>
       {/* 6 slot iki kolonda: eskiden alt alta dizilip sayfayı uzatıyordu. */}
       <div className="mt-4 grid gap-3 md:grid-cols-2">
-        {AD_SLOTS.map((slot) => (
-          <div key={slot.key} className="flex flex-col rounded-2xl bg-background/50 p-3">
-            <label htmlFor={`ad-${slot.key}`} className="text-xs font-bold text-foreground">
-              {slot.label}
-            </label>
-            <textarea
-              id={`ad-${slot.key}`}
-              className="mt-2 min-h-16 flex-1 rounded-xl border border-border bg-background p-2 font-mono text-[11px] leading-5 text-foreground outline-none focus:border-primary"
-              placeholder="<script ...> veya <ins ...>"
-              value={adCodes[slot.key] ?? ""}
-              onChange={(event) => onChange(slot.key, event.target.value)}
-            />
-            <div className="mt-2 flex justify-end">
-              <Button
-                size="sm"
-                variant="outline"
-                className="rounded-full"
-                onClick={() => void onSave(slot.key)}
-              >
-                <Save size={14} /> Kaydet
-              </Button>
+        {AD_SLOTS.map((slot) => {
+          const saved = (adCodes[slot.key] ?? "").trim();
+          return (
+            <div key={slot.key} className="flex flex-col rounded-2xl bg-background/50 p-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-xs font-bold text-foreground">{slot.label}</span>
+                <span
+                  className={
+                    saved
+                      ? "rounded-full border border-primary/40 bg-primary/10 px-2 py-0.5 text-[10px] font-bold text-primary"
+                      : "rounded-full border border-border px-2 py-0.5 text-[10px] font-bold text-muted-foreground"
+                  }
+                >
+                  {saved ? "panelden kayıtlı" : "koddaki varsayılan"}
+                </span>
+              </div>
+              {/* Salt okunur: kullanıcı isteğiyle kilitli. Kod görünsün, değişmesin. */}
+              <pre className="mt-2 min-h-16 flex-1 overflow-x-auto whitespace-pre-wrap rounded-xl border border-border bg-background p-2 font-mono text-[11px] leading-5 text-muted-foreground">
+                {saved || defaultAdSource(slot.key)}
+              </pre>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </section>
   );

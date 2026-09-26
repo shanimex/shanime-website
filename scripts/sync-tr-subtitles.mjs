@@ -22,6 +22,7 @@
  *   node scripts/sync-tr-subtitles.mjs --limit 50    # günlük hakkı zorla
  *   node scripts/sync-tr-subtitles.mjs --force       # var olanları da yeniler
  *   node scripts/sync-tr-subtitles.mjs --dry         # indirmez, ne bulduğunu yazar
+ *   node scripts/sync-tr-subtitles.mjs --slug erased --lang en   # tek dizi + tek dil
  *
  * Betik İDEMPOTENTTİR: var olan dosyayı atlar, yani her çalıştırmada yalnızca
  * yeni bölümler için indirme harcanır.
@@ -42,6 +43,21 @@ const DRY = args.includes("--dry");
 const LIMIT = (() => {
   const at = args.indexOf("--limit");
   return at >= 0 ? Number(args[at + 1]) : 5;
+})();
+/**
+ * Hedefli indirme: `--slug erased --lang en`.
+ *
+ * NEDEN: panel/otomasyon "şu dizinin şu dildeki altyazısını çek" diyebilsin.
+ * Ayrıca tüm katalogu gezerken günlük indirme hakkını yanlış bölümlere
+ * harcamayı önler (ör. yalnızca İngilizce eksikleri tazelemek).
+ */
+const ONLY_SLUG = (() => {
+  const at = args.indexOf("--slug");
+  return at >= 0 ? String(args[at + 1] ?? "").trim() : "";
+})();
+const ONLY_LANG = (() => {
+  const at = args.indexOf("--lang");
+  return at >= 0 ? String(args[at + 1] ?? "").trim() : "";
 })();
 
 /** .env / .env.local okur (bağımlılık eklememek için elle). */
@@ -179,7 +195,9 @@ async function searchTr(tmdbId, season, episode, lang) {
         row?.attributes?.feature_details?.episode_number ?? row?.attributes?.episode_number ?? null,
       release: String(row?.attributes?.release ?? "").slice(0, 48),
     }))
-    .filter((r) => r.fileId && r.language.toLowerCase().startsWith("tr"))
+    // DİKKAT: filtre istenen dile göre olmalı. Önceki sürüm sabit "tr" idi ve
+    // `--lang en` ile çağrıldığında **her zaman 0 sonuç** dönüyordu.
+    .filter((r) => r.fileId && r.language.toLowerCase().startsWith(lang))
     .sort((a, b) => b.downloads - a.downloads);
 }
 
@@ -216,6 +234,7 @@ let missing = 0;
 const problems = [];
 
 for (const show of shows) {
+  if (ONLY_SLUG && show.slug !== ONLY_SLUG) continue;
   const tmdbId = Number(tmdbMap[String(show.mal_id)] ?? 0);
   if (!tmdbId) {
     problems.push(`${show.slug}: TMDB eşlemesi yok (node scripts/sync-anizip-covers.mjs)`);
@@ -224,6 +243,7 @@ for (const show of shows) {
   const list = episodes.filter((e) => e.show_id === show.id);
   for (const ep of list) {
     for (const lang of LANGS) {
+      if (ONLY_LANG && lang !== ONLY_LANG) continue;
       const file = resolve(OUT_DIR, subtitleFileFor(show.slug, ep.season, ep.number, lang));
       if (existsSync(file) && !FORCE) {
         skipped += 1;

@@ -16,6 +16,7 @@ import {
   type SubtitleLang,
 } from "@/lib/subtitles";
 import { buildProviderUrl, resolveEpisodeEmbed } from "@/lib/embed-provider";
+import { anizmPlayerUrl } from "@/lib/anizm";
 import { prerollVastUrls } from "@/lib/mybid";
 import {
   episodeCoverFromWatchUrl,
@@ -38,7 +39,7 @@ import { anizipCover, tmdbIdForMal } from "@/lib/anizip-covers";
  *     (4 dizide 12 bölüm tarandı: JJK'da 9 dil var, Türkçe yok)
  * Bu yüzden seçim izleyiciye bırakılır; varsayılan `ACTIVE_EMBED_PROVIDER`.
  */
-type WatchSource = "megaplay" | "vidsrc";
+type WatchSource = "megaplay" | "vidsrc" | "videasy" | "anizm";
 
 type WatchSearch = {
   sezon?: number | undefined;
@@ -56,7 +57,9 @@ type WatchSearch = {
  * arayüzde düğmesi YOK.
  */
 function toWatchSource(value: unknown): WatchSource | undefined {
-  return value === "megaplay" || value === "vidsrc" ? value : undefined;
+  return value === "megaplay" || value === "vidsrc" || value === "videasy" || value === "anizm"
+    ? value
+    : undefined;
 }
 
 /** Sorgu parametresini pozitif tam sayıya çevirir; geçersizse undefined döner. */
@@ -178,8 +181,10 @@ function WatchPage() {
   // dosyası gerçekten var olan dilleri listeler.
   // Kanca sırası için BURADA, erken `return`lerden önce tanımlanır.
   const [subsLang, setSubsLang] = useState<SubtitleLang | "off">("tr");
-  const [subsOpen, setSubsOpen] = useState(false);
+
   const [subsLangs, setSubsLangs] = useState<SubtitleLang[]>([]);
+  /** Altyazı dosyası yoklaması bitti mi? Bitmeden dil kararı verilmez (aşağıya bak). */
+  const [subsProbed, setSubsProbed] = useState(false);
 
   // Sezonu bölümü olan sezonlar üzerinden çöz: boş bir sezon seçilirse
   // izleyici "bölüm yok" ekranında kalmaz, ilk dolu sezona düşer.
@@ -227,12 +232,26 @@ function WatchPage() {
 
   // Hangi diller GERÇEKTEN var? Olmayan dil menüde hiç görünmez (dosya yoksa
   // istek 404 döner). Böylece boş seçenek gösterilmez.
+  //
+  // `subsProbed` — yoklama bitti mi? BİTMEDEN dil kararı VERİLMEZ.
+  // NEDEN: yoklama asenkron çalışıyor. İlk karede `subsLangs` boş olduğu için
+  // aşağıdaki "yoksa kapalıya düş" kuralı hemen devreye giriyor ve dili KALICI
+  // olarak "off"a kilitliyordu. Ölçüm (26.09.2026): sayfa taze açıldığında
+  // menü "Kapalı" görünüyor ve Türkçe altyazı hiç çıkmıyordu — yoklama bittiğinde
+  // `subsLang` artık "off" olduğu için efekt erken `return` ediyor ve bir daha
+  // düzelmiyordu. Artık karar yalnızca yoklama bitince veriliyor.
   useEffect(() => {
     if (subKey === "") {
+      // Dizi verisi henüz gelmedi (bölüm yok) → "yoklama bitti" DEME. Aksi
+      // hâlde boş liste "kesin sonuç" sayılıp dil "off"a kilitleniyordu; veri
+      // gelince de `subsLang === "off"` olduğu için bir daha düzelmiyordu.
+      // (Ölçüm 26.09.2026: sayfa açılışında menü yine "Kapalı" görünüyordu.)
       setSubsLangs([]);
+      setSubsProbed(false);
       return;
     }
     let alive = true;
+    setSubsProbed(false);
     void Promise.all(
       subCandidates.map(async (entry) => {
         try {
@@ -243,7 +262,9 @@ function WatchPage() {
         }
       }),
     ).then((found) => {
-      if (alive) setSubsLangs(found.filter((lang): lang is SubtitleLang => lang !== null));
+      if (!alive) return;
+      setSubsLangs(found.filter((lang): lang is SubtitleLang => lang !== null));
+      setSubsProbed(true);
     });
     return () => {
       alive = false;
@@ -252,10 +273,13 @@ function WatchPage() {
   }, [subKey]);
 
   // Seçili dil bu bölümde yoksa ilk bulunana (yoksa "kapalı"ya) düş.
+  // Yalnızca yoklama BİTİNCE çalışır: aksi hâlde varsayılan "tr" boş listeye
+  // bakıp "off"a düşüyordu (yukarıdaki nota bak).
   useEffect(() => {
+    if (!subsProbed) return;
     if (subsLang === "off" || subsLangs.includes(subsLang)) return;
     setSubsLang(subsLangs[0] ?? "off");
-  }, [subsLangs, subsLang]);
+  }, [subsProbed, subsLangs, subsLang]);
 
   const selectedSubUrl =
     subsLang === "off" ? "" : (subCandidates.find((entry) => entry.lang === subsLang)?.url ?? "");
@@ -319,6 +343,16 @@ function WatchPage() {
         // listesinden Türkçe'yi varsayılan yapmanın başka yolu yok.
         subtitles: episodeSubtitles.map((track) => ({ file: track.src, label: track.label })),
       }
+    : null;
+
+  // Bu bölüm için anizm/puffy kaynağı var mı? Türkçe altyazı videoya GÖMÜLÜ,
+  // 1080p, pre-roll'süz, pop-up'suz (ölçüm: docs/SAGLAYICI-VE-KAPAK-ARASTIRMASI.md §23).
+  //
+  // Adres derleme zamanında gömülü tablodan gelir (`src/data/anizm-hashes.json`,
+  // `scripts/resolve-anizm-hashes.mjs` ile üretilir); kaydı olmayan bölümde null
+  // döner ve aşağıdaki kaynak düğmesi hiç görünmez — varsayılan davranış değişmez.
+  const anizmUrl = currentEpisode
+    ? anizmPlayerUrl(show.mal_id ?? null, currentEpisode.season, currentEpisode.number)
     : null;
 
   // Kaynak seçimi: izleyici açıkça seçtiyse o kazanır (watch_url ve `@` direktifi
@@ -419,6 +453,51 @@ function WatchPage() {
 
         {/* Bilgi satırı + reklam: oynatıcının altında, oynatıcı genişliğinde. */}
         <div className="mt-4 space-y-4 lg:pr-[340px]">
+          {/* KAYNAK SEÇİMİ.
+              Yalnızca bu bölüm için anizm/puffy kaydı varsa görünür. Seçenekler:
+                · Megaplay (varsayılan) → orijinal Japonca ses + BİZİM altyazı katmanımız
+                · Anizm                → Türkçe altyazı videoya GÖMÜLÜ, 1080p, pre-roll'süz (§23)
+              Varsayılanı değiştirmez; izleyici isterse geçer (URL'ye `kaynak=anizm` yazar). */}
+          {anizmUrl && (
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                Kaynak
+              </span>
+              {(
+                [
+                  { key: "" as const, label: "Megaplay" },
+                  { key: "anizm" as const, label: "Anizm · Türkçe altyazılı" },
+                ] satisfies readonly { key: "" | "anizm"; label: string }[]
+              ).map((option) => {
+                const active = (kaynak ?? "megaplay") === (option.key || "megaplay");
+                return (
+                  <button
+                    key={option.label}
+                    type="button"
+                    onClick={() =>
+                      void navigate({
+                        to: "/izle/$slug",
+                        params: { slug },
+                        search: {
+                          sezon: currentEpisode?.season,
+                          b: currentEpisode?.number,
+                          ...(option.key ? { kaynak: option.key } : {}),
+                        },
+                      })
+                    }
+                    className={
+                      active
+                        ? "rounded-full border border-accent/60 bg-accent/15 px-3 py-1 text-[12px] font-bold text-accent"
+                        : "rounded-full border border-border px-3 py-1 text-[12px] font-bold text-muted-foreground transition-colors hover:border-accent/60 hover:text-accent"
+                    }
+                  >
+                    {option.label}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
           {/* SİTENİN KENDİ ALTYAZI MENÜSÜ.
               Sağlayıcının CC menüsüne satır eklenemiyor (menü verisi onların
               sunucusundan geliyor; URL parametresi ve köprü komutu yok), bu
@@ -426,55 +505,28 @@ function WatchPage() {
               Oynatıcının İÇİNDE değil ALTINDA durur — içerideyken sağlayıcının
               CC/ayar simgeleriyle karışıyordu. */}
           {subsLangs.length > 0 && (
-            <div className="relative flex flex-wrap items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
                 Altyazı
               </span>
-              <button
-                type="button"
-                aria-haspopup="listbox"
-                aria-expanded={subsOpen}
-                onClick={() => setSubsOpen((value) => !value)}
-                className="flex items-center gap-1.5 rounded-full border border-border px-3 py-1 text-[12px] font-bold text-foreground transition-colors hover:border-accent/60 hover:text-accent"
-              >
-                {subsLang === "off" ? "Kapalı" : SUBTITLE_LABELS[subsLang]}
-                <span aria-hidden className="text-[9px] leading-none">
-                  ▼
-                </span>
-              </button>
-
-              {subsOpen && (
-                <div
-                  role="listbox"
-                  className="absolute left-0 top-full z-30 mt-1 w-36 overflow-hidden rounded-lg border border-border bg-card py-1 shadow-xl"
+              {[
+                { key: "off" as const, label: "Kapalı" },
+                ...subsLangs.map((lang) => ({ key: lang, label: SUBTITLE_LABELS[lang] })),
+              ].map((option) => (
+                <button
+                  key={option.key}
+                  type="button"
+                  aria-pressed={subsLang === option.key}
+                  onClick={() => setSubsLang(option.key)}
+                  className={
+                    subsLang === option.key
+                      ? "rounded-full border border-accent/60 bg-accent/15 px-3 py-1 text-[12px] font-bold text-accent"
+                      : "rounded-full border border-border px-3 py-1 text-[12px] font-bold text-muted-foreground transition-colors hover:border-accent/60 hover:text-accent"
+                  }
                 >
-                  {[
-                    { key: "off" as const, label: "Kapalı" },
-                    ...subsLangs.map((lang) => ({ key: lang, label: SUBTITLE_LABELS[lang] })),
-                  ].map((option) => (
-                    <button
-                      key={option.key}
-                      type="button"
-                      role="option"
-                      aria-selected={subsLang === option.key}
-                      onClick={() => {
-                        setSubsLang(option.key);
-                        setSubsOpen(false);
-                      }}
-                      className={
-                        subsLang === option.key
-                          ? "flex w-full items-center gap-2 px-3 py-1.5 text-left text-[12px] font-bold text-accent"
-                          : "flex w-full items-center gap-2 px-3 py-1.5 text-left text-[12px] font-bold text-muted-foreground transition-colors hover:text-foreground"
-                      }
-                    >
-                      <span aria-hidden className="w-3 text-[10px]">
-                        {subsLang === option.key ? "✓" : ""}
-                      </span>
-                      {option.label}
-                    </button>
-                  ))}
-                </div>
-              )}
+                  {option.label}
+                </button>
+              ))}
             </div>
           )}
 
@@ -615,7 +667,7 @@ function PlayerBox({
             <SubtitleOverlay
               frameRef={iframeRef}
               url={subtitleUrl}
-              active={epUrl.includes("megaplay.buzz")}
+              active={epUrl.includes("megaplay.buzz") || epUrl.includes("videasy")}
             />
           </div>
         )

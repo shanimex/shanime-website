@@ -12,7 +12,7 @@ import {
   Save,
   Trash2,
 } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import {
   db,
@@ -24,6 +24,7 @@ import {
   watchUrlError,
 } from "@/lib/admin";
 import { VoeSyncPanel } from "@/components/admin/VoeSyncPanel";
+import { AnizipSyncPanel } from "@/components/admin/AnizipSyncPanel";
 import type { Episode, Season } from "@/lib/content";
 import { syncAllEpisodePosters } from "@/lib/episode-covers";
 
@@ -104,6 +105,9 @@ export function SeasonsPanel({
   const [page, setPage] = useState(1);
   // Voe'dan otomatik bölüm çekme paneli açık mı (bkz. components/admin/VoeSyncPanel.tsx).
   const [voeOpen, setVoeOpen] = useState(false);
+  // Katalogdan (ani.zip) bölüm çekme paneli HANGİ sezonda açık. Sezon başına tek
+  // basışla tüm bölümleri eklemek için: sezon kartındaki "Katalogdan çek".
+  const [catalogSeason, setCatalogSeason] = useState<number | null>(null);
 
   const reload = useCallback(async () => {
     const [seasonRes, episodeRes] = await Promise.all([
@@ -322,6 +326,25 @@ export function SeasonsPanel({
             onMove={(dir) => void moveSeason(index, dir)}
             onDelete={() => void removeSeason(season)}
             onMaterialize={() => void materializeSeason(season)}
+            catalogOpen={catalogSeason === season.number}
+            onToggleCatalog={() =>
+              setCatalogSeason((current) => (current === season.number ? null : season.number))
+            }
+            renderCatalog={() => (
+              <AnizipSyncPanel
+                showId={showId}
+                seasonNumber={season.number}
+                existing={(episodes ?? []).map((episode) => ({
+                  season: episode.season,
+                  number: episode.number,
+                  title: episode.title,
+                }))}
+                onDone={async (message) => {
+                  onNotice(message);
+                  await reload();
+                }}
+              />
+            )}
             onChanged={async (message) => {
               onNotice(message);
               await reload();
@@ -351,6 +374,9 @@ function SeasonCard({
   onMove,
   onDelete,
   onMaterialize,
+  catalogOpen,
+  onToggleCatalog,
+  renderCatalog,
   onChanged,
 }: {
   season: SeasonRow;
@@ -366,6 +392,10 @@ function SeasonCard({
   onMove: (dir: -1 | 1) => void;
   onDelete: () => void;
   onMaterialize: () => void;
+  /** Katalogdan (ani.zip) bölüm çekme paneli bu sezon için açık mı. */
+  catalogOpen: boolean;
+  onToggleCatalog: () => void;
+  renderCatalog: () => ReactNode;
   onChanged: (message: string) => Promise<void>;
 }) {
   const pageCount = Math.max(1, Math.ceil(episodes.length / PAGE_SIZE));
@@ -430,6 +460,16 @@ function SeasonCard({
         </Button>
         <Button
           size="sm"
+          variant={catalogOpen ? "toggleOn" : "outline"}
+          className="rounded-full"
+          onClick={onToggleCatalog}
+          disabled={busy || !schemaReady}
+          title="Bölüm listesini katalogdan (ani.zip) çeker; tek basışta sezonun tamamını ekler"
+        >
+          <CloudDownload size={14} /> Katalogdan çek
+        </Button>
+        <Button
+          size="sm"
           variant={open ? "toggleOn" : "outline"}
           className="ml-auto rounded-full"
           onClick={onToggle}
@@ -442,6 +482,9 @@ function SeasonCard({
           {open ? "Bölümleri kapat" : "Bölümler"}
         </Button>
       </div>
+
+      {/* Katalogdan bölüm çekme paneli (sezon kartının içinde, başlığın altında). */}
+      {catalogOpen && <div className="mt-4">{renderCatalog()}</div>}
 
       {open && (
         <div className="mt-4 space-y-2 border-t border-border pt-4">

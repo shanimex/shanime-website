@@ -34,7 +34,9 @@
  *    kodludur (her sezonun ayrı MAL kaydı vardır).
  */
 
-export type EmbedProviderId = "none" | "megaplay" | "vidsrc";
+import { anizmPlayerUrl } from "@/lib/anizm";
+
+export type EmbedProviderId = "none" | "megaplay" | "vidsrc" | "videasy" | "anizm";
 
 /** Sağlayıcıya enjekte edilecek harici altyazı izi. */
 export interface EmbedSubtitleTrack {
@@ -147,6 +149,47 @@ export const EMBED_PROVIDERS: Record<EmbedProviderId, EmbedProvider> = {
   },
 
   /**
+   * videasy — TMDB dizi kimliğiyle embed. **KALİTE SEÇİCİSİ OLAN SAĞLAYICI.**
+   *
+   * ÖLÇÜM (26.09.2026, kullanıcının tarayıcısı, iframe içinde, TMDB 95479 S1B1):
+   *   · Oynatıcı geldi, video oynadı.
+   *   · Ayarlar menüsünde **Quality** satırı var; kalite menüsü 2160p'ye kadar
+   *     seçenek listeliyor (megaplay'de kalite LİSTESİ BOŞ — tek 1080p veriyor).
+   *   · **Pop-up ölçümü: 0.** İzole testte (tek iframe) yeni sekme, kendiliğinden
+   *     yenileme ve reklam/popunder isteği GÖZLENMEDİ.
+   *   · **Oynatma zamanını parent pencereye gönderiyor** — bu yüzden kendi Türkçe
+   *     altyazı katmanımız burada da çalışır:
+   *       { type:"PLAYER_EVENT", data:{ event:"timeupdate",
+   *         currentTime:625.19, duration:1435, id, mediaType, season, episode } }
+   *     Saniyede ~10 mesaj (ölçüm: 60 sn'de 618 mesaj, 504'ü PLAYER_EVENT).
+   *     Kaynakta da doğrulandı: `window.parent.postMessage(JSON.stringify({...}), "*")`.
+   *
+   * ⚠️ ALTYAZIYI OYNATICIYA SOKMAK MÜMKÜN DEĞİL (ölçüldü, ayrıntı §19):
+   *   · "Upload subtitles" bir **dosya seçici**; `URL.createObjectURL()` ile
+   *     tarayıcı belleğinde tutulur → ziyaretçi başına, sunucuya gitmez.
+   *   · Altyazı için URL parametresi YOK (yalnızca `progress` ve `color`).
+   *   · Dışarıdan mesaj dinlemiyor (gelen `message` API'si yok) → track enjekte edilemez.
+   *   Bu yüzden Türkçe altyazı yine BİZİM katmanımızdan gelir (SubtitleOverlay).
+   *
+   * ⚠️ Top-level açılmayı reddediyor (HTTP hata) → yalnızca iframe ile gömülür.
+   */
+  videasy: {
+    id: "videasy",
+    label: "Videasy (TMDB kimliği, kalite seçici)",
+    template: "https://player.videasy.net/tv/{tmdb}/{season}/{ep}",
+    requiresMalId: false,
+    evidence:
+      "Ölçüm 26.09.2026: iframe içinde /tv/95479/1/1 oynadı; Quality menüsü 2160p'ye kadar; " +
+      "0 pop-up (izole test); parent'a `PLAYER_EVENT/timeupdate` mesajı gönderiyor → kendi altyazı katmanımız çalışır.",
+    buildUrl(request) {
+      if (!request.tmdbId) return null;
+      const template = EMBED_PROVIDERS.videasy.template;
+      if (!template) return null;
+      return fillTemplate(template, request);
+    },
+  },
+
+  /**
    * vidsrc.to — TMDB dizi kimliğiyle embed. **TÜRKÇE ALTYAZI VEREN SAĞLAYICI.**
    *
    * NEDEN TMDB: vidsrc.to'nun anime ucu YOK ("Currently we do not support anime",
@@ -183,6 +226,40 @@ export const EMBED_PROVIDERS: Record<EmbedProviderId, EmbedProvider> = {
       const base = fillTemplate(template, request);
       if (!base) return null;
       return appendSubInfo(base, request.subtitles);
+    },
+  },
+
+  /**
+   * anizm / puffytr — **Türkçe altyazı videoya GÖMÜLÜ**, 1080p, 0 pop-up.
+   *
+   * Ölçüm (26.09.2026, bizim origin'den iframe'de): oynadı (1080p), config
+   * `"advertising": []` → **pre-roll YOK**, yani sitenin kendi reklam kapısı
+   * engellenmez; 45 sn bekleme + 1 tık boyunca **0 pop-up**; kalite menüsü
+   * `Otomatik/1080p/720p/480p/360p`; oynatıcının kendi watermark'ı yok.
+   * Ayrıntı: docs/SAGLAYICI-VE-KAPAK-ARASTIRMASI.md §23.
+   *
+   * ⚠️ `template` YOK ve olmayacak: adres bölüme özel bir hash taşır
+   * (`anizmplayer.com/video/<hash>`), sarmalayıcı (`puffytr.com/player/<id>`)
+   * referer korumalıdır → şablonla üretilemez. Adresler derleme zamanında gömülü
+   * tablodan gelir:
+   *     scripts/resolve-anizm-hashes.mjs  →  src/data/anizm-hashes.json
+   * Tabloda kaydı olmayan bölümde `null` döner → oynatıcı megaplay'e düşer.
+   *
+   * NOT: altyazı gömülü olduğu için `SubtitleOverlay` bu sağlayıcıda KAPALI
+   * kalmalı (bkz. `izle.$slug.tsx` → `epUrl.includes("megaplay.buzz")`), yoksa iki
+   * altyazı üst üste biner.
+   */
+  anizm: {
+    id: "anizm",
+    label: "Anizm (Türkçe altyazı gömülü)",
+    template: null,
+    requiresMalId: true,
+    evidence:
+      "Ölçüm 26.09.2026: anizmplayer.com/video/<hash> iframe'de oynadı (1080p), " +
+      "oynatıcı config'i `advertising: []` (pre-roll yok), 45 sn bekleme + 1 tık boyunca 0 pop-up, " +
+      "pop-up ve banner yok. Adresler `scripts/resolve-anizm-hashes.mjs` ile puffytr zincirinden çözülür.",
+    buildUrl(request) {
+      return anizmPlayerUrl(request.malId, request.season, request.episode);
     },
   },
 };

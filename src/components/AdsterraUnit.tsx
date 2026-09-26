@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { ADSTERRA_HOSTS, ADSTERRA_KEYS } from "@/lib/ad-defaults";
 
 /**
  * Adsterra reklam birimleri.
@@ -20,13 +21,18 @@ import { useEffect, useRef, useState } from "react";
  * global çakışması yoktur.
  */
 
-/** Panelden alınan birim anahtarları. */
-const LEADERBOARD_KEY = "58f6928e3bd225665ca3d3141314d61e";
-const RECTANGLE_KEY = "8a5dc100511ee4d17b59adeaf586abcd";
-const NATIVE_KEY = "42bcaa59193806d090844b6e622e8495";
-
-const BANNER_HOST = "https://www.highrevenueformat.com";
-const NATIVE_HOST = "https://pl31353754.profitableratecpmnetwork.com";
+/**
+ * Birim anahtarları ve barındırıcılar `lib/ad-defaults.ts`'te tutulur: aynı
+ * bilgiyi admin panelindeki kilitli "çalışan kod" kutusu da gösteriyor, iki
+ * yerde kopyalanınca kaçınılmaz olarak ayrışıyordu.
+ */
+const {
+  leaderboard: LEADERBOARD_KEY,
+  rectangle: RECTANGLE_KEY,
+  native: NATIVE_KEY,
+} = ADSTERRA_KEYS;
+const BANNER_HOST = ADSTERRA_HOSTS.banner;
+const NATIVE_HOST = ADSTERRA_HOSTS.native;
 
 /**
  * Sosyal Bar birimi — kasıtlı olarak BAĞLANMADI.

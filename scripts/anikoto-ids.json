@@ -1,0 +1,8 @@
+{
+  "_aciklama": "Anikoto seri kimlikleri (S1). Tarama: node scripts/sync-anikoto-embeds.mjs --scan --pages 90 ile bulundu, katalog .tmp_a/anikoto-catalog.json içinde önbellekte.",
+  "_kaynak": "https://anikotoapi.site/recent-anime?page=&per_page=100",
+  "erased": 1384,
+  "jujutsu-kaisen": 1103,
+  "mushoku-tensei": 5694,
+  "re-zero": 1468
+}
