@@ -1,6 +1,15 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, ArrowRight, Home, Loader2, Play } from "lucide-react";
+import {
+  ArrowLeft,
+  ArrowRight,
+  Home,
+  Loader2,
+  Maximize2,
+  Minimize2,
+  Play,
+  SunDim,
+} from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { AdSlot, useAdCode } from "@/components/AdSlot";
@@ -167,11 +176,11 @@ function WatchPage() {
   // Video öncesi reklam kapısı: gerçek VAST reklamları oynadıktan sonra açılır.
   const [gateDone, setGateDone] = useState(false);
 
-  // --- Altyazı menüsü durumu -------------------------------------------------
-  // Sağlayıcının kendi CC menüsüne satır EKLEYEMİYORUZ (menü verisi onların
-  // sunucusundan geliyor, URL parametresi ve köprü komutu yok — ölçüm §15).
-  // Bu yüzden dil seçimi sitenin KENDİ menüsünden yapılır; menü yalnızca
-  // dosyası gerçekten var olan dilleri listeler.
+  // Oynatıcı altı kontrol şeridi (anikoto'nun oynatıcı altı şeridi örnek alındı):
+  //   · genişlet → oynatıcı tam genişlik olur, bölüm paneli alta iner
+  //   · ışık     → sayfanın geri kalanı karartılır, dikkat videoda kalır
+  const [wide, setWide] = useState(false);
+  const [dim, setDim] = useState(false);
   // Sezonu bölümü olan sezonlar üzerinden çöz: boş bir sezon seçilirse
   // izleyici "bölüm yok" ekranında kalmaz, ilk dolu sezona düşer.
   const playableSeasons: SeasonWithEpisodes[] = (detail?.seasons ?? []).filter(
@@ -344,7 +353,7 @@ function WatchPage() {
             için satırı kendisi büyütüyor ve videonun altında ~890 px boş siyah
             alan kalıyordu.) Sağdaki 340 px dolgu, panelin (320 px) + 20 px
             boşluğun yerini ayırır. */}
-        <div className="relative lg:pr-[340px]">
+        <div className={`relative${wide ? "" : " lg:pr-[340px]"}`}>
           <PlayerBox
             watching={watching}
             showTitle={show.title}
@@ -365,12 +374,51 @@ function WatchPage() {
               multipleSeasons={multipleSeasons}
               seriesPoster={show.image}
               malId={show.mal_id ?? null}
+              wide={wide}
+              dim={dim}
             />
           )}
         </div>
 
         {/* Bilgi satırı + reklam: oynatıcının altında, oynatıcı genişliğinde. */}
-        <div className="mt-4 space-y-4 lg:pr-[340px]">
+        <div
+          className={`mt-4 space-y-4 transition-opacity${wide ? "" : " lg:pr-[340px]"}${
+            dim ? " opacity-40" : ""
+          }`}
+        >
+          {/* OYNATICI KONTROL ŞERİDİ — anikoto'nun oynatıcı altı şeridindeki
+              seçeneklerden BİZDE KARŞILIĞI OLANLAR. Olmayanlar bilerek yok:
+                · "Otomatik oynatma" → sayfa zaten videoyu otomatik başlatıyor,
+                  düğme hiçbir şeyi değiştirmezdi.
+                · "Otomatik atlama"  → açılış/kapanış zaman damgası verimiz yok.
+                · "Otomatik geçiş"   → oynatıcının bitiş sinyali doğrulanmadı;
+                  uydurma bir düğme koymak yerine hiç koymamak doğru. */}
+          <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-border bg-card/60 px-3 py-2">
+            <button
+              type="button"
+              aria-pressed={wide}
+              onClick={() => setWide((value) => !value)}
+              className={
+                wide
+                  ? "inline-flex items-center gap-1.5 rounded-full border border-accent/50 bg-accent/15 px-3 py-1 text-[12px] font-bold text-accent"
+                  : "inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-secondary/20 px-3 py-1 text-[12px] font-bold text-muted-foreground transition-colors hover:text-foreground"
+              }
+            >
+              {wide ? <Minimize2 size={13} /> : <Maximize2 size={13} />} Genişlet
+            </button>
+            <button
+              type="button"
+              aria-pressed={dim}
+              onClick={() => setDim((value) => !value)}
+              className={
+                dim
+                  ? "inline-flex items-center gap-1.5 rounded-full border border-accent/50 bg-accent/15 px-3 py-1 text-[12px] font-bold text-accent"
+                  : "inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-secondary/20 px-3 py-1 text-[12px] font-bold text-muted-foreground transition-colors hover:text-foreground"
+              }
+            >
+              <SunDim size={13} /> Işık
+            </button>
+          </div>
           {/* KAYNAK SEÇİMİ.
               Yalnızca bu bölüm için anizm/puffy kaydı varsa görünür. Seçenekler:
                 · Megaplay (varsayılan) → orijinal Japonca ses + BİZİM altyazı katmanımız
@@ -577,6 +625,8 @@ function EpisodeSidebar({
   multipleSeasons,
   seriesPoster,
   malId,
+  wide,
+  dim,
 }: {
   slug: string;
   seasons: SeasonWithEpisodes[];
@@ -587,6 +637,10 @@ function EpisodeSidebar({
   seriesPoster?: string | undefined;
   /** MAL kimliği: bölüme ait gerçek görseli (ani.zip) kullanmak için (bkz. EpisodeCard). */
   malId?: number | null | undefined;
+  /** "Genişlet" açıkken panel mutlak konumdan çıkar, oynatıcının altına iner. */
+  wide: boolean;
+  /** "Işık" açıkken panel karartılır (dikkat videoda kalsın). */
+  dim: boolean;
 }) {
   // Ref doğrudan <li> üzerinde tutulur: `Link` bileşeninin ref'i DOM düğümüne
   // iletilmediği için kaydırma çalışmıyordu.
@@ -621,7 +675,11 @@ function EpisodeSidebar({
     // panel ona uzar (alt kenarlar denk gelir). İçerideki liste kalan alanı
     // doldurup kendi içinde kaydırılır — bu yüzden `min-h-0` şart, yoksa liste
     // taşar ve paneli uzatır.
-    <aside className="mt-5 flex max-h-[60vh] flex-col lg:absolute lg:inset-y-0 lg:right-0 lg:mt-0 lg:max-h-none lg:w-[320px]">
+    <aside
+      className={`mt-5 flex max-h-[60vh] flex-col transition-opacity${
+        wide ? "" : " lg:absolute lg:inset-y-0 lg:right-0 lg:mt-0 lg:max-h-none lg:w-[320px]"
+      }${dim ? " opacity-40" : ""}`}
+    >
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-border bg-card">
         <div className="flex items-center justify-between gap-2 border-b border-border px-4 py-3">
           <h2 className="text-sm font-extrabold text-foreground">Bölümler</h2>
