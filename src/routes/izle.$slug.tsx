@@ -1,15 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import {
-  ArrowLeft,
-  ArrowRight,
-  Home,
-  Loader2,
-  Maximize2,
-  Minimize2,
-  Play,
-  SunDim,
-} from "lucide-react";
+import { ArrowLeft, ArrowRight, Home, Loader2, Play } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { AdSlot, useAdCode } from "@/components/AdSlot";
@@ -176,11 +167,16 @@ function WatchPage() {
   // Video öncesi reklam kapısı: gerçek VAST reklamları oynadıktan sonra açılır.
   const [gateDone, setGateDone] = useState(false);
 
-  // Oynatıcı altı kontrol şeridi (anikoto'nun oynatıcı altı şeridi örnek alındı):
-  //   · genişlet → oynatıcı tam genişlik olur, bölüm paneli alta iner
-  //   · ışık     → sayfanın geri kalanı karartılır, dikkat videoda kalır
+  // Oynatıcı altı kontrol şeridi (referans: anikoto/hianime oynatıcı altı şeridi).
+  //   · genişlet          → oynatıcı tam genişlik olur, bölüm paneli alta iner
+  //   · otomatik oynatma  → kapalıyken adrese `autostart=false` eklenir
+  //   · otomatik geçiş    → video bitince sonraki bölüme geçer
+  //   · ışık              → sayfanın geri kalanı karartılır
   const [wide, setWide] = useState(false);
+  const [autoPlay, setAutoPlay] = useState(true);
+  const [autoNext, setAutoNext] = useState(true);
   const [dim, setDim] = useState(false);
+  const [reportCopied, setReportCopied] = useState(false);
   // Sezonu bölümü olan sezonlar üzerinden çöz: boş bir sezon seçilirse
   // izleyici "bölüm yok" ekranında kalmaz, ilk dolu sezona düşer.
   const playableSeasons: SeasonWithEpisodes[] = (detail?.seasons ?? []).filter(
@@ -207,6 +203,54 @@ function WatchPage() {
       ? (ordered[currentIndex + 1] ?? null)
       : null;
   const multipleSeasons = playableSeasons.length > 1;
+
+  /** "Otomatik geçiş" için sonraki bölüm (aynı sezon içinde). */
+  const nextEpisode = (() => {
+    const list = activeSeason?.episodes ?? [];
+    const index = list.findIndex((episode) => episode.id === currentEpisode?.id);
+    return index >= 0 ? (list[index + 1] ?? null) : null;
+  })();
+
+  /**
+   * OTOMATİK GEÇİŞ — video bitince sonraki bölüme geçer.
+   *
+   * Bitiş sinyali ÖLÇÜLDÜ (26.09.2026, gerçek yakalama): megaplay
+   * `https://megaplay.buzz` origin'inden şu mesajı gönderiyor:
+   *   {"channel":"megacloud","event":"complete","time":1435.1,"duration":1435.1,"percent":100}
+   * Mesaj DİZGE olarak gelir; önce `JSON.parse` edilir, sonra `event` alanı
+   * birebir karşılaştırılır — "complete" kelimesinin başka bir mesajda geçmesi
+   * yanlış tetikleme yapmasın.
+   *
+   * Kanca, erken `return`lerden ÖNCE tanımlanmak zorundadır (React kuralı).
+   */
+  useEffect(() => {
+    if (!autoNext || !nextEpisode) return;
+    let fired = false;
+    const onMessage = (event: MessageEvent) => {
+      if (event.origin !== "https://megaplay.buzz" || fired) return;
+      const raw = typeof event.data === "string" ? event.data : "";
+      if (!raw.includes("complete")) return;
+      let parsed: { event?: unknown };
+      try {
+        parsed = JSON.parse(raw) as { event?: unknown };
+      } catch {
+        return;
+      }
+      if (parsed.event !== "complete") return;
+      fired = true;
+      void navigate({
+        to: "/izle/$slug",
+        params: { slug },
+        search: {
+          sezon: nextEpisode.season,
+          b: nextEpisode.number,
+          ...(kaynak ? { kaynak } : {}),
+        },
+      });
+    };
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
+  }, [autoNext, nextEpisode, navigate, slug, kaynak]);
 
   // Oynatıcı kaynağı: doğrudan adres varsa Fluid Player, yoksa sağlayıcı embed'i.
   const directSrc = directSourceOf(currentEpisode);
@@ -293,6 +337,32 @@ function WatchPage() {
 
   const watching = Boolean(episodeEmbed) && gateDone;
 
+  /**
+   * "Otomatik oynatma" KAPALIYKEN oynatıcı adresine `autostart=false` eklenir.
+   * Parametre adı ölçümle doğrulandı: anikoto'nun megaplay adresi
+   * `https://megaplay.buzz/stream/s-2/4814/sub?autostart=true` kullanıyor
+   * (26.09.2026). Oynatıcı bu bayrağı yok sayarsa otomatik oynatmayı biz
+   * engelleyemeyiz — iframe'in içini yönetemiyoruz.
+   */
+  const effectiveEmbed =
+    !autoPlay && episodeEmbed
+      ? `${episodeEmbed}${episodeEmbed.includes("?") ? "&" : "?"}autostart=false`
+      : (episodeEmbed ?? "");
+
+  /** "Bildir" — bölüm bilgisini panoya kopyalar (iletmek isteyen kullanıcı için). */
+  async function copyReport() {
+    const text = `Bildirim: ${show.title}${currentEpisode ? ` · ${currentEpisode.number}. Bölüm` : ""}${
+      kaynak === "anizm" ? " · Anizm kaynağı" : ""
+    }\n${typeof window === "undefined" ? "" : window.location.href}`;
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      /* pano izni yoksa sessizce geç — buton yine de geri bildirim verir */
+    }
+    setReportCopied(true);
+    window.setTimeout(() => setReportCopied(false), 1600);
+  }
+
   return (
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-50 border-b border-border bg-background/95 backdrop-blur">
@@ -358,7 +428,7 @@ function WatchPage() {
             watching={watching}
             showTitle={show.title}
             epNumber={currentEpisode?.number ?? 0}
-            epUrl={episodeEmbed ?? ""}
+            epUrl={effectiveEmbed}
             directSrc={directSrc}
             subtitles={episodeSubtitles}
             vastUrls={PREROLL_VAST_URLS}
@@ -382,41 +452,71 @@ function WatchPage() {
 
         {/* Bilgi satırı + reklam: oynatıcının altında, oynatıcı genişliğinde. */}
         <div
-          className={`mt-4 space-y-4 transition-opacity${wide ? "" : " lg:pr-[340px]"}${
+          className={`mt-0 space-y-4 transition-opacity${wide ? "" : " lg:pr-[340px]"}${
             dim ? " opacity-40" : ""
           }`}
         >
-          {/* OYNATICI KONTROL ŞERİDİ — anikoto'nun oynatıcı altı şeridindeki
-              seçeneklerden BİZDE KARŞILIĞI OLANLAR. Olmayanlar bilerek yok:
-                · "Otomatik oynatma" → sayfa zaten videoyu otomatik başlatıyor,
-                  düğme hiçbir şeyi değiştirmezdi.
-                · "Otomatik atlama"  → açılış/kapanış zaman damgası verimiz yok.
-                · "Otomatik geçiş"   → oynatıcının bitiş sinyali doğrulanmadı;
-                  uydurma bir düğme koymak yerine hiç koymamak doğru. */}
-          <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-border bg-card/60 px-3 py-2">
+          {/* OYNATICI KONTROL ŞERİDİ — videoya BİRLEŞİK durur (referanstaki gibi):
+              üst kenarlık ve üst yuvarlaklık yok, oynatıcının hemen altından başlar.
+              Seçenekler referanstaki şeridin bizdeki karşılıkları:
+                ✓/○ Genişlet · Otomatik oynatma · Otomatik geçiş · Işık + Önceki/Sonraki
+              Bilerek YOK: "Otomatik atlama" (açılış/kapanış atlama) — bölümlerin
+              açılış/kapanış saniyesi verimizde yok. Sağda yalnızca "Bildir" var
+              (referanstaki "Add to list" ve "Watch Together" istenmedi). */}
+          <div className="flex flex-wrap items-center gap-1.5 rounded-b-2xl border-x border-b border-border bg-black/85 px-3 py-2">
+            {(
+              [
+                { on: wide, toggle: () => setWide((value) => !value), label: "Genişlet" },
+                {
+                  on: autoPlay,
+                  toggle: () => setAutoPlay((value) => !value),
+                  label: "Otomatik oynatma",
+                },
+                {
+                  on: autoNext,
+                  toggle: () => setAutoNext((value) => !value),
+                  label: "Otomatik geçiş",
+                },
+                { on: dim, toggle: () => setDim((value) => !value), label: "Işık" },
+              ] satisfies { on: boolean; toggle: () => void; label: string }[]
+            ).map((item) => (
+              <button
+                key={item.label}
+                type="button"
+                aria-pressed={item.on}
+                onClick={item.toggle}
+                className={
+                  item.on
+                    ? "inline-flex items-center gap-1.5 rounded-full border border-accent/50 bg-accent/15 px-3 py-1 text-[12px] font-bold text-accent"
+                    : "inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-secondary/20 px-3 py-1 text-[12px] font-bold text-muted-foreground transition-colors hover:text-foreground"
+                }
+              >
+                <span aria-hidden className="text-[11px] leading-none">
+                  {item.on ? "✓" : "○"}
+                </span>
+                {item.label}
+              </button>
+            ))}
+
+            <span aria-hidden className="mx-1 hidden h-4 w-px bg-border sm:block" />
+
+            {/* Önceki / Sonraki bölüm artık bu şeritte (referanstaki gibi). */}
+            {activeSeason && currentEpisode && (
+              <EpisodeNav
+                slug={showSlug(show)}
+                multipleSeasons={multipleSeasons}
+                previous={previous}
+                upcoming={upcoming}
+              />
+            )}
+
             <button
               type="button"
-              aria-pressed={wide}
-              onClick={() => setWide((value) => !value)}
-              className={
-                wide
-                  ? "inline-flex items-center gap-1.5 rounded-full border border-accent/50 bg-accent/15 px-3 py-1 text-[12px] font-bold text-accent"
-                  : "inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-secondary/20 px-3 py-1 text-[12px] font-bold text-muted-foreground transition-colors hover:text-foreground"
-              }
+              onClick={() => void copyReport()}
+              className="ml-auto inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-secondary/20 px-3 py-1 text-[12px] font-bold text-muted-foreground transition-colors hover:text-foreground"
+              title="Bölüm bilgisini panoya kopyalar"
             >
-              {wide ? <Minimize2 size={13} /> : <Maximize2 size={13} />} Genişlet
-            </button>
-            <button
-              type="button"
-              aria-pressed={dim}
-              onClick={() => setDim((value) => !value)}
-              className={
-                dim
-                  ? "inline-flex items-center gap-1.5 rounded-full border border-accent/50 bg-accent/15 px-3 py-1 text-[12px] font-bold text-accent"
-                  : "inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-secondary/20 px-3 py-1 text-[12px] font-bold text-muted-foreground transition-colors hover:text-foreground"
-              }
-            >
-              <SunDim size={13} /> Işık
+              {reportCopied ? "Kopyalandı" : "Bildir"}
             </button>
           </div>
           {/* KAYNAK SEÇİMİ.
@@ -489,12 +589,6 @@ function WatchPage() {
                 </span>
               </p>
             </div>
-            <EpisodeNav
-              slug={showSlug(show)}
-              multipleSeasons={multipleSeasons}
-              previous={previous}
-              upcoming={upcoming}
-            />
           </div>
 
           {watchBottom.isFetched && watchBottom.code ? (
