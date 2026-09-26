@@ -4,6 +4,7 @@ import {
   AlertTriangle,
   Captions,
   CheckSquare,
+  Circle,
   Expand,
   Home,
   Loader2,
@@ -398,11 +399,15 @@ function WatchPage() {
   const stripItem =
     "inline-flex items-center gap-1.5 px-1.5 text-[12.825px] font-normal text-muted-foreground transition-colors hover:text-foreground";
 
-  /** Sunucu çipi — referansın ölçüsü (3px köşe, 5px 10px iç boşluk) ama bizim renklerimiz. */
+  /**
+   * Sunucu çipi — referansın ölçüsü (3px köşe, 5px 10px iç boşluk) ve düzeni
+   * (seçili olmayanlarda baştaki nokta işareti), ama renkler bizim temadan:
+   * seçili = accent dolgu, diğerleri koyu zemin + soluk yazı.
+   */
   function serverChip(active: boolean) {
     return active
-      ? "rounded-[3px] bg-accent px-2.5 py-[5px] text-[12.825px] font-semibold text-accent-foreground"
-      : "rounded-[3px] bg-secondary/40 px-2.5 py-[5px] text-[12.825px] text-muted-foreground transition-colors hover:text-foreground";
+      ? "inline-flex items-center gap-1.5 rounded-[3px] bg-accent px-2.5 py-[5px] text-[12.5px] font-semibold text-accent-foreground"
+      : "inline-flex items-center gap-1.5 rounded-[3px] bg-secondary/40 px-2.5 py-[5px] text-[12.5px] text-muted-foreground transition-colors hover:text-foreground";
   }
 
   return (
@@ -504,7 +509,7 @@ function WatchPage() {
               · sağda yalnızca "Bildir" (Add to list / Watch Together istenmedi)
               · renkler referansın mavi-grisi yerine BİZİM tema (accent + muted) */}
         <div
-          className={`flex h-[38px] items-center justify-between border-x border-border bg-secondary/25 px-2.5 text-[13px] font-normal text-muted-foreground${
+          className={`flex h-[38px] items-center justify-between border-x border-border bg-card px-2.5 text-[13px] font-normal text-muted-foreground${
             wide ? "" : " lg:mr-[340px]"
           }`}
         >
@@ -579,21 +584,25 @@ function WatchPage() {
             etiketi + sunucu çipleri. Referansta SUB/HSUB/DUB satırları vardı; bizim
             iki kaynağımız olduğu için satırlar dil adıyla: Türkçe / İngilizce. */}
         <div
-          className={`mt-0 flex flex-col overflow-hidden rounded-b-2xl border-x border-b border-border bg-secondary/25 transition-opacity sm:flex-row${
+          className={`mt-0 flex flex-col overflow-hidden rounded-b-2xl border-x border-b border-border bg-card transition-opacity sm:flex-row${
             wide ? "" : " lg:mr-[340px]"
           }${dim ? " opacity-40" : ""}`}
         >
-          <p className="bg-secondary/15 px-3 py-2.5 text-[13px] leading-relaxed text-muted-foreground">
-            <b className="text-foreground">{currentEpisode?.number ?? "-"}. bölümü</b> izliyorsun.
-            <br />
-            Kaynak çalışmazsa yandaki diğerini dene.
+          {/* Sol panel — referansta metin ORTALANMIŞ durur; aynı düzeni kurduk. */}
+          <p className="flex items-center justify-center bg-secondary/30 px-4 py-3 text-center text-[13px] leading-relaxed text-muted-foreground sm:w-[300px] sm:shrink-0">
+            <span>
+              <b className="text-foreground">{currentEpisode?.number ?? "-"}. bölümü</b> izliyorsun.
+              <br />
+              Kaynak çalışmazsa yandaki diğerini dene.
+            </span>
           </p>
-          {/* Sunucu grubu metnin HEMEN yanında durur (sağa yaslanmaz):
-              `ml-auto` kaldırıldı, kullanıcı "çok sağda duruyorlar" dedi. */}
-          <div className="flex flex-col justify-center gap-1 px-3 py-2 sm:ml-6">
+
+          {/* Sağ panel — satır etiketi + çipler; soldan dikey ayraçla ayrılır
+              (referanstaki ayraç). Seçili olmayan çiplerin başında nokta işareti var. */}
+          <div className="flex flex-col justify-center gap-1.5 px-4 py-3 sm:border-l sm:border-border">
             <div className="flex items-center gap-2">
-              <span className="inline-flex min-w-[62px] items-center gap-1.5 text-[12px] text-muted-foreground">
-                <Subtitles size={12} /> Türkçe
+              <span className="inline-flex w-[76px] shrink-0 items-center gap-1.5 text-[12.5px] text-muted-foreground">
+                <Subtitles size={13} /> Türkçe
               </span>
               {anizmUrl ? (
                 <button
@@ -601,21 +610,23 @@ function WatchPage() {
                   onClick={() => switchSource("anizm")}
                   className={serverChip((kaynak ?? "megaplay") === "anizm")}
                 >
+                  {(kaynak ?? "megaplay") !== "anizm" && <Circle size={7} className="shrink-0" />}
                   Anizm
                 </button>
               ) : (
-                <span className="text-[12px] text-muted-foreground/70">bu bölümde yok</span>
+                <span className="text-[12.5px] text-muted-foreground/70">bu bölümde yok</span>
               )}
             </div>
             <div className="flex items-center gap-2">
-              <span className="inline-flex min-w-[62px] items-center gap-1.5 text-[12px] text-muted-foreground">
-                <Captions size={12} /> İngilizce
+              <span className="inline-flex w-[76px] shrink-0 items-center gap-1.5 text-[12.5px] text-muted-foreground">
+                <Captions size={13} /> İngilizce
               </span>
               <button
                 type="button"
                 onClick={() => switchSource("")}
                 className={serverChip((kaynak ?? "megaplay") !== "anizm")}
               >
+                {(kaynak ?? "megaplay") === "anizm" && <Circle size={7} className="shrink-0" />}
                 Megaplay
               </button>
             </div>
