@@ -3089,15 +3089,14 @@ export function AnizipSyncPanel({
             kaynağımız yok mu?" — cevap: üçüncü kaynağın (MegaPlay) ayarı yoktur.
           */}
           <p
-            className="text-[11px] text-muted-foreground"
+            className="text-[11px] leading-5 text-muted-foreground"
             title={
               "Bu bölüm yalnızca adres/eşleme ayarlarını tutar. Üç kaynağın ikisi ayar ister: " +
               "Anizm / Puffy → puffytr adresi, TauVideo → eşlenmiş kayıt numarası. " +
               "MegaPlay bölüme özel adres üretmediği için ayarı yoktur, bu yüzden burada görünmez."
             }
           >
-            Yalnızca <b className="text-foreground">adres/eşleme ayarları</b> ·{" "}
-            <b className="text-foreground">MegaPlay</b> ayar istemez
+            Yalnızca adres/eşleme ayarları · MegaPlay ayar istemez
           </p>
           {/* ANIZM ADRESİ — yalnızca Anizm işaretliyken görünür. puffytr her sezonu ayrı
               sayfada tutar; bu yüzden adresin sezon ekini taşıması gerekir. */}
@@ -3500,7 +3499,7 @@ export function AnizipSyncPanel({
             </span>
           </div>
 
-          <ul className="mt-2 max-h-72 space-y-0.5 overflow-y-auto rounded-xl border border-border p-1.5">
+          <ul className="mt-2 max-h-60 space-y-0.5 overflow-y-auto rounded-xl border border-border p-1.5">
             {/* SAYFA DİLİMİ: 1100 bölümlü seride panel donmasın diye yalnızca
                  görünen 50 satır çizilir (bkz. `LIST_PAGE_SIZE` notu). */}
             {pageList.map((ep) => {
@@ -3718,12 +3717,11 @@ export function AnizipSyncPanel({
              parça parça yazma), sağda düğme. Alanlar boşsa eskisi gibi TÜM bölümler
             yazılır; yani varsayılan davranış değişmedi.
 
-             STICKY ALT BAR (kullanıcı bildirimi: modalda liste uzayınca yazma
-             düğmesi ekranın altında kalıyor, "yarım görünüyor"). Modal gövdesi
-             `max-h-[70vh]` ile kaydığından düğmeye ulaşmak için kaydırmak
-             gerekiyordu. Artık çubuk alta yapışık durur, liste altından kayar.
+             SIKIŞIK SATIR (kullanıcı bildirimi): aralık + düğme az yer kaplasın,
+             temiz dursun. Sticky denenip beğenilmedi — normal akışta, liste
+             kısaltıldığı için düğmeye kayırmadan ulaşılır.
           */}
-          <div className="sticky bottom-0 z-10 -mx-1 mt-3 flex flex-wrap items-center gap-2 border-t border-border bg-background/95 px-1 py-2 backdrop-blur">
+          <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1.5">
             <span className="flex items-center gap-1 text-[11px] font-bold text-muted-foreground">
               Aralık
               <input

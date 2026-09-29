@@ -1046,7 +1046,7 @@ export function SeasonsPanel({
             }}
           >
             <div
-              className="animate-modal-panel mx-auto w-full max-w-xl max-w-[calc(100vw-1.5rem)] overflow-hidden rounded-2xl border border-border bg-background shadow-2xl"
+              className="animate-modal-panel mx-auto w-full max-w-xl overflow-hidden rounded-2xl border border-border bg-background shadow-2xl"
               onClick={(event) => event.stopPropagation()}
             >
               <div className="flex items-center justify-between gap-3 border-b border-border px-3 py-2.5">
@@ -1070,7 +1070,9 @@ export function SeasonsPanel({
                 18rem + 12 dolgu = 352 px) — yani liste gelince gövde BÜYÜMEZ; kısa
                 listelerde (film/tek bölüm) de KÜÇÜLMEZ. Popup hep aynı ölçüde durur.
               */}
-              <div className="max-h-[70vh] min-h-[22rem] overflow-y-auto overscroll-contain p-3">
+              {/* Yükseklik daraltıldı (kullanıcı bildirimi): liste + yazma satırı
+                  birlikte görünsün, modal gövdesi ekranda derli toplu dursun. */}
+              <div className="max-h-[62vh] min-h-[20rem] overflow-y-auto overscroll-contain p-3">
                 <AnizipSyncPanel
                   showId={showId}
                   /*
