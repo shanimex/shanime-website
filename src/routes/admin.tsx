@@ -549,31 +549,18 @@ function AdminPage() {
               <b> "Katalogdan çek"</b>.
             </li>
             <li>
-              <b className="text-foreground">Türkçe altyazı → KAYNAK: anizm/puffy.</b> Altyazı
-              videoya gömülü gelir (1080p, reklamsız); ayrı dosya gerekmez. İzleme sayfasındaki{" "}
-              <b>Kaynak</b> düğmesinden seçilir.{" "}
-              <span className="text-xs">
-                Kayıt üretmek:{" "}
-                <code>node scripts/resolve-anizm-hashes.mjs --slug &lt;slug&gt;</code> · puffytr
-                slug'ı farklıysa <code>--puffy &lt;slug&gt;</code> (ölçülmüş farklar betikte
-                tanımlı: erased → boku-dake-ga-inai-machi, re-zero →
-                rezero-kara-hajimeru-isekai-seikatsu, mushoku-tensei →
-                mushoku-tensei-isekai-ittara-honki-dasu).
-              </span>
+              <b className="text-foreground">Kaynaklar (3 tane):</b> <b>Anizm/Puffy</b> (Türkçe
+              altyazı videoda), <b>TauVideo</b> (Türkçe; animecix eşleşmesiyle çözülür),{" "}
+              <b>MegaPlay</b> (orijinal ses; altyazı oynatıcının CC menüsünden). Bölümde
+              işaretlenenler oynatıcının altında çıkar.
             </li>
             <li>
-              <b className="text-foreground">İngilizce altyazı → KAYNAK: megaplay.</b> Oynatıcının
-              kendi CC menüsünden seçilir; bizden ayar gerekmez.
+              <b className="text-foreground">Kapaklar:</b> panel yüklemesi → Animecix bölüm kapağı →
+              sağlayıcı kapağı → ani.zip/TVDB görseli → seri posteri. Zincir boş bırakmaz.
             </li>
             <li>
-              <b className="text-foreground">Yerel altyazı katmanı kullanılmıyor.</b> Eski{" "}
-              <code>public/subs/*.vtt</code> dosyaları silindi; sistem yalnızca <b>iki kaynak</b>
-              üzerinden çalışır (TR: anizm, EN: megaplay) ve altyazı menüsü artık görünmez.
-            </li>
-            <li>
-              <b className="text-foreground">Kapaklar:</b> önce ani.zip'in gerçek bölüm görseli
-              (derleme zamanında gömülü — <code>npm run covers:sync</code>), yoksa oynatıcının kendi
-              kapağı, yoksa seri posteri. Yani kaynak değişse bile kapak boşa düşmez.
+              <b className="text-foreground">Vitrin:</b> yalnızca "Vitrin'de göster" işaretli
+              diziler ana sayfa vitrinine çıkar.
             </li>
           </ul>
         </section>

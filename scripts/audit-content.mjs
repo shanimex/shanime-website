@@ -25,7 +25,7 @@
 import { readFileSync } from "node:fs";
 
 /** `embed-provider.ts` içindeki `EmbedProviderId` değerleriyle aynı olmalı. */
-const KNOWN_PROVIDERS = ["none", "megaplay", "vidsrc", "videasy", "anizm"];
+const KNOWN_PROVIDERS = ["none", "megaplay", "vidsrc", "videasy", "anizm", "animecix"];
 
 /** Panelin kullandığı reklam slotları (bkz. components/AdSlot.tsx). */
 const AD_SLOTS = [
@@ -84,7 +84,10 @@ function urlStatus(value) {
     if (!/^[a-z0-9-]+(\.[a-z0-9-]+)+$/i.test(parsed.hostname)) {
       return { ok: false, why: "alan adı geçersiz" };
     }
-    if (/https?\/\/|\\|\s/.test(v)) return { ok: false, why: "adres karışmış" };
+    // Şema sonrası gövdeye bakılır (bkz. src/lib/content-health.ts): baştaki
+    // "https://" her geçerli adreste vardır; karışıklık ikinci protokoldür.
+    const body = v.replace(/^[a-z][a-z0-9+.-]*:\/\//i, "");
+    if (/https?:?\/{2}|\\|\s/.test(body)) return { ok: false, why: "adres karışmış" };
     return { ok: true, why: "" };
   } catch {
     return { ok: false, why: "adres ayrıştırılamadı" };

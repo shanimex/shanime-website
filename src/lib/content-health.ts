@@ -12,7 +12,7 @@
  */
 
 /** `embed-provider.ts` içindeki `EmbedProviderId` değerleriyle aynı olmalı. */
-const KNOWN_PROVIDERS = ["none", "megaplay", "vidsrc", "videasy", "anizm"];
+const KNOWN_PROVIDERS = ["none", "megaplay", "vidsrc", "videasy", "anizm", "animecix"];
 
 /** Sorun yoksa `null`, varsa kısa sebep döner. */
 export function watchUrlProblem(value: string | null | undefined): string | null {
@@ -26,7 +26,15 @@ export function watchUrlProblem(value: string | null | undefined): string | null
     const parsed = new URL(raw);
     if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return "protokol geçersiz";
     if (!/^[a-z0-9-]+(\.[a-z0-9-]+)+$/i.test(parsed.hostname)) return "alan adı geçersiz";
-    if (/https?\/\/|\\|\s/.test(raw)) return "adres karışmış";
+    /**
+     * ŞEMA SONRASI gövdeye bakılır — baştaki "https://" her geçerli adreste
+     * vardır, karışıklık İKİNCİ protokoldür (`...winhttps//...` gibi gerçek
+     * vaka), ters bölü ya da boşluktur. Eskiden tüm gövdeye bakılıyordu ve
+     * SAĞLAM 302 adresin tamamı "karışmış" sayılıyordu (Hepsini düzelt
+     * hepsini bozardı).
+     */
+    const body = raw.replace(/^[a-z][a-z0-9+.-]*:\/\//i, "");
+    if (/https?:?\/{2}|\\|\s/.test(body)) return "adres karışmış";
     return null;
   } catch {
     return "adres ayrıştırılamadı";
