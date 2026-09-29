@@ -1,6 +1,6 @@
 // /auth — Yönetici giriş/kayıt ekranı: panele erişim için e-posta ile oturum açma.
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 
@@ -24,14 +24,26 @@ function AuthPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
+  // Girişli yönetici burada takılı kalmasın — panele gönder.
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      if (data.session) navigate({ to: "/admin" });
+    });
+  }, [navigate]);
+
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
     setLoading(true);
     setError(null);
     setMessage(null);
+    // Boşluklu/büyük harfli e-posta sessizce başarısız oluyordu.
+    const cleanEmail = email.trim().toLowerCase();
 
     if (mode === "signin") {
-      const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: cleanEmail,
+        password,
+      });
       if (signInError) {
         setError("Giriş yapılamadı. E-posta veya şifre hatalı olabilir.");
         setLoading(false);
@@ -41,7 +53,7 @@ function AuthPage() {
       return;
     }
 
-    const { error: signUpError } = await supabase.auth.signUp({ email, password });
+    const { error: signUpError } = await supabase.auth.signUp({ email: cleanEmail, password });
     setLoading(false);
     if (signUpError) {
       setError(signUpError.message);

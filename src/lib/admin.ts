@@ -56,9 +56,13 @@ export async function moveAndPersist<T extends { id: string }>(
   const [row] = next.splice(index, 1);
   if (!row) return null;
   next.splice(target, 0, row);
-  await Promise.all(
+  // Hatalar ESKİDEN yutuluyordu (`await Promise.all` sonucu kontrolsüzdü) —
+  // sıralama sessizce tutarsız kalıyordu. İlk hata fırlatılır, çağıran bildirir.
+  const results = await Promise.all(
     next.map((item, i) => db.from(table).update({ sort_order: i }).eq("id", item.id)),
   );
+  const failed = results.find((result) => result?.error);
+  if (failed?.error) throw new Error(failed.error.message);
   return next;
 }
 

@@ -10,7 +10,7 @@
   Video,
   X,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ImageDrop } from "@/components/admin/ImageDrop";
 import { SeasonsPanel } from "@/components/admin/SeasonsPanel";
@@ -87,6 +87,26 @@ export function ShowEditor({
    * yoksa bile diğer alanların (başlık, yıl, tür…) kaydedilmesi engellenmez.
    */
   const [kind, setKind] = useState<"series" | "movie">(show.kind === "movie" ? "movie" : "series");
+  /**
+   * FARKLI SERİYE GEÇİNCE formu tazele.
+   *
+   * Kutular yalnızca ilk `show`tan kuruluyordu; üst bileşen başka seriye
+   * geçince eski serinin değerleri kalıyordu. Kimlik değişimi izlenir —
+   * aynı seride yeniden çizim yazdıklarnı silmez (yalnızca kimlik değişince).
+   */
+  const syncedShowId = useRef(show.id);
+  useEffect(() => {
+    if (syncedShowId.current === show.id) return;
+    syncedShowId.current = show.id;
+    setTitle(show.title);
+    setSubtitle(show.subtitle ?? "");
+    setDescription(show.description ?? "");
+    setYear(show.year ?? "");
+    setGenre(show.genre ?? "");
+    setSlugInput(show.slug ?? "");
+    setMalInput(show.mal_id ? String(show.mal_id) : "");
+    setKind(show.kind === "movie" ? "movie" : "series");
+  }, [show]);
   /**
    * MAL EŞLEŞMESİ ONAY SAYACI — katalog popup'ını kendiliğinden açar.
    *
@@ -406,9 +426,11 @@ export function ShowEditor({
      * kaydedemezdi. Ayrı istek sayesinde diğer alanlar her hâlükârda yazılır;
      * yalnızca tür yazılamaz ve sebebi açıkça söylenir.
      */
+    let kindFailed = false;
     if (kind !== (show.kind === "movie" ? "movie" : "series")) {
       const { error: kindError } = await db.from("shows").update({ kind }).eq("id", show.id);
       if (kindError) {
+        kindFailed = true;
         toast.error(
           "Tür (seri/film) yazılamadı: " +
             kindError.message +
@@ -418,7 +440,10 @@ export function ShowEditor({
     }
 
     setSlugInput(nextSlug);
-    onReload(`"${title.trim()}" güncellendi. Adres: /anime/${nextSlug}`);
+    onReload(
+      `"${title.trim()}" güncellendi. Adres: /anime/${nextSlug}` +
+        (kindFailed ? " (tür yazılamadı — yukarıya bak)" : ""),
+    );
   }
 
   const disabled = busy || saving;

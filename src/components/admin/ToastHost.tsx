@@ -1,5 +1,5 @@
 import { AlertTriangle, CheckCircle2, ChevronDown, Info, X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { subscribeToasts, TOAST_DURATION, type ToastItem, type ToastKind } from "@/lib/admin-toast";
 
 /**
@@ -177,18 +177,24 @@ function ToastCard({ item, onClose }: { item: ToastItem; onClose: () => void }) 
  */
 export function AdminToaster() {
   const [items, setItems] = useState<ToastItem[]>([]);
+  // Zamanlayıcılar kapanışta iptal edilir; unmount sonrası setState sızıntısı olmaz.
+  const timers = useRef<number[]>([]);
 
-  useEffect(
-    () =>
-      subscribeToasts((item) => {
-        setItems((list) => [...list.slice(-4), item]);
-        window.setTimeout(
-          () => setItems((list) => list.filter((entry) => entry.id !== item.id)),
-          TOAST_DURATION[item.kind],
-        );
-      }),
-    [],
-  );
+  useEffect(() => {
+    const unsubscribe = subscribeToasts((item) => {
+      setItems((list) => [...list.slice(-4), item]);
+      const timer = window.setTimeout(
+        () => setItems((list) => list.filter((entry) => entry.id !== item.id)),
+        TOAST_DURATION[item.kind],
+      );
+      timers.current.push(timer);
+    });
+    return () => {
+      unsubscribe();
+      for (const timer of timers.current) window.clearTimeout(timer);
+      timers.current = [];
+    };
+  }, []);
 
   if (items.length === 0) return null;
 

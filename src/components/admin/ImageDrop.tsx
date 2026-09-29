@@ -58,7 +58,7 @@ export function ImageDrop({
       <input
         ref={inputRef}
         type="file"
-        accept="image/*"
+        accept={accept}
         className="hidden"
         onChange={(event) => {
           const file = event.target.files?.[0];

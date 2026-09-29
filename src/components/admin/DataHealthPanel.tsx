@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { AlertTriangle, CheckCircle2, Loader2, RefreshCw, Wrench } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/lib/admin-toast";
+import { confirmAction } from "@/lib/admin-confirm";
 import { db } from "@/lib/admin";
 import {
   findBrokenUrls,
@@ -73,7 +74,7 @@ export function DataHealthPanel({ onNotice }: { onNotice: (message: string) => v
    * düzelt" akışında her satır için ayrı bildirim çıkmasın, tek özet yetsin
    * (hata varsa yine gösterilir — sessizce yutulmaz).
    */
-  async function fixUrl(item: BrokenEpisodeUrl, quiet = false) {
+  async function fixUrl(item: BrokenEpisodeUrl, quiet = false): Promise<boolean> {
     const { error: writeError } = await db
       .from("show_episodes")
       .update({ watch_url: FIX_URL })
@@ -84,15 +85,16 @@ export function DataHealthPanel({ onNotice }: { onNotice: (message: string) => v
       toast.error(
         `Düzeltilemedi (${item.slug} S${item.season}B${item.number}): ${writeError.message}`,
       );
-      return;
+      return false;
     }
     if (!quiet) {
       onNotice(`${item.slug} S${item.season}B${item.number} adresi ${FIX_URL} olarak düzeltildi.`);
     }
+    return true;
   }
 
   /** Sezon kaydı oluşturur (bkz. `fixUrl` — `quiet` aynı işi görür). */
-  async function fixSeason(item: MissingSeasonRow, quiet = false) {
+  async function fixSeason(item: MissingSeasonRow, quiet = false): Promise<boolean> {
     const { error: writeError } = await db.from("show_seasons").insert({
       show_id: item.showId,
       number: item.number,
@@ -103,9 +105,10 @@ export function DataHealthPanel({ onNotice }: { onNotice: (message: string) => v
       toast.error(
         `Sezon kaydı oluşturulamadı (${item.slug} S${item.number}): ${writeError.message}`,
       );
-      return;
+      return false;
     }
     if (!quiet) onNotice(`${item.slug} için ${item.number}. Sezon kaydı oluşturuldu.`);
+    return true;
   }
 
   async function fixAll() {
@@ -113,14 +116,34 @@ export function DataHealthPanel({ onNotice }: { onNotice: (message: string) => v
       toast.info("Düzeltilecek bir şey yok — veri temiz.");
       return;
     }
+    // Toplu yıkıcı yazım onaysız çalışıyordu; önce sorulur.
+    const ok = await confirmAction({
+      title: `${total} kayıt düzeltinsin mi?`,
+      description:
+        "Bozuk adresler varsayılan kaynağa çevrilir, eksik sezon kayıtları açılır. Bu işlem geri alınamaz.",
+      confirmLabel: "Hepsini düzelt",
+      tone: "danger",
+    });
+    if (!ok) return;
     setBusy(true);
     try {
-      const urls = [...brokenUrls];
-      const seasons = [...missingSeasons];
-      for (const item of urls) await fixUrl(item, true);
-      for (const item of seasons) await fixSeason(item, true);
+      let done = 0;
+      let failed = 0;
+      for (const item of [...brokenUrls]) {
+        if (await fixUrl(item, true)) done += 1;
+        else failed += 1;
+      }
+      for (const item of [...missingSeasons]) {
+        if (await fixSeason(item, true)) done += 1;
+        else failed += 1;
+      }
       await load();
-      onNotice(`${urls.length} bağlantı + ${seasons.length} sezon kaydı düzeltildi.`);
+      // DÜRÜST özet: önceden kopyalanmış liste boyu değil, gerçek sonuç sayılır.
+      onNotice(
+        failed === 0
+          ? `${done} kayıt düzeltildi.`
+          : `${done} kayıt düzeltildi, ${failed} başarısız (nedeni yukarıda).`,
+      );
     } finally {
       setBusy(false);
     }

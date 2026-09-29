@@ -52,6 +52,9 @@ export function AdminConfirmHost() {
         answerConfirm(false);
       } else if (event.key === "Enter") {
         event.preventDefault();
+        // Odak İptal'deyse native tıklama zaten vazgeçirir; global işleyici
+        // karışırsa danger tonda yanlışlıkla ONAY çıkardı.
+        if (cancelRef.current && document.activeElement === cancelRef.current) return;
         answerConfirm(true);
       }
     }

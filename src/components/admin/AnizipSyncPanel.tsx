@@ -1992,10 +1992,7 @@ export function AnizipSyncPanel({
        * Kaydırma `{malId,start,count}` çıpasına dayanır; Mushoku'da ani.zip part
        * kataloğu mutlak verdiği için `offset = 0` olur ve liste doğrudan 12..23 kalır.
        */
-      const numbered =
-        offset > 0
-          ? lookup.episodes.map((ep) => ({ ...ep, number: ep.number + offset }))
-          : lookup.episodes;
+      const numbered = numberPartEpisodes(lookup.episodes, offset);
 
       /**
        * KAYDI SAKLA — bir kez yazılır, sonraki açılışlar buradan okur.

@@ -156,10 +156,16 @@ function AdminPage() {
   async function moveShow(show: ShowWithImage, dir: -1 | 1) {
     const index = shows.findIndex((item) => item.id === show.id);
     if (index < 0) return;
-    const moved = await moveAndPersist("shows", shows, index, dir);
-    if (!moved) return;
-    setShows(moved);
-    toast.success("Sıralama güncellendi.");
+    try {
+      const moved = await moveAndPersist("shows", shows, index, dir);
+      if (!moved) return;
+      setShows(moved);
+      toast.success("Sıralama güncellendi.");
+    } catch (error) {
+      toast.error(
+        "Sıralama kaydedilemedi: " + (error instanceof Error ? error.message : String(error)),
+      );
+    }
   }
 
   async function deleteShow(show: ShowWithImage) {
