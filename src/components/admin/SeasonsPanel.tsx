@@ -1079,7 +1079,7 @@ export function SeasonsPanel({
             <div
               className={`${
                 catalogClosing ? "animate-modal-fade-out" : "animate-modal-fade"
-              } fixed inset-0 z-[70] overflow-y-auto overscroll-contain bg-black/70 p-3 [scrollbar-gutter:stable] sm:p-6${catalogMin ? " hidden" : ""}`}
+              } fixed inset-0 z-[70] overflow-y-auto overscroll-contain bg-black/70 p-3 [scrollbar-width:none] sm:p-6 [&::-webkit-scrollbar]:hidden${catalogMin ? " hidden" : ""}`}
               role="dialog"
               aria-modal="true"
               aria-label="Katalog paneli"
@@ -1091,7 +1091,7 @@ export function SeasonsPanel({
               <div
                 className={`${
                   catalogClosing ? "animate-modal-panel-out" : "animate-modal-panel"
-                } mx-auto w-full max-w-xl overflow-hidden rounded-2xl border border-border bg-background shadow-2xl`}
+                } mx-auto w-full max-w-xl overflow-hidden rounded-2xl bg-background shadow-2xl`}
                 onClick={(event) => event.stopPropagation()}
               >
                 <div className="flex items-center justify-between gap-3 border-b border-border px-3 py-2.5">
@@ -1130,7 +1130,10 @@ export function SeasonsPanel({
               */}
                 {/* Yükseklik daraltıldı (kullanıcı bildirimi): liste + yazma satırı
                   birlikte görünsün, modal gövdesi ekranda derli toplu dursun. */}
-                <div className="max-h-[62vh] min-h-[20rem] overflow-y-auto overscroll-contain p-3">
+                {/* Dış kaydırma çubukları gizli (kullanıcı bildirimi: kaba duruyor);
+                  kaydırma işlevi durur — yalnızca görsel temizlik. İç bölüm
+                  listesinin ince çubuğu aynen kalır. */}
+                <div className="max-h-[62vh] min-h-[20rem] overflow-y-auto overscroll-contain p-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                   <AnizipSyncPanel
                     showId={showId}
                     /*
