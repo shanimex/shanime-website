@@ -3775,10 +3775,10 @@ export function AnizipSyncPanel({
                 : targetList(pickedItems).length === 0
                   ? /*
                        ZATEN YÜKLÜ: düğme iş yapmayacağını AÇIKÇA söyler ve
-                       devre dışı kalır. Kullanıcı 12 bölümü üst üste 3 kez
-                       yazmıştı; artık ikinci basışta bu satır çıkar.
+                       devre dışı kalır. Kısa metin: sağda, aralık satırıyla
+                       AYNI hizada dursun (uzun cümle alta sarkıyordu).
                     */
-                    `✓ ${baseTargets().length} bölüm zaten yüklü — yazılacak yeni bir şey yok`
+                    `✓ ${baseTargets().length} bölüm yüklü`
                   : `${pickedItems
                       .map((item) => item.short.split(" / ")[0] ?? item.short)
                       .join(" + ")} → ${targetList(pickedItems).length} bölüme yaz${
