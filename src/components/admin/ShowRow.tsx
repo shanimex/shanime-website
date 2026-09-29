@@ -35,6 +35,17 @@ export function ShowRow({
   onDelete: () => Promise<void>;
 }) {
   const [busy, setBusy] = useState(false);
+  /**
+   * KAPSAMA DURUMU — satırda yalnızca EYLEM GEREKTİREN görünür.
+   *
+   * Kullanıcı bildirimi: "TR 85/85, EN megaplay" hapları her satırda kalabalık
+   * yapıyor. Yeni kural: tam kapsamada rozet YOK (temiz satır); eksikse tek
+   * amber satır ("TR 79/85 eksik"). "EN megaplay" herkesde aynı olduğu için
+   * çöpe çıktı (statik bilgi rozet olmaz). Sezon/bölüm sayısı adres satırına
+   * gömüldü.
+   */
+  const episodeCount = counts.episodes;
+  const trMissing = episodeCount > 0 && trCount < episodeCount;
 
   return (
     // flex-wrap + asgari metin genisligi: mobilde sabit genislikli butonlar
@@ -47,51 +58,30 @@ export function ShowRow({
         className="h-14 w-10 shrink-0 rounded-lg border border-border object-cover"
       />
       <div className="min-w-[9rem] flex-1">
-        <p className="truncate text-sm font-extrabold text-foreground">{show.title}</p>
-        <p className="truncate font-mono text-[11px] text-muted-foreground">
-          /{showSlug(show)} · MAL {show.mal_id ?? "—"}
+        <p className="truncate text-sm font-extrabold text-foreground">
+          {show.title}
+          {show.is_featured && (
+            <span
+              className="ml-1.5 align-middle text-[11px] text-primary"
+              title="Ana sayfa vitrininde (büyük slider) gösteriliyor"
+            >
+              ★
+            </span>
+          )}
         </p>
+        <p className="truncate font-mono text-[11px] text-muted-foreground">
+          /{showSlug(show)} · MAL {show.mal_id ?? "—"} · {counts.seasons} sezon · {episodeCount}{" "}
+          bölüm
+        </p>
+        {trMissing ? (
+          <p
+            className="mt-0.5 text-[11px] font-bold text-amber-600"
+            title="Türkçe kaynak kapsaması: en az bir Türkçe kaynağı (episode_sources · dil 'tr') olan bölüm / toplam bölüm. Panelden kaynak işaretlendikçe CANLI güncellenir."
+          >
+            TR {trCount}/{episodeCount} eksik
+          </p>
+        ) : null}
       </div>
-      {/* KAYNAK DURUMU — sistem iki kaynak üzerinden çalışır:
-           TR: anizm (altyazı videoda), EN: megaplay (oynatıcının CC menüsü).
-           "TR a/b" artık GERÇEK kapsamadır: a = en az bir Türkçe kaynağı
-           (`episode_sources.language='tr'`) olan bölüm sayısı, b = toplam bölüm.
-           Eşitse normal (yeşil), eksikse amber, hiç yoksa kırmızı. */}
-      <span
-        className={`hidden shrink-0 rounded-full px-3 py-1 text-[11px] font-bold md:inline ${
-          counts.episodes > 0 && trCount >= counts.episodes
-            ? "bg-primary/15 text-primary"
-            : trCount > 0
-              ? "bg-amber-500/15 text-amber-600"
-              : "bg-destructive/15 text-destructive"
-        }`}
-        title="Türkçe kaynak kapsaması: en az bir Türkçe kaynağı (episode_sources · dil 'tr') olan bölüm / toplam bölüm. Panelden kaynak işaretlendikçe CANLI güncellenir."
-      >
-        TR {trCount}/{counts.episodes}
-      </span>
-      <span
-        className="hidden shrink-0 rounded-full bg-secondary px-3 py-1 text-[11px] font-bold text-foreground md:inline"
-        title="İngilizce altyazı: varsayılan sağlayıcı megaplay — oynatıcının kendi CC menüsünden seçilir"
-      >
-        EN megaplay
-      </span>
-      {show.is_featured && (
-        <span
-          className="hidden shrink-0 rounded-full bg-primary/15 px-2.5 py-1 text-[11px] font-bold text-primary sm:inline"
-          title="Ana sayfa vitrininde (büyük slider) gösteriliyor"
-        >
-          ★ Vitrin
-        </span>
-      )}
-      <span
-        className={`hidden shrink-0 rounded-full px-3 py-1 text-[11px] font-bold sm:inline ${
-          counts.episodes === 0
-            ? "bg-destructive/15 text-destructive"
-            : "bg-secondary text-foreground"
-        }`}
-      >
-        {counts.seasons} sezon · {counts.episodes} bölüm
-      </span>
       {/* Butonlar tek kapta: sigmadiginda topluca alt satira iner, metni
           sikistirmaz. Ikon butonlari mobilde 40x40 (parmakla basmak icin),
           masaustunde 36x36 kalir. */}
