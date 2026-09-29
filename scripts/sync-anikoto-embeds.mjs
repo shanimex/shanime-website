@@ -185,7 +185,7 @@ if (SCAN) {
         console.log(`   id=${c.id}  ${c.title}  [${c.slug}]  sub=${c.is_sub} dub=${c.is_dub}`);
       }
     }
-    console.log("\nSeçtiklerini scripts/anikoto-ids.json dosyasına yaz: {\"<slug>\": <id>}");
+    console.log('\nSeçtiklerini scripts/anikoto-ids.json dosyasına yaz: {"<slug>": <id>}');
     process.exit(0);
   }
   for (let page = 1; page <= PAGE_LIMIT; page += 1) {
@@ -199,7 +199,13 @@ if (SCAN) {
     const rows = json.data ?? [];
     if (rows.length === 0) break;
     for (const row of rows) {
-      catalog.push({ id: row.id, title: row.title, slug: row.slug, is_sub: row.is_sub, is_dub: row.is_dub });
+      catalog.push({
+        id: row.id,
+        title: row.title,
+        slug: row.slug,
+        is_sub: row.is_sub,
+        is_dub: row.is_dub,
+      });
       const title = norm(row.title);
       for (const { show, full, short } of needles) {
         if (!title) continue;
@@ -209,11 +215,19 @@ if (SCAN) {
           (title.length >= MIN_MATCH && full.includes(title));
         if (!hit) continue;
         found[show.slug] = found[show.slug] ?? [];
-        found[show.slug].push({ id: row.id, title: row.title, slug: row.slug, is_sub: row.is_sub, is_dub: row.is_dub });
+        found[show.slug].push({
+          id: row.id,
+          title: row.title,
+          slug: row.slug,
+          is_sub: row.is_sub,
+          is_dub: row.is_dub,
+        });
       }
     }
     const total = json.pagination?.total_pages ?? "?";
-    console.log(`  sayfa ${page}/${total} · kümülatif eşleşme: ${Object.values(found).flat().length}`);
+    console.log(
+      `  sayfa ${page}/${total} · kümülatif eşleşme: ${Object.values(found).flat().length}`,
+    );
     if (Object.keys(found).length === shows.length && page >= 3) break;
     await sleep(GAP_MS);
   }
@@ -233,7 +247,7 @@ if (SCAN) {
       console.log(`   id=${c.id}  ${c.title}  [${c.slug}]  sub=${c.is_sub} dub=${c.is_dub}`);
     }
   }
-  console.log("\nSeçtiklerini scripts/anikoto-ids.json dosyasına yaz: {\"<slug>\": <id>}");
+  console.log('\nSeçtiklerini scripts/anikoto-ids.json dosyasına yaz: {"<slug>": <id>}');
   process.exit(0);
 }
 
@@ -284,4 +298,6 @@ for (const show of shows) {
 mkdirSync(dirname(OUT), { recursive: true });
 writeFileSync(OUT, `${JSON.stringify(out, null, 2)}\n`);
 console.log(`\nYazıldı: ${OUT}`);
-console.log(`toplam kayıt=${Object.keys(out).length} · bu turda eşleşen=${written} · bulunamayan=${missing}`);
+console.log(
+  `toplam kayıt=${Object.keys(out).length} · bu turda eşleşen=${written} · bulunamayan=${missing}`,
+);

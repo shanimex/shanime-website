@@ -97,7 +97,9 @@ const [shows, seasons, episodes] = await Promise.all([
   get("show_episodes?select=show_id,season,number,title,watch_url"),
 ]);
 
-console.log(`Diziler: ${shows.length} · sezon kayıtları: ${seasons.length} · bölümler: ${episodes.length}\n`);
+console.log(
+  `Diziler: ${shows.length} · sezon kayıtları: ${seasons.length} · bölümler: ${episodes.length}\n`,
+);
 
 console.log("=== DİZİ ÖZETİ ===");
 for (const show of shows) {
@@ -129,8 +131,9 @@ console.log("\n=== 3) SEZON KAYDI EKSİK (bölümü var, sezon satırı yok) ===
 let virtualSeasons = 0;
 for (const show of shows) {
   const seasonRows = new Set(seasons.filter((s) => s.show_id === show.id).map((s) => s.number));
-  const epSeasons = [...new Set(episodes.filter((e) => e.show_id === show.id).map((e) => e.season))]
-    .sort((a, b) => a - b);
+  const epSeasons = [
+    ...new Set(episodes.filter((e) => e.show_id === show.id).map((e) => e.season)),
+  ].sort((a, b) => a - b);
   const missing = epSeasons.filter((n) => !seasonRows.has(n));
   if (missing.length > 0) {
     virtualSeasons += missing.length;
