@@ -570,7 +570,7 @@ export function ShowEditor({
                 type="button"
                 onClick={() => setKind(value)}
                 aria-pressed={kind === value}
-                className={`h-7 rounded-full border px-3 text-xs font-bold transition-colors ${
+                className={`h-7 rounded-full border px-3 text-xs font-bold transition-all active:scale-95 ${
                   kind === value
                     ? "border-primary bg-primary/15 text-primary"
                     : "border-border text-muted-foreground hover:text-foreground"
@@ -673,7 +673,7 @@ export function ShowEditor({
                   <button
                     type="button"
                     onClick={() => confirmMal(hit.malId, hit.title)}
-                    className="flex w-full items-center gap-2 rounded-lg px-2 py-1 text-left text-xs transition-colors hover:bg-secondary"
+                    className="flex w-full items-center gap-2 rounded-lg px-2 py-1 text-left text-xs transition-all hover:bg-secondary active:scale-[0.99]"
                   >
                     <span className="w-12 shrink-0 font-mono text-[10px] text-muted-foreground">
                       {hit.malId}

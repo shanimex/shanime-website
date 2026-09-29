@@ -147,7 +147,7 @@ function ToastCard({ item, onClose }: { item: ToastItem; onClose: () => void }) 
             type="button"
             onClick={() => setExpanded((state) => !state)}
             aria-expanded={expanded}
-            className="mt-1 inline-flex items-center gap-1 text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground"
+            className="mt-1 inline-flex items-center gap-1 text-[11px] font-medium text-muted-foreground transition-all hover:text-foreground active:scale-[0.97]"
           >
             {expanded ? "Daralt" : "Tümünü göster"}
             <ChevronDown
@@ -160,7 +160,7 @@ function ToastCard({ item, onClose }: { item: ToastItem; onClose: () => void }) 
       <button
         type="button"
         onClick={onClose}
-        className="shrink-0 rounded-full p-0.5 text-muted-foreground transition-colors hover:text-foreground"
+        className="shrink-0 rounded-full p-0.5 text-muted-foreground transition-all hover:scale-110 hover:text-foreground active:scale-90"
         aria-label="Bildirimi kapat"
       >
         <X size={14} />

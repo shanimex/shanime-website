@@ -396,6 +396,28 @@ export function SeasonsPanel({
   /** Hapın çizdiği canlı durum (`AnizipSyncPanel.onActivity` besler). */
   const [catalogActivity, setCatalogActivity] = useState<PanelActivity | null>(null);
   /**
+   * KATALOG KAPANIŞ ANİMASYONU — "pat diye kapanmasın".
+   *
+   * Kapatma isteği önce `catalogClosing` bayrağını kaldırır (160 ms çıkış
+   * animasyonu oynar), süre dolunca gerçek kapatma olur. Yeniden açılış
+   * (sezon değiştirme) bekleyen zamanlayıcıyı iptal eder.
+   */
+  const [catalogClosing, setCatalogClosing] = useState(false);
+  const catalogCloseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** Kapatma niyeti — animasyonlu, sonra unmount. */
+  function requestCatalogClose() {
+    if (catalogClosing) return;
+    if (catalogCloseTimer.current) clearTimeout(catalogCloseTimer.current);
+    setCatalogClosing(true);
+    catalogCloseTimer.current = setTimeout(() => {
+      catalogCloseTimer.current = null;
+      setCatalogSeason(null);
+      setCatalogMin(false);
+      setCatalogActivity(null);
+      setCatalogClosing(false);
+    }, 170);
+  }
+  /**
    * ⚠️ BU ETKİ ERKEN `return`DEN (yükleme durumu) ÖNCE OLMAK ZORUNDA.
    *
    * Bu yüzden hedef sezon `rows`tan değil, doğrudan `seasons` durumundan
@@ -477,6 +499,8 @@ export function SeasonsPanel({
       setPendingSeasonMalId(opts.pending ?? null);
       setTargetSeasonMalId(opts.seasonMalId ?? null);
       setCatalogNotice(opts.notice ?? null);
+      if (catalogCloseTimer.current) clearTimeout(catalogCloseTimer.current);
+      setCatalogClosing(false);
       setCatalogMin(false);
       setCatalogActivity(null);
       setCatalogSeason(number);
@@ -960,11 +984,7 @@ export function SeasonsPanel({
       onNotice(`${number}. sezon silindi.`);
       // Panel o sezonu gösteriyorsa hedefi bırak; başka bir sezon silindiyse
       // görünüm olduğu yerde kalsın (kullanıcı silmek istediği sezonu seçmişti).
-      if (catalogSeason === number) {
-        setCatalogSeason(null);
-        setCatalogMin(false);
-        setCatalogActivity(null);
-      }
+      if (catalogSeason === number) requestCatalogClose();
       await reload();
     } catch (error) {
       toast.error("Sezon silinemedi: " + (error instanceof Error ? error.message : String(error)));
@@ -1057,25 +1077,21 @@ export function SeasonsPanel({
         createPortal(
           <>
             <div
-              className={`animate-modal-fade fixed inset-0 z-[70] overflow-y-auto overscroll-contain bg-black/70 p-3 [scrollbar-gutter:stable] sm:p-6${catalogMin ? " hidden" : ""}`}
+              className={`${
+                catalogClosing ? "animate-modal-fade-out" : "animate-modal-fade"
+              } fixed inset-0 z-[70] overflow-y-auto overscroll-contain bg-black/70 p-3 [scrollbar-gutter:stable] sm:p-6${catalogMin ? " hidden" : ""}`}
               role="dialog"
               aria-modal="true"
               aria-label="Katalog paneli"
-              onClick={() => {
-                setCatalogSeason(null);
-                setCatalogMin(false);
-                setCatalogActivity(null);
-              }}
+              onClick={() => requestCatalogClose()}
               onKeyDown={(event) => {
-                if (event.key === "Escape") {
-                  setCatalogSeason(null);
-                  setCatalogMin(false);
-                  setCatalogActivity(null);
-                }
+                if (event.key === "Escape") requestCatalogClose();
               }}
             >
               <div
-                className="animate-modal-panel mx-auto w-full max-w-xl overflow-hidden rounded-2xl border border-border bg-background shadow-2xl"
+                className={`${
+                  catalogClosing ? "animate-modal-panel-out" : "animate-modal-panel"
+                } mx-auto w-full max-w-xl overflow-hidden rounded-2xl border border-border bg-background shadow-2xl`}
                 onClick={(event) => event.stopPropagation()}
               >
                 <div className="flex items-center justify-between gap-3 border-b border-border px-3 py-2.5">
@@ -1083,23 +1099,21 @@ export function SeasonsPanel({
                   <div className="flex shrink-0 items-center gap-1.5">
                     <button
                       type="button"
-                      onClick={() => setCatalogMin(true)}
+                      onClick={() => {
+                        if (!catalogClosing) setCatalogMin(true);
+                      }}
                       title="Küçült — yazma sürerken hapta ilerleme görünür"
                       aria-label="Küçült"
-                      className="grid size-7 place-items-center rounded-full border border-border text-muted-foreground transition-colors hover:text-foreground"
+                      className="grid size-7 place-items-center rounded-full border border-border text-muted-foreground transition-all hover:scale-105 hover:text-foreground active:scale-95"
                     >
                       <Minus size={15} />
                     </button>
                     <button
                       type="button"
-                      onClick={() => {
-                        setCatalogSeason(null);
-                        setCatalogMin(false);
-                        setCatalogActivity(null);
-                      }}
+                      onClick={() => requestCatalogClose()}
                       title="Kapat"
                       aria-label="Kapat"
-                      className="grid size-7 place-items-center rounded-full border border-border text-muted-foreground transition-colors hover:text-foreground"
+                      className="grid size-7 place-items-center rounded-full border border-border text-muted-foreground transition-all hover:scale-105 hover:text-foreground active:scale-95"
                     >
                       <X size={15} />
                     </button>
@@ -1174,6 +1188,8 @@ export function SeasonsPanel({
                     singlePart={singlePart}
                     seasons={(seasons ?? []).map((item) => ({ number: item.number }))}
                     onSelectSeason={(number) => {
+                      if (catalogCloseTimer.current) clearTimeout(catalogCloseTimer.current);
+                      setCatalogClosing(false);
                       setCatalogMin(false);
                       setCatalogActivity(null);
                       setCatalogSeason(number);
@@ -1222,7 +1238,7 @@ export function SeasonsPanel({
               type="button"
               onClick={() => setCatalogMin(false)}
               title="Katalog paneline dön"
-              className="fixed bottom-4 right-4 z-[75] flex items-center gap-2 rounded-full border border-border bg-background/95 py-2 pl-3 pr-2 text-xs font-bold text-foreground shadow-2xl backdrop-blur transition-transform hover:scale-[1.04]"
+              className="fixed bottom-4 right-4 z-[75] flex animate-rise-in items-center gap-2 rounded-full border border-border bg-background/95 py-2 pl-3 pr-2 text-xs font-bold text-foreground shadow-2xl backdrop-blur transition-transform hover:scale-[1.04] active:scale-95"
             >
               {catalogActivity?.busy ? (
                 <Loader2 size={13} className="animate-spin text-emerald-400" />
@@ -1258,7 +1274,7 @@ export function SeasonsPanel({
               onClick={() => setManualFocusSeason(null)}
               title="Kapat"
               aria-label="Kapat"
-              className="grid size-6 shrink-0 place-items-center rounded-full border border-border text-muted-foreground transition-colors hover:text-foreground"
+              className="grid size-6 shrink-0 place-items-center rounded-full border border-border text-muted-foreground transition-all hover:scale-105 hover:text-foreground active:scale-95"
             >
               <X size={13} />
             </button>
@@ -2378,7 +2394,7 @@ function EpisodeRow({
                         : `${item.short}: adres sunucuda çözülür ve bu bölüme yazılır`
                     }
                     className={cn(
-                      "flex cursor-pointer items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] transition-colors",
+                      "flex cursor-pointer items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] transition-all active:scale-[0.97]",
                       // YEŞİL = seçili/var. Eskiden `primary` (KIRMIZI) dolgu vardı ve
                       // panel kırmızı-yeşil-sarı bir karışıma dönüyordu (kullanıcı:
                       // "çok renkli, ülke rengi gibi oldu"). Seçili çip artık sakin yeşil.
@@ -2405,7 +2421,7 @@ function EpisodeRow({
                     <span
                       aria-hidden="true"
                       className={cn(
-                        "grid size-3.5 shrink-0 place-items-center rounded-[4px] border",
+                        "grid size-3.5 shrink-0 place-items-center rounded-[4px] border transition-colors",
                         on
                           ? "border-emerald-500 text-emerald-400"
                           : "border-muted-foreground/40 text-transparent",

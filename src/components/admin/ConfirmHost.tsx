@@ -100,7 +100,7 @@ export function AdminConfirmHost() {
             type="button"
             onClick={() => answerConfirm(false)}
             aria-label="Kapat"
-            className="shrink-0 rounded-full p-1 text-muted-foreground transition-colors hover:text-foreground"
+            className="shrink-0 rounded-full p-1 text-muted-foreground transition-all hover:scale-110 hover:text-foreground active:scale-90"
           >
             <X size={16} />
           </button>

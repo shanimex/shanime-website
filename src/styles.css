@@ -228,14 +228,45 @@
   animation: modal-fade-in 150ms ease-out both;
 }
 
+@utility animate-modal-fade-out {
+  animation: modal-fade-out 160ms ease-in both;
+}
+
+@keyframes modal-fade-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
 @utility animate-modal-panel {
   animation: modal-panel-in 200ms cubic-bezier(0.22, 1, 0.36, 1) both;
   transform-origin: center top;
 }
 
+@utility animate-modal-panel-out {
+  animation: modal-panel-out 160ms ease-in both;
+  transform-origin: center top;
+}
+
+@keyframes modal-panel-out {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .animate-modal-fade,
-  .animate-modal-panel {
+  .animate-modal-fade-out,
+  .animate-modal-panel,
+  .animate-modal-panel-out {
     animation: none;
   }
 }

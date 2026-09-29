@@ -104,7 +104,7 @@ export function ImportLogList({
           <button
             type="button"
             onClick={onClear}
-            className="ml-auto text-[11px] font-bold uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground"
+            className="ml-auto text-[11px] font-bold uppercase tracking-wider text-muted-foreground transition-all hover:text-foreground active:scale-[0.97]"
           >
             temizle
           </button>

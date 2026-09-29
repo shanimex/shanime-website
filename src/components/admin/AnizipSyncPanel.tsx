@@ -289,7 +289,7 @@ function SourceRow({
       onClick={onToggle}
       disabled={disabled}
       aria-pressed={checked}
-      className="flex items-start gap-2 rounded-lg px-1 py-1 text-left transition-colors hover:bg-background/60 disabled:opacity-50"
+      className="flex items-start gap-2 rounded-lg px-1 py-1 text-left transition-all hover:bg-background/60 active:scale-[0.99] disabled:opacity-50"
     >
       {/* RENK TUTARLIĞI: seçili kaynak YEŞİL. Eskiden `text-primary` (KIRMIZI) idi ve
           bölüm satırlarındaki yeşil seçim stiliyle çelişiyordu (ölçüm 27.09.2026:
@@ -2900,7 +2900,7 @@ export function AnizipSyncPanel({
             onChange={(event) => onSelectSeason(Number(event.target.value))}
             title="Katalogda gösterilecek sezon"
             aria-label="Katalog sezonu"
-            className="cursor-pointer rounded-full border border-primary/40 bg-primary/10 px-2 py-0.5 text-[11px] font-bold text-primary outline-none"
+            className="cursor-pointer rounded-full border border-primary/40 bg-primary/10 px-2 py-0.5 text-[11px] font-bold text-primary outline-none transition-colors hover:bg-primary/15"
           >
             {/*
               HEDEF SEZON, KAYDI OLMAYAN YENİ SEZONDA DA LİSTEDE GÖRÜNÜR.
@@ -2989,7 +2989,7 @@ export function AnizipSyncPanel({
             disabled={busy}
             title={`${seasonNumber}. sezonu tamamen sil (bölümleri ve kaynaklarıyla)`}
             aria-label={`${seasonNumber}. sezonu tamamen sil`}
-            className="grid size-6 place-items-center rounded-full border border-destructive/50 text-destructive hover:bg-destructive/10 disabled:cursor-not-allowed disabled:opacity-50"
+            className="grid size-6 place-items-center rounded-full border border-destructive/50 text-destructive transition-all hover:scale-105 hover:bg-destructive/10 active:scale-90 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Trash2 size={12} />
           </button>
@@ -3104,7 +3104,7 @@ export function AnizipSyncPanel({
         onClick={() => setAdvanced((open) => !open)}
         aria-expanded={advanced}
         title="puffytr adresi ve TauVideo eşlemesi gibi ileri ayarlar"
-        className="mt-3 flex items-center gap-1 text-[11px] font-extrabold uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground"
+        className="mt-3 flex items-center gap-1 text-[11px] font-extrabold uppercase tracking-wider text-muted-foreground transition-all hover:text-foreground active:scale-[0.98]"
       >
         Gelişmiş
         <ChevronDown
@@ -3500,7 +3500,7 @@ export function AnizipSyncPanel({
                       : "Tümünü seç"
                   }
                   aria-label="Tümünü seç"
-                  className="grid size-6 place-items-center rounded-full border border-border text-muted-foreground transition-colors hover:border-foreground/30 hover:text-foreground"
+                  className="grid size-6 place-items-center rounded-full border border-border text-muted-foreground transition-all hover:scale-105 hover:border-foreground/30 hover:text-foreground active:scale-90"
                 >
                   <CheckCheck size={13} />
                 </button>
@@ -3511,7 +3511,7 @@ export function AnizipSyncPanel({
                   onClick={() => setSelected(new Set())}
                   title="Seçimi temizle"
                   aria-label="Seçimi temizle"
-                  className="grid size-6 place-items-center rounded-full border border-border text-muted-foreground transition-colors hover:border-foreground/30 hover:text-foreground"
+                  className="grid size-6 place-items-center rounded-full border border-border text-muted-foreground transition-all hover:scale-105 hover:border-foreground/30 hover:text-foreground active:scale-90"
                 >
                   <X size={13} />
                 </button>
@@ -3532,7 +3532,7 @@ export function AnizipSyncPanel({
                   disabled={busy}
                   title={`Seçili ${selected.size} bölümü tamamen sil`}
                   aria-label="Seçili bölümleri sil"
-                  className="grid size-6 place-items-center rounded-full border border-destructive/40 text-destructive transition-colors hover:bg-destructive/10 disabled:opacity-50"
+                  className="grid size-6 place-items-center rounded-full border border-destructive/40 text-destructive transition-all hover:scale-105 hover:bg-destructive/10 active:scale-90 disabled:opacity-50"
                 >
                   <Trash2 size={13} />
                 </button>
@@ -3561,7 +3561,7 @@ export function AnizipSyncPanel({
                     void openRowMenu(ep.number, event.clientX, event.clientY);
                   }}
                   title="Sağ tık: embed adresi gir / düzenle"
-                  className={`flex items-center gap-2 rounded-lg px-2 py-0.5 text-xs text-foreground ${
+                  className={`flex items-center gap-2 rounded-lg px-2 py-0.5 text-xs text-foreground transition-colors hover:bg-foreground/[0.04] ${
                     selected.has(ep.number) ? "bg-foreground/[0.06]" : ""
                   } ${
                     // ARAMA VURGUSU: yazılan bölüm bulununca satır kısa süre
@@ -3587,7 +3587,7 @@ export function AnizipSyncPanel({
                     />
                     <span
                       aria-hidden="true"
-                      className={`grid size-3.5 place-items-center rounded-[4px] border ${
+                      className={`grid size-3.5 place-items-center rounded-[4px] border transition-colors ${
                         selected.has(ep.number)
                           ? "border-emerald-500 text-emerald-400"
                           : "border-muted-foreground/40 text-transparent"
@@ -3732,7 +3732,7 @@ export function AnizipSyncPanel({
                 disabled={safePage === 0}
                 title="Önceki sayfa"
                 aria-label="Önceki sayfa"
-                className="grid size-6 place-items-center rounded-full border border-border transition-colors hover:border-foreground/30 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
+                className="grid size-6 place-items-center rounded-full border border-border transition-all hover:scale-105 hover:border-foreground/30 hover:text-foreground active:scale-90 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 <ChevronLeft size={13} />
               </button>
@@ -3745,7 +3745,7 @@ export function AnizipSyncPanel({
                 disabled={safePage >= pageCount - 1}
                 title="Sonraki sayfa"
                 aria-label="Sonraki sayfa"
-                className="grid size-6 place-items-center rounded-full border border-border transition-colors hover:border-foreground/30 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
+                className="grid size-6 place-items-center rounded-full border border-border transition-all hover:scale-105 hover:border-foreground/30 hover:text-foreground active:scale-90 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 <ChevronRight size={13} />
               </button>

@@ -394,7 +394,7 @@ export function AddShowButton({
                 <button
                   type="button"
                   onClick={() => applyHit(hit)}
-                  className="flex w-full items-center gap-2 rounded-lg px-2 py-1 text-left text-xs transition-colors hover:bg-secondary"
+                  className="flex w-full items-center gap-2 rounded-lg px-2 py-1 text-left text-xs transition-all hover:bg-secondary active:scale-[0.99]"
                 >
                   <span className="w-12 shrink-0 font-mono text-[10px] text-muted-foreground">
                     {hit.malId}

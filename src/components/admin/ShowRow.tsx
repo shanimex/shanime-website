@@ -40,7 +40,7 @@ export function ShowRow({
     // flex-wrap + asgari metin genisligi: mobilde sabit genislikli butonlar
     // metin alanini 0 px'e sikistiriyordu ve seri adi hic gorunmuyordu. Artik
     // butonlar sigmadiginda alt satira iner, ad/slug her zaman okunur.
-    <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-border bg-background p-3">
+    <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-border bg-background p-3 transition-colors hover:border-foreground/25">
       <img
         src={show.image}
         alt=""

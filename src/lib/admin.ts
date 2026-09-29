@@ -6,7 +6,7 @@ import { EMBED_PROVIDERS } from "@/lib/embed-provider";
 export const db = supabase as any;
 
 export const inputCls =
-  "h-10 w-full rounded-xl border border-border bg-card px-3 text-sm text-foreground outline-none focus:border-primary";
+  "h-10 w-full rounded-xl border border-border bg-card px-3 text-sm text-foreground outline-none transition-colors focus:border-primary";
 export const areaCls =
   "min-h-24 w-full rounded-xl border border-border bg-card p-3 text-sm text-foreground outline-none focus:border-primary";
 export const tinyLabelCls = "mb-1 block text-[11px] font-bold text-muted-foreground";
