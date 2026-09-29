@@ -3728,11 +3728,11 @@ export function AnizipSyncPanel({
              temiz dursun. Sticky denenip beğenilmedi — normal akışta, liste
              kısaltıldığı için düğmeye kayırmadan ulaşılır.
           */}
-          <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1.5">
+          <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1.5 rounded-xl border border-border/70 bg-card/40 px-2.5 py-1.5">
             <span className="flex items-center gap-1 text-[11px] font-bold text-muted-foreground">
               Aralık
               <input
-                className={`${inputCls} h-7 w-14 text-center text-xs`}
+                className={`${inputCls} h-7 w-12 text-center text-xs`}
                 value={rangeFrom}
                 onChange={(event) => setRangeFrom(event.target.value)}
                 placeholder="ilk"
@@ -3741,7 +3741,7 @@ export function AnizipSyncPanel({
               />
               <span aria-hidden="true">–</span>
               <input
-                className={`${inputCls} h-7 w-14 text-center text-xs`}
+                className={`${inputCls} h-7 w-12 text-center text-xs`}
                 value={rangeTo}
                 onChange={(event) => setRangeTo(event.target.value)}
                 placeholder="son"
@@ -3751,7 +3751,7 @@ export function AnizipSyncPanel({
             </span>
             <Button
               size="sm"
-              className="rounded-full"
+              className="ml-auto h-8 rounded-full px-4 text-xs font-bold shadow-sm"
               onClick={() => void writeSelected()}
               disabled={
                 busy ||
