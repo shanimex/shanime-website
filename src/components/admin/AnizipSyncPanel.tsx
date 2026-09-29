@@ -848,10 +848,29 @@ export function AnizipSyncPanel({
    * ═══════════════════════════════════════════════════════════════════════════
    */
   const [loadedByNumber, setLoadedByNumber] = useState<Map<number, Set<string>>>(new Map());
+  /**
+   * KAPSAMA YÜKLENİYOR BAYRAĞI — sahte sarı uyarı düzeltmesi.
+   *
+   * Ölçüm (canlı günlük): yazma bitince üst bileşen `existing`i yeniler; kapsama
+   * sorgusu (~1 sn) dönene kadar HARİTA ESKİ kalır ve eksik-uyarı kutusu bir an
+   * görünüp kaybolur ("sorun yokken hata veriyor" hissi). Bu bayrak açıkken kutu
+   * çizilmez; taze veri gelince doğru durum gösterilir.
+   *
+   * Bağımlılık KİMLİK DEĞİL İMZA: üst bileşen `existing` dizisini her render'da
+   * yeniden kurar; diziye bağlanırsa sorgu sürekli baştan başlar ve kutu hiç
+   * görünmezdi. Virgüllü kimlik metni yalnızca içerik değişince değişir.
+   */
+  const existingSig = (existing ?? [])
+    .map((item) => item.id ?? "")
+    .filter(Boolean)
+    .join(",");
+  const [coverageLoading, setCoverageLoading] = useState(true);
   useEffect(() => {
-    const ids = existing.map((item) => item.id).filter((id): id is string => Boolean(id));
+    const ids = existingSig ? existingSig.split(",") : [];
+    setCoverageLoading(true);
     if (ids.length === 0) {
       setLoadedByNumber(new Map());
+      setCoverageLoading(false);
       return;
     }
     let alive = true;
@@ -876,11 +895,13 @@ export function AnizipSyncPanel({
         // listeyi boşaltıp kullanıcıyı yanlışlıkla "hepsi yüklü" sanmaya itmeyiz.
         if (alive) setLoadedByNumber(new Map());
       }
+      if (alive) setCoverageLoading(false);
     })();
     return () => {
       alive = false;
     };
-  }, [existing]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- imza (existingSig) içeriği kapsar; dizi kimliği her render değişir.
+  }, [existingSig]);
 
   /**
    * ═══════════════════════════════════════════════════════════════════════════
@@ -3400,7 +3421,12 @@ export function AnizipSyncPanel({
             olmayan (ör. sonradan eklenmiş part bölümleri) seçilemez, çünkü yazma
             yalnızca katalog listesindeki satırlar üzerinden yapılır.
           */}
-          {missingBySource.length > 0 ? (
+          {/*
+            TAZE VERİ ŞARTI: kapsama yenilenirken (`coverageLoading`) kutu çizilmez;
+            yoksa yazma sonrası yenileme aralığında sahte uyarı bir an görünüp
+            kaybolur (kullanıcı bildirimi: "sorun yokken hata veriyor").
+          */}
+          {!coverageLoading && missingBySource.length > 0 ? (
             <p className="animate-rise-in mt-3 flex flex-wrap items-center gap-2 rounded-xl border border-amber-500/40 bg-amber-500/10 p-2 text-[11px] font-bold text-amber-300">
               <AlertTriangle size={13} />
               {missingBySource.map((entry) => (
