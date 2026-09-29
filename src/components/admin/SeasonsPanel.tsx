@@ -1046,7 +1046,7 @@ export function SeasonsPanel({
             }}
           >
             <div
-              className="animate-modal-panel mx-auto w-full max-w-xl overflow-hidden rounded-2xl border border-border bg-background shadow-2xl"
+              className="animate-modal-panel mx-auto w-full max-w-xl max-w-[calc(100vw-1.5rem)] overflow-hidden rounded-2xl border border-border bg-background shadow-2xl"
               onClick={(event) => event.stopPropagation()}
             >
               <div className="flex items-center justify-between gap-3 border-b border-border px-3 py-2.5">

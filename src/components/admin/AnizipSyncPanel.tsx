@@ -3558,7 +3558,9 @@ export function AnizipSyncPanel({
                     <span className="sr-only">{ep.number}. bölümü seç</span>
                   </label>
                   <span className="w-20 shrink-0 font-bold">{ep.number}. Bölüm</span>
-                  <span className="truncate">{ep.title || "—"}</span>
+                  {/* `min-w-0`: esnek satırda kısalan başlık dar pencerede kutuyu
+                      sağdan taşırmasın (taşma modalda kırpık görünüyordu). */}
+                  <span className="min-w-0 truncate">{ep.title || "—"}</span>
                   <span className="ml-auto flex shrink-0 items-center gap-2">
                     {/* İLERLEME ÇUBUĞU — yazma sırasında 0 → 100 dolar, bitince
                         yeşil "yüklendi" yazar. Kullanıcı isteği (28.09.2026):
@@ -3715,8 +3717,13 @@ export function AnizipSyncPanel({
              kaba değil mi sence de"). Yeni sıra: solda **Aralık** (uzun seriler için
              parça parça yazma), sağda düğme. Alanlar boşsa eskisi gibi TÜM bölümler
             yazılır; yani varsayılan davranış değişmedi.
+
+             STICKY ALT BAR (kullanıcı bildirimi: modalda liste uzayınca yazma
+             düğmesi ekranın altında kalıyor, "yarım görünüyor"). Modal gövdesi
+             `max-h-[70vh]` ile kaydığından düğmeye ulaşmak için kaydırmak
+             gerekiyordu. Artık çubuk alta yapışık durur, liste altından kayar.
           */}
-          <div className="mt-3 flex flex-wrap items-center gap-2">
+          <div className="sticky bottom-0 z-10 -mx-1 mt-3 flex flex-wrap items-center gap-2 border-t border-border bg-background/95 px-1 py-2 backdrop-blur">
             <span className="flex items-center gap-1 text-[11px] font-bold text-muted-foreground">
               Aralık
               <input
