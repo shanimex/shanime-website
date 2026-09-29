@@ -5,7 +5,6 @@ import { anizipCover } from "@/lib/anizip-covers";
 import type { SeasonPartEntry } from "@/lib/embed-provider";
 import {
   animecixCoversForEpisodes,
-  isVoeUrl,
   posterFromMap,
   POSTER_SETTINGS_KEY,
 } from "@/lib/episode-covers";
@@ -378,14 +377,6 @@ export function episodeCoverFromWatchUrl(watchUrl?: string | null): string {
   } catch {
     return "";
   }
-  // Voe: kapak adresi KODDAN TÜRETİLEBİLİR — embed sayfasının `og:image` alanıyla
-  // aynı adres (`<kod>_storyboard_L2.jpg`, 1279×719 tek kare). Voe sayfası CORS
-  // başlığı göndermediği için tarayıcıdan okunamaz; türetme bu yüzden tek yol.
-  if (isVoeUrl(watchUrl)) {
-    const voeCode = videoCodeFromWatchUrl(watchUrl);
-    // `_L5` = 1x1 → TEK KARE (L2/L1 gibi kademeler çok kareli mozaiktir).
-    return voeCode ? `https://i.voe.sx/cache/${voeCode}_storyboard_L5.jpg` : "";
-  }
   if (!/(^|\.)morencius\.com$/.test(host)) return "";
   const code = videoCodeFromWatchUrl(watchUrl);
   return code ? `https://pixibay.cc/${code}.jpg` : "";
@@ -434,7 +425,7 @@ export function localCoverPath(slug: string, season: number, episodeNumber: numb
  *
  * ── MALİYET DENETİMİ ─────────────────────────────────────────────────────────
  * Yalnızca HİÇBİR kaynağı olmayan bölümler için istek atılır: panel kapağı,
- * `poster` haritası (VidMoly/Voe/Türkçe kaynak), ani.zip/TVDB (`anizipCover`)
+ * `poster` haritası (VidMoly/Türkçe kaynak), ani.zip/TVDB (`anizipCover`)
  * ve `watch_url`'den türetilen kapak varsa animecix HİÇ SORULMAZ. Kalan bölümler
  * SINIRLI eşzamanlılıkla (`animecixCoversForEpisodes`) ve kısa timeout'la
  * çözülür; sonuç `lib/episode-covers.ts` içinde önbelleğe alınır (üretimde

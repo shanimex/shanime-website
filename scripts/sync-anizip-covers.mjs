@@ -4,7 +4,7 @@
  *
  * NEDEN BU KAYNAK: panelde bölüme yalnızca embed adresi giriliyor; embed
  * sağlayıcıları (megaplay, vidlink, videasy) bölüm kapağı YAYINLAMIYOR. Var olan
- * `episode-posters.json` zinciri de yalnızca VidMoly/Voe linklerinden türetme
+ * `episode-posters.json` zinciri de yalnızca VidMoly linklerinden türetme
  * yapabildiği için sağlayıcı embed'li bölümlerde boş kalıyordu.
  *
  * api.ani.zip (TVDB + AniDB + AniList birleşik eşleme servisi) MAL kimliğiyle

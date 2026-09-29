@@ -5,7 +5,7 @@ import BAKED_TMDB from "@/data/mal-tmdb.json";
  * Bölüm kapakları — GERÇEK bölüm görselleri (ani.zip / TVDB).
  *
  * NEDEN AYRI BİR KAYNAK: embed sağlayıcıları (megaplay, vidlink, videasy) bölüm
- * kapağı yayınlamıyor. `episode-posters.json` zinciri de yalnızca VidMoly/Voe
+ * kapağı yayınlamıyor. `episode-posters.json` zinciri de yalnızca VidMoly
  * adreslerinden türetme yapabildiği için sağlayıcı embed'li bölümlerde kart
  * boş kalıyordu ve tek çare seri posteriydi (her bölüm aynı görsel).
  *

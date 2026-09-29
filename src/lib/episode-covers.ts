@@ -61,37 +61,8 @@ export async function fetchVidmolyPoster(code: string): Promise<string> {
 }
 
 /**
- * Voe alan adları. Voe linkleri bir mirror alan adına JS ile yönlendiriyor
- * (jamesbornmain.com, chuckle-tube.com, goofy-banana.com…) ve bunlar dönüyor;
- * ek olarak `/e/<kod>` biçimi de Voe sayılır (bkz. isVoeUrl).
- */
-const VOE_HOSTS = /(^|\.)(voe\.sx|chuckle-tube\.com|goofy-banana\.com|jamesbornmain\.com)$/i;
-
-/**
- * Link Voe'ya mı ait? Yalnızca **alan adı** listesine bakılır.
- *
- * Eskiden `/e/<kod>` biçimi de yeterli sayılıyordu; Filemoon gibi sağlayıcılar da
- * aynı biçimi kullandığı için Filemoon linkli bölüm Voe sanılıyor ve var olmayan
- * bir kapak adresi (`i.voe.sx/cache/<kod>_storyboard_L5.jpg`) üretiliyordu
- * (kullanıcı bildirimi: Filemoon'a geçince 1. bölümün kapağı kırıldı).
- * Yeni bir Voe mirror'ı çıkarsa `VOE_HOSTS` listesine eklenmeli.
- */
-export function isVoeUrl(url: string): boolean {
-  try {
-    return VOE_HOSTS.test(new URL(url.split(/[?#]/)[0] ?? "").hostname);
-  } catch {
-    return false;
-  }
-}
-
-/**
  * Bir video linkinin kapak adresi.
  *
- * - **Voe:** adres DETERMİNİSTİK ve API'nin verdiğiyle aynı:
- *   `https://i.voe.sx/cache/<kod>_storyboard_L5.jpg`. Kademe önemli:
- *   **L5 = 1x1 → tek kare**; L2 (4x4), L1 (5x5) gibi kademeler 16-25 kareli
- *   mozaik görsellerdir ve kapak olarak ızgara gibi görünür. Voe sayfası CORS
- *   başlığı göndermediği için tarayıcıdan okunamıyor — adres koddan türetiliyor.
  * - **VidMoly:** adres CDN'e özel ve koddan türetilemez, embed sayfasından
  *   okunur (`fetchVidmolyPoster`).
  * - **Morencius:** `https://pixibay.cc/<kod>.jpg`
@@ -99,7 +70,6 @@ export function isVoeUrl(url: string): boolean {
 export async function posterForWatchUrl(url: string, code?: string): Promise<string> {
   const videoCode = code ?? videoCodeFromUrl(url);
   if (!videoCode || !url) return "";
-  if (isVoeUrl(url)) return `https://i.voe.sx/cache/${videoCode}_storyboard_L5.jpg`;
   if (/vidmoly/i.test(url)) return fetchVidmolyPoster(videoCode);
   if (/morencius/i.test(url)) return `https://pixibay.cc/${videoCode}.jpg`;
   return "";
@@ -108,7 +78,7 @@ export async function posterForWatchUrl(url: string, code?: string): Promise<str
 /**
  * ── KAYNAKTAN KAPAK (TÜRKÇE KAYNAK İÇİN YEDEK ZİNCİR, 27.09.2026) ──────────────
  *
- * NEDEN GEREKLİ: `videoCodeFromUrl` yalnızca VidMoly/Voe/Morencius gibi
+ * NEDEN GEREKLİ: `videoCodeFromUrl` yalnızca VidMoly/Morencius gibi
  * sağlayıcıların embed adresinden kod çıkarabiliyor. Türkçe kaynak (Anizm) bölümün
  * `watch_url`i `anizmplayer.com/video/<hash>` biçimindedir; bu hash'ten kapak
  * adresi TÜRETİLEMEZ ve oynatıcı sayfasında görsel de yoktur (ölçüm 27.09.2026:
@@ -389,7 +359,7 @@ export function posterFromMap(raw: unknown, watchUrl?: string | null): string {
  * yüklenemezse bu fonksiyon güncel adresi üretir/okur ve sonucu oturum boyunca
  * `sessionStorage`'da tutar — aynı bölüm için tekrar sorulmaz.
  *
- * Voe ve morencius adresleri koddan türetilir (istek gerekmez); VidMoly adresi
+ * Morencius adresleri koddan türetilir (istek gerekmez); VidMoly adresi
  * embed sayfasından okunur — o sayfa CORS başlığı gönderdiği için tarayıcıdan
  * doğrudan okunabiliyor (bkz. DURUM-RAPORU §26).
  */
@@ -521,7 +491,7 @@ export async function syncAllEpisodePosters(force = false): Promise<{
       if (!force && entry.p && (!code || entry.c === code)) continue;
 
       /**
-       * ZİNCİR: (1) sağlayıcının kendi kapağı (VidMoly CDN / Voe karesi / morencius),
+       * ZİNCİR: (1) sağlayıcının kendi kapağı (VidMoly CDN / morencius),
        * (2) olmazsa TÜRKÇE KAYNAĞIN kapağı. Kod çıkarılamayan adreslerde (Anizm
        * oynatıcısı) eskiden bölüm doğrudan "başarısız" sayılıyordu; artık kaynaktan
        * kapak denenir. Kaynak kapak da vermezse bölüm kapaksız kalır (uydurulmaz).

@@ -1001,8 +1001,7 @@ export function SeasonsPanel({
         Bu bölümün yerini alan şeyler: "Kaydı oluştur" satırı (kayıt yoksa) ve
         katalog/bölüm paneli. "Bölümleri elle ekle" formu da duruyor.
 
-        ("Gelişmiş" satırı — Kapakları güncelle / Voe'dan çek — ayrıca kaldırıldı;
-        gerekçe aşağıdaki nota bakınız.)
+        ("Gelişmiş" satırı ayrıca kaldırıldı; gerekçe aşağıdaki nota bakınız.)
         ═══════════════════════════════════════════════════════════════════════
       */}
 
@@ -1197,10 +1196,9 @@ export function SeasonsPanel({
           · Kapak senkronu KAYBOLMADI — bölüm kaydedildiğinde arka planda yine
             kendiliğinden çalışır (bkz. `lib/episode-covers.ts`); giden yalnızca
             ELLE tetiklenen düğmedir.
-          · Voe içe aktarma yolu arayüzden tamamen çıktı. Bileşen dosyası duruyor
-            (`components/admin/VoeSyncPanel.tsx`) ama artık hiçbir yerden
-            çağrılmıyor. İstenirse katalog panelinin içine düğme olarak geri
-            konabilir. */}
+          · Voe dönemi tamamen kapandı: `VoeSyncPanel` bileşeni ve `lib/voe.ts`
+            projeden silindi; kapak/oynatıcı zincirindeki Voe dalları da
+            temizlendi. Veritabanında Voe linkli bölüm kalmadı (doğrulandı). */}
 
       {rows.length === 0 && (
         <p className="mt-4 rounded-2xl border border-dashed border-border p-4 text-sm text-muted-foreground">
@@ -1256,7 +1254,7 @@ function BulkAddForm({
       toast.error(
         `${invalid.length} satır geçersiz (bozuk veya eksik link).\n\n` +
           "Her link https:// ile başlamalı ve bir alan adı içermeli. Geçerli örnek:\n" +
-          "https://voe.sx/e/xxxxxxx\n" +
+          "https://filemoon.org/xxxxxx/embed\n" +
           "42 - https://vidmoly.org/embed-abc.html | 42. Bölüm",
       );
       return;
@@ -2340,7 +2338,7 @@ function EpisodeRow({
               · oynatıcının tam `<iframe …>` embed kodu → `pasteEmbed` yapıştırma
                 anında `src="…"` içindeki adresi ayıklar (kullanıcının embed kodunu
                 anlamasına gerek yok, kopyalayıp yapıştırması yeter),
-              · doğrudan adres (ör. https://voe.sx/e/xxxxxxx).
+              · doğrudan adres (ör. https://filemoon.org/xxxxxx/embed).
             Kaydet, adresi bu bölüme **Manuel** kaynağı olarak yazar; izleme
             sayfasında oynatıcının altında çip olarak çıkar.
           */}

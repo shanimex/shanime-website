@@ -36,7 +36,7 @@ import { cachedRead, TTL_SIMILAR_SECONDS } from "@/lib/server-cache";
 // `translate`: modül seviyesindeki `t`nin takma adı. Sayfa başlığı/meta bilgisi
 // bileşen DIŞINDA üretildiği için orada hook çağrılamaz. Takma ad şart — doğrudan
 // `t` import etmek `useLang()`ün döndürdüğü `t`yi gölgelerdi.
-import { plural, t as translate, useLang, type Translate } from "@/lib/i18n";
+import { plural, t as translate, useDocumentTitle, useLang, type Translate } from "@/lib/i18n";
 import { useTranslatedTexts } from "@/lib/content-translate";
 import { episodeKey, getLastEpisode, getWatched, markWatched } from "@/lib/watch-progress";
 
@@ -119,11 +119,15 @@ export const Route = createFileRoute("/anime/$slug/")({
 
 function LoadErrorCentered() {
   const { t } = useLang();
+  // Hata ekranında sekme başlığı eski sayfada kalıyordu (bkz. kök NotFound deseni).
+  useDocumentTitle(`${t("error.title")} | shanime`);
   return <Centered>{t("series.loadError")}</Centered>;
 }
 
 function ShowNotFoundCentered() {
   const { t } = useLang();
+  // `meta.seriesNotFoundTitle` zaten "… | shanime" biçimindedir.
+  useDocumentTitle(t("meta.seriesNotFoundTitle"));
   return <Centered>{t("series.notFound")}</Centered>;
 }
 

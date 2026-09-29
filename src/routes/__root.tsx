@@ -85,6 +85,8 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
   console.error(error);
   const router = useRouter();
   const { t } = useLang();
+  // Kök hata ekranında da sekme başlığı (bkz. NotFoundComponent deseni).
+  useDocumentTitle(`${t("error.title")} | shanime`);
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">

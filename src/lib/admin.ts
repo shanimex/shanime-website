@@ -63,9 +63,9 @@ export async function moveAndPersist<T extends { id: string }>(
 }
 
 /** NOT: Burada eskiden sabit bir "kabul edilen video host" listesi vardı
- *  (VIDEO_HOST_KEYWORDS) ve listede olmayan sağlayıcılar reddediliyordu. Kullanıcı Voe
- *  linki eklerken "bu video host tanınmıyor" hatası aldı; liste kaldırıldı. Artık her
- *  embed linki kabul edilir (bkz. `watchUrlError`). */
+ *  (VIDEO_HOST_KEYWORDS) ve listede olmayan sağlayıcılar reddediliyordu. Kullanıcı
+ *  bir video hostu eklerken "bu video host tanınmıyor" hatası aldı; liste kaldırıldı.
+ *  Artık her embed linki kabul edilir (bkz. `watchUrlError`). */
 
 /**
  * Bilinen sağlayıcılarda linki kanonik EMBED adresine çevirir; tanımadığında
@@ -73,8 +73,7 @@ export async function moveAndPersist<T extends { id: string }>(
  *
  * Neden gerekli: Filemoon'da doğru embed biçimi `https://filemoon.org/<kod>/embed`
  * biçimidir. Kullanıcı `/e/<kod>` yapıştırdı; o adres ana sayfaya yönlendiği için
- * oynatıcıda Filemoon'un tanıtım sayfası göründü ("oynatıcı bozuk"). Voe'da da
- * indirme sayfası (`/d/<kod>`) yerine embed (`/e/<kod>`) kullanılmalı.
+ * oynatıcıda Filemoon'un tanıtım sayfası göründü ("oynatıcı bozuk").
  */
 export function canonicalEmbedUrl(url: string): string {
   const value = (url ?? "").trim();
@@ -96,15 +95,6 @@ export function canonicalEmbedUrl(url: string): string {
       path.match(/^\/([A-Za-z0-9]{6,})$/)?.[1] ??
       "";
     return code ? `https://filemoon.org/${code}/embed` : value;
-  }
-
-  // Voe: embed yolu `/e/<kod>`.
-  if (/(^|\.)voe\.sx$/.test(host)) {
-    const code =
-      path.match(/\/(?:e|embed|d)\/([A-Za-z0-9]{6,})$/)?.[1] ??
-      path.match(/^\/([A-Za-z0-9]{8,})$/)?.[1] ??
-      "";
-    return code ? `https://voe.sx/e/${code}` : value;
   }
 
   return value;
@@ -139,10 +129,9 @@ export function pasteEmbed(onSet: (value: string) => void) {
 /**
  * Video linkini doğrular; sorun yoksa null, varsa kullanıcıya gösterilecek mesajı döndürür.
  *
- * Host listesi YOK: her embed linki kabul edilir (Voe, Filemoon, kendi sunucun, bilinmeyen
+ * Host listesi YOK: her embed linki kabul edilir (Filemoon, kendi sunucun, bilinmeyen
  * bir ayna…). Eskiden sabit bir liste vardı ve listede olmayan sağlayıcı reddediliyordu;
- * kullanıcı Voe linki eklerken "bu video host tanınmıyor" hatası aldı. Artık yalnızca
- * linkin gerçekten bir adres olup olmadığına bakılır.
+ * artık yalnızca linkin gerçekten bir adres olup olmadığına bakılır.
  */
 export function watchUrlError(url: string): string | null {
   const value = extractEmbedUrl(url);
@@ -163,7 +152,7 @@ export function watchUrlError(url: string): string | null {
     return "Link geçersiz karakter içeriyor. Embed kodunun içindeki link otomatik alınır, düz linki yapıştır.";
   // Alan adı olan bir https adresi yeterli; sağlayıcının kim olduğu önemli değil.
   if (!/^https:\/\/[^\s/?#]+\.[^\s/?#]+/i.test(value))
-    return "Link https:// ile başlamalı ve bir alan adı içermeli (ör. https://voe.sx/e/xxxxxxx).";
+    return "Link https:// ile başlamalı ve bir alan adı içermeli (ör. https://filemoon.org/xxxxxx/embed).";
   return null;
 }
 

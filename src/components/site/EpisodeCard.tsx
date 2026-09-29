@@ -85,7 +85,7 @@ export function EpisodeCard({
         // tutar, gereksiz istek olmaz.
         // ÖNCELİK SIRASI (29.09.2026):
         //   (a) panelden yüklenen kapak → (b) animecix bölüm kapağı →
-        //   (c) sağlayıcı-türetimi (harita/Voe/VidMoly/Morencius) →
+        //   (c) sağlayıcı-türetimi (harita/VidMoly/Morencius) →
         //   (d) ani.zip/TVDB → (e) manifest'te VARSA yerel dosya → (f) seri posteri.
         // İlk dördü çoğu bölümde tutar; gereksiz istek olmaz.
         candidates={[

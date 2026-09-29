@@ -1589,6 +1589,19 @@ export function AnizipSyncPanel({
       if (!isCurrent()) return { ok: false, attempts };
 
       /**
+       * PART DEVAMI + KENDİ KAYIT 404: ilişkili kayıtlara DÜŞME.
+       *
+       * Ölçüm (65077, S3 Part 2): part'ın kendi kataloğu upstream'de YOK
+       * (ani.zip 404; AniList NOT_YET_RELEASED). Düşülürse ilişkili kayıtlardan
+       * S3 Part 1'in bölümleri dönüp "part'ın bölümleri" gibi listeleniyor.
+       * Dürüst sonuç `ok: false` + denenen kimliklerdir → panel "katalog kaydı
+       * YOK" mesajını gösterir, başka sezonun bölümleri KARIŞMAZ.
+       * Normal akış (kendi kayıt 200) ve filmsi akış etkilenmez.
+       */
+      const ownMissing = attempts.some((a) => a.malId === malId && !a.ok && a.status === 404);
+      if (partContinuation && ownMissing) return { ok: false, attempts };
+
+      /**
        * FİLM (TEK PARÇA): YALNIZCA KENDİ KAYDI — ve sonuç TEK bölüm.
        *
        * Filmde ani.zip bölümü `sezon 0` altında verir, bu yüzden aşağıdaki `seek()`
@@ -1686,7 +1699,9 @@ export function AnizipSyncPanel({
     },
     // `singlePart` BURADA gerekli: film modu bu çözümleyicinin İÇİNDE dallanıyor
     // (aşağıdaki `load` yalnızca çağırıyor, bayrağı kendisi kullanmıyor).
-    [seasonNumber, resolveOrdinal, singlePart],
+    // `partContinuation` da gerekli: kendi kayıt 404'üyken part devamında
+    // ilişkili kayıtlara düşülmez (bkz. yukarıdaki PART DEVAMI guard'ı).
+    [seasonNumber, resolveOrdinal, singlePart, partContinuation],
   );
 
   /**
@@ -2672,6 +2687,18 @@ export function AnizipSyncPanel({
 
     // CANLI HIZ ÖLÇÜMÜ: koşunun başlangıç anı (bkz. `RunRate`).
     setRunStartedAt(Date.now());
+
+    /**
+     * HAZIRLIK DA GÖRÜNÜR — "donuk" düğme düzeltmesi.
+     *
+     * Sezon satırı (`ensureSeasonRow`) + Anizm ön kontrolü (`resolvePuffy`) ağ
+     * işidir; ilerleme SADECE `resolveAndWrite` içinde açılıyordu. O yüzden
+     * düğmeye basınca çubuk belirene kadar panel donmuş gibi duruyordu.
+     * Hedef sayı yaklaşık verilir, `resolveAndWrite` kesin sayıyla sıfırlar.
+     * (İkisi de içte try/catch'li — fırlatmaz, `busy` asılı kalmaz.)
+     */
+    setBusy(true);
+    setProgress({ done: 0, total: targetList(wanted).length, fail: [] });
 
     // SEZON KAYDI GARANTİSİ — "sezon oluştur" düğmesi kaldırıldığı için sezon
     // satırını yazma işi kendisi kurar (bkz. `ensureSeasonRow` notu).
