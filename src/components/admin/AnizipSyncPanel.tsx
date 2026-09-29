@@ -464,6 +464,18 @@ function RunRate({ done, total, startedAt }: { done: number; total: number; star
   );
 }
 
+/**
+ * Panelin DIŞARIYA bildirdiği canlı durum — küçültülmüş hapta gösterilir.
+ * Üst bileşen (`SeasonsPanel`) bunu hapta çizer; yazma sürerken panel
+ * kapalıyken bile ilerleme görünür.
+ */
+export type PanelActivity = {
+  busy: boolean;
+  done: number;
+  total: number;
+  fail: number;
+};
+
 export function AnizipSyncPanel({
   showId,
   malId,
@@ -481,6 +493,7 @@ export function AnizipSyncPanel({
   onDeleteSeasonNumber,
   onDone,
   onManualAdd,
+  onActivity,
 }: {
   showId: string;
   /**
@@ -604,6 +617,14 @@ export function AnizipSyncPanel({
    * ekleyemiyorum" — katalog 404 verince form gömülü kalmasın.
    */
   onManualAdd?: () => void;
+  /**
+   * CANLI DURUM BİLDİRİMİ — küçültülmüş hap için.
+   *
+   * `busy`/`progress` değiştiğinde üst bileşene `{ busy, done, total, fail }`
+   * gönderilir. Üst bileşen aynı değerde yeniden çizmez (referans koruması
+   * kendisinde). `undefined` ise hiçbir şey bildirilmez — bugünkü davranış.
+   */
+  onActivity?: ((activity: PanelActivity) => void) | undefined;
 }) {
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [problem, setProblem] = useState<string | null>(null);
@@ -1135,6 +1156,19 @@ export function AnizipSyncPanel({
     );
   };
   const [busy, setBusy] = useState(false);
+  /**
+   * CANLI DURUM ÇIKIŞI — küçültülmüş hap beslenir.
+   * `busy`/`progress` her değiştiğinde üst bileşene bildirilir; üst bileşen
+   * aynı değerde yeniden çizmez (referans koruması kendisinde).
+   */
+  useEffect(() => {
+    onActivity?.({
+      busy,
+      done: progress?.done ?? 0,
+      total: progress?.total ?? 0,
+      fail: progress?.fail.length ?? 0,
+    });
+  }, [busy, progress, onActivity]);
 
   // NOT: Yumuşak ilerleme saati ARTIK BURADA DEĞİL — `RowProgress` bileşeninin
   // içinde. Gerekçe o bileşenin başında yazılı (kullanıcı bildirimi, 29.09.2026:

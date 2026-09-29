@@ -5,10 +5,13 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
+  ChevronUp,
+  CloudDownload,
   Globe,
   Languages,
   ListPlus,
   Loader2,
+  Minus,
   Plus,
   Save,
   Trash2,
@@ -27,7 +30,7 @@ import {
   pasteEmbed,
   watchUrlError,
 } from "@/lib/admin";
-import { AnizipSyncPanel } from "@/components/admin/AnizipSyncPanel";
+import { AnizipSyncPanel, type PanelActivity } from "@/components/admin/AnizipSyncPanel";
 import { toast } from "@/lib/admin-toast";
 import { confirmAction } from "@/lib/admin-confirm";
 import type { Episode, Season } from "@/lib/content";
@@ -382,6 +385,17 @@ export function SeasonsPanel({
   // basışla tüm bölümleri eklemek için: sezon kartındaki "Katalogdan çek".
   const [catalogSeason, setCatalogSeason] = useState<number | null>(null);
   /**
+   * KATALOG MİNİ HÂLİ — sağ altta hap, yazma sürerken panel kapalı.
+   *
+   * Kullanıcı isteği: "yükleme yaparken minimize alayım, hapta süre/ilerleme
+   * görünsün." Modal `hidden` ile gizlenir (BİLEŞEN DURUR — yazma/sayım devam
+   * eder, durum kaybolmaz); hap `catalogActivity` ile canlı ilerlemeyi gösterir.
+   * Büyütme hapın kendisine tıklayınca olur.
+   */
+  const [catalogMin, setCatalogMin] = useState(false);
+  /** Hapın çizdiği canlı durum (`AnizipSyncPanel.onActivity` besler). */
+  const [catalogActivity, setCatalogActivity] = useState<PanelActivity | null>(null);
+  /**
    * ⚠️ BU ETKİ ERKEN `return`DEN (yükleme durumu) ÖNCE OLMAK ZORUNDA.
    *
    * Bu yüzden hedef sezon `rows`tan değil, doğrudan `seasons` durumundan
@@ -463,6 +477,8 @@ export function SeasonsPanel({
       setPendingSeasonMalId(opts.pending ?? null);
       setTargetSeasonMalId(opts.seasonMalId ?? null);
       setCatalogNotice(opts.notice ?? null);
+      setCatalogMin(false);
+      setCatalogActivity(null);
       setCatalogSeason(number);
       onCatalogOpenHandled?.();
     },
@@ -944,7 +960,11 @@ export function SeasonsPanel({
       onNotice(`${number}. sezon silindi.`);
       // Panel o sezonu gösteriyorsa hedefi bırak; başka bir sezon silindiyse
       // görünüm olduğu yerde kalsın (kullanıcı silmek istediği sezonu seçmişti).
-      if (catalogSeason === number) setCatalogSeason(null);
+      if (catalogSeason === number) {
+        setCatalogSeason(null);
+        setCatalogMin(false);
+        setCatalogActivity(null);
+      }
       await reload();
     } catch (error) {
       toast.error("Sezon silinemedi: " + (error instanceof Error ? error.message : String(error)));
@@ -1035,33 +1055,57 @@ export function SeasonsPanel({
       {/* KATALOG PANELİ — panel seviyesinde popup. */}
       {catalogSeason !== null &&
         createPortal(
-          <div
-            className="animate-modal-fade fixed inset-0 z-[70] overflow-y-auto overscroll-contain [scrollbar-gutter:stable] bg-black/70 p-3 sm:p-6"
-            role="dialog"
-            aria-modal="true"
-            aria-label="Katalog paneli"
-            onClick={() => setCatalogSeason(null)}
-            onKeyDown={(event) => {
-              if (event.key === "Escape") setCatalogSeason(null);
-            }}
-          >
+          <>
             <div
-              className="animate-modal-panel mx-auto w-full max-w-xl overflow-hidden rounded-2xl border border-border bg-background shadow-2xl"
-              onClick={(event) => event.stopPropagation()}
+              className={`animate-modal-fade fixed inset-0 z-[70] overflow-y-auto overscroll-contain bg-black/70 p-3 [scrollbar-gutter:stable] sm:p-6${catalogMin ? " hidden" : ""}`}
+              role="dialog"
+              aria-modal="true"
+              aria-label="Katalog paneli"
+              onClick={() => {
+                setCatalogSeason(null);
+                setCatalogMin(false);
+                setCatalogActivity(null);
+              }}
+              onKeyDown={(event) => {
+                if (event.key === "Escape") {
+                  setCatalogSeason(null);
+                  setCatalogMin(false);
+                  setCatalogActivity(null);
+                }
+              }}
             >
-              <div className="flex items-center justify-between gap-3 border-b border-border px-3 py-2.5">
-                <h3 className="font-display text-base text-foreground">Katalogdan bölüm çek</h3>
-                <button
-                  type="button"
-                  onClick={() => setCatalogSeason(null)}
-                  title="Kapat"
-                  aria-label="Kapat"
-                  className="grid size-7 shrink-0 place-items-center rounded-full border border-border text-muted-foreground transition-colors hover:text-foreground"
-                >
-                  <X size={15} />
-                </button>
-              </div>
-              {/*
+              <div
+                className="animate-modal-panel mx-auto w-full max-w-xl overflow-hidden rounded-2xl border border-border bg-background shadow-2xl"
+                onClick={(event) => event.stopPropagation()}
+              >
+                <div className="flex items-center justify-between gap-3 border-b border-border px-3 py-2.5">
+                  <h3 className="font-display text-base text-foreground">Katalogdan bölüm çek</h3>
+                  <div className="flex shrink-0 items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setCatalogMin(true)}
+                      title="Küçült — yazma sürerken hapta ilerleme görünür"
+                      aria-label="Küçült"
+                      className="grid size-7 place-items-center rounded-full border border-border text-muted-foreground transition-colors hover:text-foreground"
+                    >
+                      <Minus size={15} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCatalogSeason(null);
+                        setCatalogMin(false);
+                        setCatalogActivity(null);
+                      }}
+                      title="Kapat"
+                      aria-label="Kapat"
+                      className="grid size-7 place-items-center rounded-full border border-border text-muted-foreground transition-colors hover:text-foreground"
+                    >
+                      <X size={15} />
+                    </button>
+                  </div>
+                </div>
+                {/*
                 `min-h` = POPUP AÇILIŞTA SON ÖLÇÜSÜNDE DURSUN (kullanıcı bildirimi,
                 29.09.2026: "popup'la açılıyor sonra aşağı doğru katlanıyor").
 
@@ -1070,12 +1114,12 @@ export function SeasonsPanel({
                 18rem + 12 dolgu = 352 px) — yani liste gelince gövde BÜYÜMEZ; kısa
                 listelerde (film/tek bölüm) de KÜÇÜLMEZ. Popup hep aynı ölçüde durur.
               */}
-              {/* Yükseklik daraltıldı (kullanıcı bildirimi): liste + yazma satırı
+                {/* Yükseklik daraltıldı (kullanıcı bildirimi): liste + yazma satırı
                   birlikte görünsün, modal gövdesi ekranda derli toplu dursun. */}
-              <div className="max-h-[62vh] min-h-[20rem] overflow-y-auto overscroll-contain p-3">
-                <AnizipSyncPanel
-                  showId={showId}
-                  /*
+                <div className="max-h-[62vh] min-h-[20rem] overflow-y-auto overscroll-contain p-3">
+                  <AnizipSyncPanel
+                    showId={showId}
+                    /*
                     ⚠️ BURADA `malId` GEÇİRİLMİYORDU — ÖLÇÜLEN HATA (28.09.2026).
 
                     Seri formu (ShowEditor) "kaydedilmemiş kimlik de geçerli" diye
@@ -1096,59 +1140,109 @@ export function SeasonsPanel({
                         elle ekleme formu öne çıktı.
                      Şikâyet: "ben her animeyi elle ekleyeceksem ne anlamı var".
                   */
-                  malId={catalogMalId}
-                  notice={catalogNotice}
-                  /*
+                    malId={catalogMalId}
+                    notice={catalogNotice}
+                    /*
                     BELİRSİZ GİRİŞ SEÇİMİ — yalnızca başlıkta "Season N" /
                     "Part-Cour" ibaresi OLMAYAN bir girişte dolar; panel
                     "Hedef: S{n}" etiketinin hemen yanında küçük bir seçim çizer.
                   */
-                  ambiguousChoice={
-                    ambiguousTarget
-                      ? { value: ambiguousTarget.choice, onChange: chooseAmbiguous }
-                      : null
-                  }
-                  partContinuation={partSeasonMalId !== null}
-                  /**
-                   * PART numaralandırma çıpası — ÖNCE ZİNCİRDEN çözülen sezon
-                   * kimliği, sonra DB satırı. Sıra önemli: Mushoku'da **S1 satırı
-                   * YOK**, o yüzden DB'ye bakmak çıpayı boş bırakırdı; zincir
-                   * (39535) doğru uzunluğu (11) verir.
-                   */
-                  seasonOwnMalId={
-                    targetSeasonMalId ??
-                    (seasons ?? []).find((season) => season.number === catalogSeason)?.mal_id ??
-                    null
-                  }
-                  // "Sezonu tamamen sil" düğmesi — panelin "Gelişmiş" bölümünde.
-                  // GÖRÜNÜR SİLME: hem Gelişmiş içindeki düğme hem panelin sezon seçicisinin
-                  // yanındaki çöp kutusu aynı akışı kullanır (onay penceresi + kalıntısız temizlik).
-                  onDeleteSeason={() => void deleteCatalogSeason()}
-                  onDeleteSeasonNumber={(number) => void deleteCatalogSeason(number)}
-                  puffySlug={puffySlugFor(slug)}
-                  seasonNumber={catalogSeason}
-                  singlePart={singlePart}
-                  seasons={(seasons ?? []).map((item) => ({ number: item.number }))}
-                  onSelectSeason={(number) => setCatalogSeason(number)}
-                  existing={(episodes ?? [])
-                    .filter((episode) => episode.season === catalogSeason)
-                    .map((episode) => ({
-                      id: episode.id,
-                      season: episode.season,
-                      number: episode.number,
-                      title: episode.title,
-                    }))}
-                  onDone={async (message) => {
-                    onNotice(message);
-                    await reload();
-                  }}
-                  onManualAdd={() => setManualFocusSeason(catalogSeason)}
-                />
+                    ambiguousChoice={
+                      ambiguousTarget
+                        ? { value: ambiguousTarget.choice, onChange: chooseAmbiguous }
+                        : null
+                    }
+                    partContinuation={partSeasonMalId !== null}
+                    /**
+                     * PART numaralandırma çıpası — ÖNCE ZİNCİRDEN çözülen sezon
+                     * kimliği, sonra DB satırı. Sıra önemli: Mushoku'da **S1 satırı
+                     * YOK**, o yüzden DB'ye bakmak çıpayı boş bırakırdı; zincir
+                     * (39535) doğru uzunluğu (11) verir.
+                     */
+                    seasonOwnMalId={
+                      targetSeasonMalId ??
+                      (seasons ?? []).find((season) => season.number === catalogSeason)?.mal_id ??
+                      null
+                    }
+                    // "Sezonu tamamen sil" düğmesi — panelin "Gelişmiş" bölümünde.
+                    // GÖRÜNÜR SİLME: hem Gelişmiş içindeki düğme hem panelin sezon seçicisinin
+                    // yanındaki çöp kutusu aynı akışı kullanır (onay penceresi + kalıntısız temizlik).
+                    onDeleteSeason={() => void deleteCatalogSeason()}
+                    onDeleteSeasonNumber={(number) => void deleteCatalogSeason(number)}
+                    puffySlug={puffySlugFor(slug)}
+                    seasonNumber={catalogSeason}
+                    singlePart={singlePart}
+                    seasons={(seasons ?? []).map((item) => ({ number: item.number }))}
+                    onSelectSeason={(number) => {
+                      setCatalogMin(false);
+                      setCatalogActivity(null);
+                      setCatalogSeason(number);
+                    }}
+                    onActivity={(activity) =>
+                      setCatalogActivity((previous) =>
+                        previous &&
+                        previous.busy === activity.busy &&
+                        previous.done === activity.done &&
+                        previous.total === activity.total &&
+                        previous.fail === activity.fail
+                          ? previous
+                          : activity,
+                      )
+                    }
+                    existing={(episodes ?? [])
+                      .filter((episode) => episode.season === catalogSeason)
+                      .map((episode) => ({
+                        id: episode.id,
+                        season: episode.season,
+                        number: episode.number,
+                        title: episode.title,
+                      }))}
+                    onDone={async (message) => {
+                      onNotice(message);
+                      await reload();
+                    }}
+                    onManualAdd={() => setManualFocusSeason(catalogSeason)}
+                  />
+                </div>
               </div>
             </div>
-          </div>,
+          </>,
           document.body,
         )}
+      {/*
+        KÜÇÜLTÜLMÜŞ HAP — sağ altta, yazma sürerken canlı ilerleme.
+
+        Modal `hidden` ile gizlenir ama BİLEŞEN DURUR (yazma/sayım devam eder,
+        durum kaybolmaz). Hapa tıklayınca panel geri açılır. Boştayken "hazır"
+        yazar; yazarken "5/12" sayacı + hata sayısı görünür.
+      */}
+      {catalogSeason !== null && catalogMin
+        ? createPortal(
+            <button
+              type="button"
+              onClick={() => setCatalogMin(false)}
+              title="Katalog paneline dön"
+              className="fixed bottom-4 right-4 z-[75] flex items-center gap-2 rounded-full border border-border bg-background/95 py-2 pl-3 pr-2 text-xs font-bold text-foreground shadow-2xl backdrop-blur transition-transform hover:scale-[1.04]"
+            >
+              {catalogActivity?.busy ? (
+                <Loader2 size={13} className="animate-spin text-emerald-400" />
+              ) : (
+                <CloudDownload size={13} className="text-emerald-400" />
+              )}
+              <span>Katalog · S{catalogSeason}</span>
+              {catalogActivity && catalogActivity.total > 0 ? (
+                <span className="rounded-full bg-foreground/10 px-1.5 py-0.5 tabular-nums">
+                  {catalogActivity.done}/{catalogActivity.total}
+                  {catalogActivity.fail > 0 ? ` · ${catalogActivity.fail} hata` : ""}
+                </span>
+              ) : (
+                <span className="font-normal text-muted-foreground">hazır</span>
+              )}
+              <ChevronUp size={13} className="text-muted-foreground" />
+            </button>,
+            document.body,
+          )
+        : null}
 
       {/* "BÖLÜMLERİ ELLE EKLE" — katalogda bulunmayan bölümler için.
           Kapatma düğmesi EKLENDİ: form artık koşullu çiziliyor, bu yüzden odak
