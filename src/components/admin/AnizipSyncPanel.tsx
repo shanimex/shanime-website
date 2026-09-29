@@ -3079,9 +3079,11 @@ export function AnizipSyncPanel({
         />
       </button>
 
-      {/* Katlanır bölüm: 0fr → 1fr ile YUMUŞAK açılır (kullanıcı bildirimi 29.09.2026). */}
-      <div className={`expand-rows ${advanced ? "is-open" : ""}`}>
-        <div className="mt-2 space-y-2 rounded-xl border border-dashed border-border p-2.5">
+      {/* Kapalıyken İÇERİK HİÇ ÇİZİLMEZ (kullanıcı bildirimi: kapalı hâlde
+          içerik sızıp "yarım" görünüyordu). Koşullu render — kapalıyken DOM'da
+          düğmeden başka bir şey yok, sızıntı imkânsız. */}
+      {advanced ? (
+        <div className="animate-rise-in mt-2 space-y-1.5 rounded-xl border border-dashed border-border p-2">
           {/*
             GELİŞMİŞ = ADRES/EŞLEME AYARLARI. Kalıcı paragraf KALDIRILDI (kullanıcı:
             "gereksiz karmaşık"); ayrıntı `title`da. Ekranda tek kısa satır kalır.
@@ -3105,7 +3107,7 @@ export function AnizipSyncPanel({
               <label className="flex flex-wrap items-center gap-2 text-[11px] font-bold text-muted-foreground">
                 puffytr adresi
                 <input
-                  className={`${inputCls} h-8 w-64 text-xs`}
+                  className={`${inputCls} h-7 w-56 text-xs`}
                   value={puffyInput}
                   onChange={(event) => {
                     setPuffyInput(event.target.value.trim());
@@ -3117,7 +3119,7 @@ export function AnizipSyncPanel({
                 <Button
                   size="sm"
                   variant="outline"
-                  className="h-8 rounded-full px-3 text-xs"
+                  className="h-7 rounded-full px-3 text-xs"
                   onClick={() => void resolvePuffy()}
                   disabled={busy}
                 >
@@ -3247,17 +3249,22 @@ export function AnizipSyncPanel({
               Yanlış kaynağı düzeltmenin başka yolu yoktu (bölümü komple silmek
               gerekiyordu). Bu düğme yalnızca `episode_sources` satırlarını temizler:
               BÖLÜM KAYITLARI VE ADLARI KALIR, aynı sezonu yeniden yazabilirsin.
-              Yıkıcı → SİTEYE ÖZEL onay penceresi ister (`confirmAction`). */}
-          <div className="flex flex-wrap items-center gap-2 border-t border-border pt-2">
+              Yıkıcı → SİTEYE ÖZEL onay penceresi ister (`confirmAction`).
+              Görünüm minik tutulur (kullanıcı bildirimi: kocaman kırmızı
+              düğmeler); işlev aynıdır. */}
+          <div className="flex flex-wrap items-center gap-1.5 border-t border-border/60 pt-2">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/70">
+              Sil
+            </span>
             <Button
               size="sm"
-              variant="outline"
-              className="h-7 rounded-full border-destructive/40 px-3 text-xs text-destructive hover:bg-destructive/10"
+              variant="ghost"
+              className="h-6 rounded-full px-2 text-[11px] text-destructive/80 hover:bg-destructive/10 hover:text-destructive"
               disabled={busy || existing.length === 0}
               onClick={() => void clearSeasonSources()}
               title="Bu sezonun yazılmış TÜM kaynaklarını siler; bölüm kayıtları ve adları KALIR"
             >
-              <Trash2 size={12} /> Sezonun kaynaklarını sil ({existing.length})
+              <Trash2 size={11} /> Kaynakları sil ({existing.length})
             </Button>
             {/* ═══ SEZONU TAMAMEN SİL ═══
                 Kullanıcı isteği (28.09.2026): "direkt sezonu silemiyorum kanka ya."
@@ -3270,18 +3277,18 @@ export function AnizipSyncPanel({
             {onDeleteSeason ? (
               <Button
                 size="sm"
-                variant="outline"
-                className="h-7 rounded-full border-destructive/60 px-3 text-xs font-bold text-destructive hover:bg-destructive/10"
+                variant="ghost"
+                className="h-6 rounded-full px-2 text-[11px] text-destructive/80 hover:bg-destructive/10 hover:text-destructive"
                 disabled={busy}
                 onClick={onDeleteSeason}
                 title="Bu sezonu bölümleriyle birlikte siler (sezon kaydı da gider)"
               >
-                <Trash2 size={12} /> Sezonu tamamen sil
+                <Trash2 size={11} /> Sezonu sil
               </Button>
             ) : null}
           </div>
         </div>
-      </div>
+      ) : null}
 
       {status === "loading" && (
         /*

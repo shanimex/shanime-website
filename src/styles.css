@@ -985,34 +985,3 @@
     animation: none;
   }
 }
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   KATLANIR BOLUMLER — YUMUSAK ACILMA
-   Kullanici bildirimi (29.09.2026): "butonlara basinca animasyonsuz aciliyor".
-
-   grid-template-rows: 0fr -> 1fr gecisi yuksekligi GERCEKTEN animasyonlar:
-   "auto" yukseklige gecis CSS'te dogrudan mumkun degil; bu yontem icerigi
-   anlik ziplatmadan buyuterek acar. min-height: 0 sart — yoksa satir icerigin
-   yuksekliginde kalir ve kapanmaz.
-   ═══════════════════════════════════════════════════════════════════════════ */
-.expand-rows {
-  display: grid;
-  grid-template-rows: 0fr;
-  overflow: hidden;
-  transition: grid-template-rows 240ms cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-.expand-rows > * {
-  min-height: 0;
-  overflow: hidden;
-}
-
-.expand-rows.is-open {
-  grid-template-rows: 1fr;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .expand-rows {
-    transition: none;
-  }
-}
