@@ -1463,7 +1463,7 @@ function BulkAddForm({
       <div className="flex items-center gap-2">
         <span className="text-xs text-muted-foreground">İlk bölüm no</span>
         <input
-          className={`${inputCls} w-20`}
+          className={cn(inputCls, "w-20")}
           inputMode="numeric"
           value={start}
           onChange={(event) => setStart(event.target.value.replace(/[^0-9]/g, ""))}
@@ -1663,7 +1663,7 @@ function AddEpisodeForm({
         </span>
         <input
           ref={titleRef}
-          className={`${inputCls} h-8 min-w-28 flex-1 text-xs`}
+          className={cn(inputCls, "h-8 min-w-28 flex-1 text-xs")}
           value={title}
           onChange={(event) => setTitle(event.target.value)}
           placeholder="Bölüm adı (opsiyonel)"
@@ -1672,7 +1672,7 @@ function AddEpisodeForm({
         {/* Kaynak seçimi artık bölüm satırındaki TİK LİSTESİNDE (episode_sources):
             burada yalnızca serinin eski "video linki" alanı kalır — boş bırakılabilir. */}
         <input
-          className={`${inputCls} h-8 min-w-40 flex-1 text-xs`}
+          className={cn(inputCls, "h-8 min-w-40 flex-1 text-xs")}
           value={watchUrl}
           onChange={(event) => setWatchUrl(event.target.value)}
           onPaste={pasteEmbed(setWatchUrl)}

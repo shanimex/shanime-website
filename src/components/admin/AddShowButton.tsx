@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { ImageDrop } from "@/components/admin/ImageDrop";
 import { toast } from "@/lib/admin-toast";
 import { db, inputCls, slugify, uniqueSlug } from "@/lib/admin";
+import { cn } from "@/lib/utils";
 import { uploadImage } from "@/lib/content";
 import {
   fetchMalCoverFile,
@@ -434,7 +435,7 @@ export function AddShowButton({
       />
       <div className="flex flex-wrap gap-2">
         <input
-          className={`${inputCls} w-28`}
+          className={cn(inputCls, "w-28")}
           value={year}
           onChange={(event) => setYear(event.target.value)}
           placeholder="Yıl"
@@ -442,7 +443,7 @@ export function AddShowButton({
         />
         {/* Hazır tür listesi: yazım hatası yeni tür kategorisi oluşturmasın. */}
         <input
-          className={`${inputCls} w-44`}
+          className={cn(inputCls, "w-44")}
           list="shows-genre-options"
           value={genre}
           onChange={(event) => setGenre(event.target.value)}

@@ -16,6 +16,7 @@ import { ImageDrop } from "@/components/admin/ImageDrop";
 import { SeasonsPanel } from "@/components/admin/SeasonsPanel";
 import { toast } from "@/lib/admin-toast";
 import { db, inputCls, slugify, uniqueSlug } from "@/lib/admin";
+import { cn } from "@/lib/utils";
 import { showSlug } from "@/lib/content";
 import { isPartContinuation } from "@/lib/puffy";
 /**
@@ -520,7 +521,7 @@ export function ShowEditor({
           />
           <div className="mt-2 flex flex-wrap items-center gap-2">
             <input
-              className={`${inputCls} w-24`}
+              className={cn(inputCls, "w-24")}
               value={year}
               onChange={(event) => setYear(event.target.value)}
               placeholder="Yıl"
@@ -528,7 +529,7 @@ export function ShowEditor({
             />
             {/* Hazır tür listesi: yazım hatası yeni tür kategorisi oluşturmasın. */}
             <input
-              className={`${inputCls} w-40`}
+              className={cn(inputCls, "w-40")}
               list="shows-genre-options"
               value={genre}
               onChange={(event) => setGenre(event.target.value)}

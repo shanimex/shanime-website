@@ -24,6 +24,7 @@ import { toast } from "@/lib/admin-toast";
 import { confirmAction } from "@/lib/admin-confirm";
 import { createPortal } from "react-dom";
 import { db, inputCls } from "@/lib/admin";
+import { cn } from "@/lib/utils";
 import { puffySlugForSeason } from "@/lib/puffy";
 import { SOURCE_GROUPS } from "@/lib/embed-sources";
 import {
@@ -3162,7 +3163,7 @@ export function AnizipSyncPanel({
               <label className="flex flex-wrap items-center gap-2 text-[11px] font-bold text-muted-foreground">
                 puffytr adresi
                 <input
-                  className={`${inputCls} h-7 w-56 text-xs`}
+                  className={cn(inputCls, "h-7 w-56 text-xs")}
                   value={puffyInput}
                   onChange={(event) => {
                     setPuffyInput(event.target.value.trim());
@@ -3248,7 +3249,7 @@ export function AnizipSyncPanel({
                   <label className="flex items-center gap-2 text-[11px] font-bold text-muted-foreground">
                     TauVideo no
                     <input
-                      className={`${inputCls} h-8 w-28 text-xs`}
+                      className={cn(inputCls, "h-8 w-28 text-xs")}
                       value={animecixInput}
                       inputMode="numeric"
                       onChange={(event) =>
@@ -3792,7 +3793,7 @@ export function AnizipSyncPanel({
             <span className="flex items-center gap-1 text-[11px] font-bold text-muted-foreground">
               Aralık
               <input
-                className={`${inputCls} h-6 w-11 text-center text-[11px]`}
+                className={cn(inputCls, "h-6 w-11 text-center text-[11px]")}
                 value={rangeFrom}
                 onChange={(event) => setRangeFrom(event.target.value)}
                 placeholder="ilk"
@@ -3801,7 +3802,7 @@ export function AnizipSyncPanel({
               />
               <span aria-hidden="true">–</span>
               <input
-                className={`${inputCls} h-6 w-11 text-center text-[11px]`}
+                className={cn(inputCls, "h-6 w-11 text-center text-[11px]")}
                 value={rangeTo}
                 onChange={(event) => setRangeTo(event.target.value)}
                 placeholder="son"
@@ -3957,7 +3958,7 @@ export function AnizipSyncPanel({
                     {menuEpisodeId ? (
                       <>
                         <input
-                          className={`${inputCls} mt-2 h-8 text-xs`}
+                          className={cn(inputCls, "mt-2 h-8 text-xs")}
                           value={embedDraft}
                           onChange={(event) => setEmbedDraft(event.target.value)}
                           placeholder="embed adresi ya da iframe kodu"
