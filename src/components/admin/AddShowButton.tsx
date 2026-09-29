@@ -143,13 +143,28 @@ export function AddShowButton({
     try {
       const hits = await searchMal({ malId: byId ? typedId : null, title: query });
       setMalHits(hits);
-      setMalNotice(
-        hits.length === 0
-          ? null
-          : hits.length === 1
-            ? "Tek eşleşme bulundu — kullanmak için satıra tıkla."
-            : `${hits.length} eşleşme bulundu — birini seç.`,
-      );
+      /**
+       * MAL KİMLİĞİYLE TEK EŞLEŞME → satıra tıklatmadan ÖNERİ olarak doldur.
+       *
+       * Kimlik netken tıklama adımı gereksizdi (kullanıcı isteği). Alanlar yine
+       * düzenlenebilir — `applyHit` yalnızca kutulara yazar, kayıt açmaz.
+       * Adla aramada (birden çok sonuç) eski seçmeli davranış korunur.
+       */
+      const single = byId && hits.length === 1 ? hits[0] : undefined;
+      if (single) {
+        applyHit(single);
+        setMalNotice(
+          `MAL ${single.malId} eşleşti — alanlar otomatik dolduruldu, değiştirebilirsin.`,
+        );
+      } else {
+        setMalNotice(
+          hits.length === 0
+            ? null
+            : hits.length === 1
+              ? "Tek eşleşme bulundu — kullanmak için satıra tıkla."
+              : `${hits.length} eşleşme bulundu — birini seç.`,
+        );
+      }
       if (hits.length === 0) {
         toast.error(byId ? malIdMissText(typedId) : "Sonuç bulunamadı — adı farklı yazmayı dene.");
       }
