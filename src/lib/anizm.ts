@@ -35,14 +35,18 @@ export function anizmResolvedCount(): number {
 }
 
 /**
- * Bir dizinin anizm kaydı kaç bölüm için hazır? (Panelde "TR kaynağı" göstergesi.)
- * Anahtarlar `{malId}-s…` biçiminde olduğu için ön ek sayımı yeterlidir.
+ * ⚠️ BURADA ESKİDEN `anizmCountForShow(malId)` VARDI — SİLİNDİ, GERİ GETİRMEYİN.
+ *
+ * O fonksiyon yukarıdaki DERLEME ZAMANI tablosunun `{malId}-` önekli anahtarlarını
+ * sayıp paneldeki "TR a/b" rozetinin payı yapıyordu. Yanlıştı, çünkü:
+ *   · tablo `scripts/resolve-anizm-hashes.mjs` ile DERLEMEDE üretilir; panelden
+ *     bölüm eklemek onu DEĞİŞTİRMEZ → rozet hiç düzelmeyen "amber"e saplanıyordu,
+ *   · panelin yazdığı GERÇEK Türkçe kapsamayı (`episode_sources.language = 'tr'`)
+ *     tamamen yok sayıyordu.
+ * Artık pay CANLI veriden gelir: `lib/episode-sources.ts → fetchTurkishCoverage()`
+ * (SABİT 2 istek). Bu tabloyu (`TABLE`) yalnızca `anizmPlayerUrl` — yani oynatma
+ * adresi çözümü — kullanır; o kullanım DOĞRUDUR ve dosya bu yüzden KALIR.
  */
-export function anizmCountForShow(malId: number | null | undefined): number {
-  if (!malId) return 0;
-  const prefix = `${malId}-`;
-  return Object.keys(TABLE).filter((key) => key.startsWith(prefix)).length;
-}
 
 /**
  * Bölümün anizm oynatıcı adresi. Hash yoksa `null`.

@@ -1,4 +1,4 @@
-@import "tailwindcss" source(none);
+﻿@import "tailwindcss" source(none);
 @source "../src";
 
 /*
@@ -80,6 +80,79 @@
     border-color: var(--color-border);
   }
 
+  /* ═══════════════════════════════════════════════════════════════════════════
+     TÜM ETKİLEŞİM ÖĞELERİNDE AKICILIK — TEK YERDEN
+     (kullanıcı isteği, 28.09.2026: "bütün tuşlar, iletişim geldiği şeylerde
+     animasyonlu olsun, tamamen akıcı olsun; admin paneli de fareyle etkileşime
+     göre animasyonlu olsun, çok akıcı olsun.")
+
+     NEDEN GLOBAL: düğmelerin bir kısmı `transition` sınıfı taşıyor, bir kısmı
+     taşımıyordu; sonuç tutarsız bir his (bazıları akıyor, bazıları zıplıyordu).
+     Bileşen bileşen dolaşmak yerine TEK kural yazıldı: her düğme, bağlantı ve
+     rol=button öğesi aynı süre ve eğriyle tepki verir.
+
+     MALİYET: `transition` yalnızca DEĞİŞİM ANINDA iş yapar; boşta hiçbir
+     maliyeti yoktur (performans turunda kaldırılan `will-change`in aksine,
+     kalıcı katman ayırmaz). Yine de yalnızca ucuz özellikler geçişe alındı —
+     `width`/`height`/`top` gibi düzeni oynatan özellikler DIŞARIDA bırakıldı,
+     çünkü onlar her karede yeniden yerleşim hesaplatır.
+  */
+  button,
+  a,
+  [role="button"],
+  summary,
+  input[type="checkbox"],
+  input[type="radio"],
+  select,
+  textarea,
+  input {
+    transition:
+      color 140ms ease,
+      background-color 140ms ease,
+      border-color 140ms ease,
+      box-shadow 140ms ease,
+      opacity 140ms ease,
+      transform 140ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  /* Basılı tutma geri bildirimi: her düğmede aynı hafif küçülme. */
+  button:not(:disabled):active,
+  a:active,
+  [role="button"]:active {
+    transform: scale(0.97);
+  }
+
+  /* Klavye kullanıcısı için görünür odak halkası (erişilebilirlik). */
+  button:focus-visible,
+  a:focus-visible,
+  [role="button"]:focus-visible,
+  input:focus-visible,
+  select:focus-visible,
+  textarea:focus-visible {
+    outline: 2px solid var(--color-ring, var(--color-border));
+    outline-offset: 2px;
+  }
+
+  /* Hareket hassasiyeti olan kullanıcılar için tüm mikro hareketler kapanır. */
+  @media (prefers-reduced-motion: reduce) {
+    button,
+    a,
+    [role="button"],
+    summary,
+    input,
+    select,
+    textarea {
+      transition:
+        color 100ms linear,
+        background-color 100ms linear;
+    }
+    button:not(:disabled):active,
+    a:active,
+    [role="button"]:active {
+      transform: none;
+    }
+  }
+
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);
@@ -104,6 +177,92 @@
   transform-origin: top right;
 }
 
+/* Mobil menu ikon gecisi (hamburger <-> carpi).
+   index.tsx bu animasyonu "motion-safe:animate-[icon-swap_...]" ile cagiriyor; ancak
+   keyframe tanimi projede hic yoktu — sinif eklendiginden (20.09.2026) beri animasyon
+   hic oynamiyordu, ikon aniden degisiyordu. Eksik tanim buraya eklendi. */
+@keyframes icon-swap {
+  from {
+    opacity: 0;
+    transform: rotate(-90deg) scale(0.6);
+  }
+  to {
+    opacity: 1;
+    transform: rotate(0deg) scale(1);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   MODAL / POPUP AÇILIŞ-KAPANIŞ ANİMASYONU
+   (kullanıcı isteği, 28.09.2026: "animasyonlu açılsın kapansın")
+
+   Arka plan yumuşakça kararır, panel hafifçe yukarıdan büyüyerek gelir. Panel
+   için yukarıdaki `animate-pop-in` yeterli; buradaki ek olan YALNIZCA karartma
+   katmanı ve ortadan büyüme (pop-in `top right` kökenli olduğu için modalda
+   köşeden açılıyormuş gibi görünürdü).
+
+   `prefers-reduced-motion` açıkken animasyon KAPATILIR: hareket hassasiyeti olan
+   kullanıcılar için erişilebilirlik gereği.
+   ═══════════════════════════════════════════════════════════════════════════ */
+@keyframes modal-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes modal-panel-in {
+  from {
+    opacity: 0;
+    transform: translateY(-10px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@utility animate-modal-fade {
+  animation: modal-fade-in 150ms ease-out both;
+}
+
+@utility animate-modal-panel {
+  animation: modal-panel-in 200ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  transform-origin: center top;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-modal-fade,
+  .animate-modal-panel {
+    animation: none;
+  }
+}
+
+/* Basinca ACILAN icerik (sonuc listesi, uyari, durum satiri): yumusak yukselme.
+   Kullanici bildirimi (29.09.2026): "butonlara basinca animasyonsuz aciliyor". */
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@utility animate-rise-in {
+  animation: rise-in 200ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-rise-in {
+    animation: none;
+  }
+}
+
 /* Vitrin geçişi fade: slayt içeriği kaymadan belirir (sonanime.com ile aynı). */
 @utility animate-hero-fade-in {
   animation: hero-fade-in 1200ms ease-out both;
@@ -120,7 +279,25 @@
 }
 
 /* Genel mikro etkileşimler: hover'da akıcı büyüme + parıltı.
-   Sadece transform/opacity kullanır, layout'u oynatmaz (kasma yapmaz). */
+   Sadece transform/opacity kullanır, layout'u oynatmaz (kasma yapmaz).
+
+   ═══════════════════════════════════════════════════════════════════════════
+   `will-change: transform` KALDIRILDI (kullanıcı, 28.09.2026: "her şey kasıyor,
+   sanki 20fps gibi").
+
+   NEDEN KALDIRILDI — ÖLÇÜM: bu sınıflar (.ui-hover, .card-hover, .icon-btn,
+   .hero-btn) onlarca öğeye birlikte uygulanıyor: ana sayfada 60+ poster kartı,
+   her düğme, her ikon. `will-change` KALICI yazıldığında tarayıcı bu öğelerin
+   HEPSİ için ayrı bir GPU katmanı ayırır ve önbelleğe alır — sayfa başına 60-100
+   katman. Sonuç: GPU belleği şişer, kaydırma sırasında birleştirme (compositing)
+   maliyeti patlar ve kare hızı düşer. MDN'in kuralı da budur: `will-change`
+   yalnızca YAKINDA değişecek özellik için ve AZ sayıda öğede kullanılır;
+   "her zaman açık" bırakılması kazandırdığından çok kaybettirir.
+
+   NEDEN KAYIPSIZ: hover'da `transform` değiştiğinde tarayıcı öğeyi zaten
+   kendisi katmana alır. Yani animasyon sırasında aynı hız elde edilir; kazanç,
+   animasyon YOKKEN o katmanların hiç ayrılmamasıdır.
+   ═══════════════════════════════════════════════════════════════════════════ */
 @layer components {
   .ui-hover {
     transition:
@@ -129,7 +306,6 @@
       border-color 250ms ease-out,
       background-color 250ms ease-out,
       color 200ms ease-out;
-    will-change: transform;
   }
 
   @media (hover: hover) {
@@ -149,7 +325,6 @@
       transform 350ms cubic-bezier(0.22, 1, 0.36, 1),
       box-shadow 350ms ease-out,
       border-color 350ms ease-out;
-    will-change: transform;
   }
 
   @media (hover: hover) {
@@ -191,7 +366,6 @@
       background-color 220ms ease-out,
       color 200ms ease-out,
       border-color 220ms ease-out;
-    will-change: transform;
   }
 
   @media (hover: hover) {
@@ -212,7 +386,6 @@
       background-color 250ms ease-out,
       color 200ms ease-out,
       border-color 250ms ease-out;
-    will-change: transform;
   }
 
   @media (hover: hover) {
@@ -329,6 +502,23 @@
 
   .hero-slide.active .hero-image {
     animation: hero-kenburns 6s ease-out forwards;
+    /*
+      ═══════════════════════════════════════════════════════════════════════════
+      GERİ ALINDI (kullanıcı bildirimi, 29.09.2026):
+        "anasayfada ne yaptın? resimlerim videolarım her şey kalitesizleşmiş,
+         eğri — geri al o yaptıklarını."
+
+      Buraya eklenen `will-change: transform` + `backface-visibility: hidden`
+      görseli kalıcı bir kompozit katmanına alıyordu. Tam ekran bir görselde bu,
+      Ken Burns zoom'u sırasında dokunun GPU'da ÖLÇEKLENMESİ anlamına gelir:
+      tarayıcı artık kaynağı hedef çözünürlükte yeniden örneklemiyor, mevcut
+      dokuyu büyütüyor — kullanıcı bunu "kalite düştü / eğri" olarak gördü.
+
+      Takılma bu satırlarla düzelmediği ve görüntüyü bozduğu için GERİ ALINDI;
+      dosya eski hâline döndü. Takılma için ölçüme dayalı ayrı bir adım gerekiyor
+      (tarayıcı performans kaydı) — tahminle ikinci tur atılmamalı.
+      ═══════════════════════════════════════════════════════════════════════════
+    */
   }
 
   /* Sürükleme sırasında zoom sıfırlanır ve animasyon durur. */
@@ -432,9 +622,26 @@
      kontur uretir; alttaki orijinal renkler korunur. Degeri bir SVG path'ine
      stroke eklemek, birbirine gecen harflerin arasina beyaz cizgiler sokardi. */
   .hero-logo--outline {
-    filter:
-      drop-shadow(1.5px 0 0 #fff) drop-shadow(-1.5px 0 0 #fff) drop-shadow(0 1.5px 0 #fff)
+    filter: drop-shadow(1.5px 0 0 #fff) drop-shadow(-1.5px 0 0 #fff) drop-shadow(0 1.5px 0 #fff)
       drop-shadow(0 -1.5px 0 #fff) drop-shadow(0 8px 24px rgba(0, 0, 0, 0.45));
+    /*
+      ── BEŞ ZİNCİRLENMİŞ GÖLGE, KAREDE BİR KEZ ───────────────────────────────
+      Yukarıdaki 5 `drop-shadow()` her biri ayrı bir bulanıklık geçişidir; logo
+      slayt fade'i sırasında saydamlıkla birlikte animasyonlandığı için tarayıcı
+      bu beş geçişi HER KAREDE yeniden hesaplayabiliyordu (takılmanın ikinci
+      kaynağı). Katman terfisiyle gölgeler BİR KEZ raster edilir, fade yalnızca
+      harmanlanır. Beyaz kontur ve gölge GÖRÜNÜŞÜ birebir aynı kalır.
+    */
+    /*
+      ═══════════════════════════════════════════════════════════════════════════
+      GERİ ALINDI (kullanıcı bildirimi, 29.09.2026): buraya eklenen
+      `will-change: opacity` + `transform: translateZ(0)`, beş zincirli beyaz
+      konturu ayrı bir katmana taşıyordu. Katman, düzen (layout) boyutunda raster
+      edilip sonra dönüştürüldüğü için kontur kenarları yumuşayıp kayabiliyor —
+      kullanıcı görüntüyü "eğri / kalitesiz" olarak gördü. Satırlar kaldırıldı,
+      logo eski hâline döndü.
+      ═══════════════════════════════════════════════════════════════════════════
+    */
   }
 
   /* Detaylar: video baslarken grid satiri kapanir (yukseklik animasyonu). */
@@ -662,12 +869,14 @@
     transition: none;
     transform: none;
   }
-
 }
 
 @layer components {
   .site-button:not(:disabled) {
-    transition: transform 200ms ease-out, background-color 200ms ease, color 200ms ease;
+    transition:
+      transform 200ms ease-out,
+      background-color 200ms ease,
+      color 200ms ease;
   }
 
   .site-button:not(:disabled):hover {
@@ -679,7 +888,10 @@
   }
 
   .search-button {
-    transition: transform 220ms ease, background-color 220ms ease, color 220ms ease;
+    transition:
+      transform 220ms ease,
+      background-color 220ms ease,
+      color 220ms ease;
   }
 
   .search-button:hover {
@@ -749,4 +961,58 @@
 
 .admin-card--ads .admin-card-label {
   background: var(--accent);
+}
+
+/* Panel bildirimleri (toast): sag altta yigilir, kisa bir giris animasyonu var.
+   Animasyon kapatilabilir olsun diye prefers-reduced-motion'a saygi duyar. */
+@keyframes admin-toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.admin-toast {
+  animation: admin-toast-in 180ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .admin-toast {
+    animation: none;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   KATLANIR BOLUMLER — YUMUSAK ACILMA
+   Kullanici bildirimi (29.09.2026): "butonlara basinca animasyonsuz aciliyor".
+
+   grid-template-rows: 0fr -> 1fr gecisi yuksekligi GERCEKTEN animasyonlar:
+   "auto" yukseklige gecis CSS'te dogrudan mumkun degil; bu yontem icerigi
+   anlik ziplatmadan buyuterek acar. min-height: 0 sart — yoksa satir icerigin
+   yuksekliginde kalir ve kapanmaz.
+   ═══════════════════════════════════════════════════════════════════════════ */
+.expand-rows {
+  display: grid;
+  grid-template-rows: 0fr;
+  overflow: hidden;
+  transition: grid-template-rows 240ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.expand-rows > * {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.expand-rows.is-open {
+  grid-template-rows: 1fr;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .expand-rows {
+    transition: none;
+  }
 }

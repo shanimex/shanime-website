@@ -1,13 +1,18 @@
+﻿// /admin — Yönetim paneli: girişten sonra seri, bölüm, görsel ve reklam yönetimi.
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { AlertTriangle, Loader2, Lock, LogOut, Search } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AddShowButton } from "@/components/admin/AddShowButton";
 import { ShowEditor } from "@/components/admin/ShowEditor";
 import { ShowRow, type ShowCounts } from "@/components/admin/ShowRow";
+import { AdminToaster } from "@/components/admin/ToastHost";
+import { AdminConfirmHost } from "@/components/admin/ConfirmHost";
+import { confirmAction } from "@/lib/admin-confirm";
+import { toast } from "@/lib/admin-toast";
 import { Button } from "@/components/ui/button";
-import { AD_SLOTS } from "@/components/AdSlot";
+import { AD_SLOTS } from "@/components/site/AdSlot";
 import { defaultAdSource } from "@/lib/ad-defaults";
-import { anizmCountForShow } from "@/lib/anizm";
+import { fetchTurkishCoverage } from "@/lib/episode-sources";
 import { DataHealthPanel } from "@/components/admin/DataHealthPanel";
 import { checkSchema, db, moveAndPersist, type SchemaState } from "@/lib/admin";
 import { fetchShows, isAdmin, type ShowWithImage } from "@/lib/content";
@@ -32,10 +37,14 @@ function AdminPage() {
   const [schema, setSchema] = useState<SchemaState>({ ready: true, message: null });
   const [shows, setShows] = useState<ShowWithImage[]>([]);
   const [counts, setCounts] = useState<Record<string, ShowCounts>>({});
+  /**
+   * Seri başına CANLI Türkçe kaynak kapsaması (rozetin payı).
+   * `episode_sources.language = 'tr'` satırı olan bölüm sayısı — bkz. `fetchTurkishCoverage`.
+   */
+  const [trCoverage, setTrCoverage] = useState<Record<string, number>>({});
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [adCodes, setAdCodes] = useState<Record<string, string>>({});
-  const [notice, setNotice] = useState<string | null>(null);
 
   const reload = useCallback(async () => {
     const showsData = await fetchShows();
@@ -48,6 +57,20 @@ function AdminPage() {
       next[show.id] = { seasons: show.season_count, episodes: show.episode_count };
     }
     setCounts(next);
+
+    // TR KAYNAK KAPSAMASI — rozetin payı. Önceden derleme zamanındaki
+    // `anizm-hashes.json` dosyasından ön ek sayılıyordu; yanlıştı (bkz.
+    // `lib/anizm.ts` notu). Artık CANLI `episode_sources` verisinden gelir ve
+    // ek istek sayısı SABİTTİR (seri sayısından bağımsız 2 istek).
+    // Tablo/migration henüz kurulmadıysa panel ÇÖKMEZ: kapsama boş kalır (0).
+    try {
+      const coverage = await fetchTurkishCoverage(showsData.map((show) => show.id));
+      const map: Record<string, number> = {};
+      for (const [showId, count] of coverage) map[showId] = count;
+      setTrCoverage(map);
+    } catch {
+      setTrCoverage({});
+    }
   }, []);
 
   useEffect(() => {
@@ -84,13 +107,13 @@ function AdminPage() {
     const next = !show.is_featured;
     const { error } = await db.from("shows").update({ is_featured: next }).eq("id", show.id);
     if (error) {
-      alert("Vitrin ayarı kaydedilemedi: " + error.message);
+      toast.error("Vitrin ayarı kaydedilemedi: " + error.message);
       return;
     }
     setShows((list) =>
       list.map((item) => (item.id === show.id ? { ...item, is_featured: next } : item)),
     );
-    setNotice(
+    toast.success(
       next
         ? `"${show.title}" ana sayfa vitrinine eklendi.`
         : `"${show.title}" vitrinden çıkarıldı.`,
@@ -115,9 +138,16 @@ function AdminPage() {
     })();
   }, [status]);
 
+  /**
+   * Alt panellerin "işlem bitti" çağrısı: mesajı BİLDİRİM (toast) olarak gösterir ve
+   * listeleri tazeler. Bilinçli olarak tek noktada toplanmıştır ki panelin her
+   * yerinde aynı geri bildirim dili olsun. (Eskiden mesaj sayfanın en tepesindeki
+   * tek satırlık çubukta kalıyordu; aşağıda bölüm listesinde çalışan kullanıcı
+   * işlemin sonucunu göremiyordu.)
+   */
   const handleReload = useCallback(
     (message: string) => {
-      setNotice(message);
+      toast.success(message);
       void reload();
     },
     [reload],
@@ -129,7 +159,7 @@ function AdminPage() {
     const moved = await moveAndPersist("shows", shows, index, dir);
     if (!moved) return;
     setShows(moved);
-    setNotice("Sıralama güncellendi.");
+    toast.success("Sıralama güncellendi.");
   }
 
   async function deleteShow(show: ShowWithImage) {
@@ -138,30 +168,75 @@ function AdminPage() {
       stats && (stats.episodes > 0 || stats.seasons > 0)
         ? ` (${stats.seasons} sezon, ${stats.episodes} bölüm)`
         : "";
-    if (!window.confirm(`"${show.title}"${detail} silinsin mi? Bu işlem geri alınamaz.`)) return;
+    // SİTEYE ÖZEL ONAY PENCERESİ (native tarayıcı kutusu DEĞİL) —
+    // kullanıcı isteği, 29.09.2026: "asla üstten tarayıcı mesajı çıkmasın."
+    const ok = await confirmAction({
+      title: `"${show.title}" silinsin mi?`,
+      description:
+        `${detail.trim() || "Bu kayıt"} kalıcı olarak silinir. ` +
+        "Seri, sezonları ve bölümleriyle birlikte gider. Bu işlem geri alınamaz.",
+      confirmLabel: "Sil",
+      tone: "danger",
+    });
+    if (!ok) return;
     try {
       await db.from("show_episodes").delete().eq("show_id", show.id);
       await db.from("show_seasons").delete().eq("show_id", show.id);
       const { error } = await db.from("shows").delete().eq("id", show.id);
       if (error) throw error;
       setExpandedId((current) => (current === show.id ? null : current));
-      setNotice(`"${show.title}" silindi.`);
+      toast.success(`"${show.title}" silindi.`);
       await reload();
     } catch (error) {
-      alert("Silinemedi: " + (error instanceof Error ? error.message : String(error)));
+      toast.error("Silinemedi: " + (error instanceof Error ? error.message : String(error)));
     }
   }
 
   const filtering = query.trim().length > 0;
+  /**
+   * ARAMA — ARTIK **AD, MAL KİMLİĞİ, ADRES ve TÜR** ile.
+   *
+   * Kullanıcı isteği (28.09.2026): "seriler kısmında da böyle olsun; arama şeyi
+   * İSİM veya MAL KİMLİĞİ'yle ara olsun, çok daha temiz olur."
+   *
+   * ESKİ DAVRANIŞ yalnızca `title` + `slug` içinde geçen metne bakıyordu:
+   * kullanıcı MAL kimliğini (ör. `48561`) yazdığında HİÇ sonuç çıkmıyordu —
+   * oysa kimlik satır altında görünüyor ve en KESİN arama anahtarıdır.
+   *
+   * AYRICA "film"/"movie" ya da "seri"/"series" yazınca o tür süzülür: tür ayrımı
+   * yeni geldiği için kullanıcı tek kelimeyle liste alabilsin.
+   */
   const visibleShows = useMemo(() => {
     if (!filtering) return shows;
     const needle = query.trim().toLocaleLowerCase("tr");
-    return shows.filter((show) =>
-      `${show.title} ${show.slug ?? ""}`.toLocaleLowerCase("tr").includes(needle),
-    );
+    return shows.filter((show) => {
+      const kindWords = (show.kind ?? "series") === "movie" ? "film movie" : "seri dizi series";
+      const haystack =
+        `${show.title} ${show.slug ?? ""} ${show.mal_id ?? ""} ${kindWords}`.toLocaleLowerCase(
+          "tr",
+        );
+      return haystack.includes(needle);
+    });
   }, [shows, query, filtering]);
   const totalEpisodes = shows.reduce((total, show) => total + (counts[show.id]?.episodes ?? 0), 0);
   const featuredCount = shows.filter((show) => show.is_featured).length;
+
+  /**
+   * SERİ / FİLM AYRIMI (kullanıcı isteği, 28.09.2026: "filmler eklemek için ayrı
+   * yer ekle, seriler değil de filmler diye").
+   *
+   * Panel iki ayrı bölüm gösterir. Hangi kaydın film olduğu `shows.kind` ile
+   * belirlenir; kolon veritabanında yoksa (`undefined`) kayıt **seri** sayılır —
+   * bu yüzden `?? "series"` ile varsayılana düşülür ve migration çalıştırılmadan
+   * önce de panel bozulmaz (tüm kayıtlar "Seriler" altında kalır).
+   *
+   * Arama (`visibleShows`) HER İKİ listeyi de süzer: kullanıcı bir film adı
+   * yazdığında sonuç yalnızca Filmler bölümünde çıkar.
+   */
+  const isMovie = (show: ShowWithImage) => (show.kind ?? "series") === "movie";
+  const seriesShows = useMemo(() => visibleShows.filter((show) => !isMovie(show)), [visibleShows]);
+  const movieShows = useMemo(() => visibleShows.filter((show) => isMovie(show)), [visibleShows]);
+  const totalMovies = useMemo(() => shows.filter((show) => isMovie(show)).length, [shows]);
 
   // Mevcut türler: tür alanına yazarken öneri olarak çıkar. Böylece "Aksiyon"
   // yerine "aksiyon" yazıp ana sayfada ikinci bir tür kategorisi oluşmaz.
@@ -207,17 +282,17 @@ function AdminPage() {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
-      <header className="sticky top-0 z-50 border-b border-border bg-background/95 backdrop-blur">
+      <header className="sticky top-0 z-50 border-b border-border bg-background">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-5 py-3">
           <a href="/admin" aria-label="shanime yönetim" className="flex items-center gap-3">
             <img
-              src="/shanime-logo.png"
+              src="/shanime-logo.png?v=6"
               alt="shanime logosu"
-              width={800}
-              height={187}
+              width={1060}
+              height={856}
               loading="eager"
               decoding="async"
-              className="h-9 w-auto object-contain"
+              className="h-11 w-auto object-contain"
             />
             <span className="sr-only">shanime</span>
             <span className="text-sm font-sans font-bold text-muted-foreground">· yönetim</span>
@@ -235,17 +310,45 @@ function AdminPage() {
 
       <main className="mx-auto max-w-5xl space-y-8 px-5 py-8">
         <h1 className="sr-only">shanime yönetim paneli</h1>
-        {notice && (
-          <p className="rounded-2xl bg-secondary px-5 py-3 text-sm font-bold text-accent">
-            {notice}
-          </p>
-        )}
+        {/* İşlem sonuçları artık burada değil, sağ altta beliren bildirimlerde
+            (toast) gösterilir — bkz. `components/admin/ToastHost.tsx` + `lib/admin-toast.ts`. */}
 
         {!schema.ready && schema.message && (
           <p className="flex items-start gap-3 rounded-2xl border border-destructive/40 bg-destructive/10 px-5 py-4 text-sm font-bold text-destructive">
             <AlertTriangle size={18} className="mt-0.5 shrink-0" />
             <span>{schema.message}</span>
           </p>
+        )}
+
+        {/*
+          ARAMA — BÖLÜMLERİN DIŞINDA, İKİSİNİ BİRDEN SÜZER.
+          (Kullanıcı isteği: "seriler kısmında da böyle olsun, arama şeyi isim veya
+          MAL kimliğiyle ara olsun".)
+
+          Eskiden bu kutu "Seriler" kartının İÇİNDEydi; orada durunca yalnızca
+          serileri süzdüğü izlenimi veriyordu, oysa artık `visibleShows` hem
+          serileri hem filmleri süzüyor. Kutuyu iki kartın ÜSTÜNE aldım: tek arama,
+          iki liste.
+        */}
+        {shows.length > 0 && (
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex min-w-56 flex-1 items-center gap-2 rounded-full border border-border bg-background px-4">
+              <Search size={15} className="shrink-0 text-muted-foreground" />
+              <input
+                className="h-10 min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none"
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Ara: ad · MAL kimliği · adres · tür"
+                aria-label="Seri veya film ara"
+              />
+            </div>
+            {filtering && (
+              <span className="text-xs text-muted-foreground">
+                {visibleShows.length} sonuç ({seriesShows.length} seri · {movieShows.length} film) ·
+                sıralamak için aramayı temizle
+              </span>
+            )}
+          </div>
         )}
 
         <section className="admin-card admin-card--series">
@@ -256,45 +359,33 @@ function AdminPage() {
                 Seriler
               </h2>
               <p className="mt-1 text-sm text-muted-foreground">
-                {shows.length} seri · {totalEpisodes} bölüm. Düzenlemek için satırdaki{" "}
-                <b>Düzenle</b>&apos;ye bas.
+                {shows.length - totalMovies} seri · {totalMovies} film · {totalEpisodes} bölüm.
+                Düzenlemek için satırdaki <b>Düzenle</b>&apos;ye bas.
               </p>
               <p className="mt-1 text-sm text-muted-foreground">
                 <b className="text-foreground">Ana sayfa vitrini:</b>{" "}
+                {/* METİN DÜZELTİLDİ (29.09.2026): eskiden "hiç seri işaretli değil —
+                    tüm seriler sırayla döner" yazıyordu. O davranış hata olduğu için
+                    kaldırıldı: artık işaretsiz seriler vitrine SIZMAZ, vitrin sitenin
+                    kendi statik içeriğine döner (bkz. `routes/index.tsx` → heroShows). */}
                 {featuredCount > 0
                   ? `${featuredCount} seri sırayla dönüyor.`
-                  : "hiç seri işaretli değil — tüm seriler sırayla döner."}{" "}
+                  : "hiç seri işaretli değil — vitrin sitenin kendi örnek içeriğini gösteriyor; işaretlemediklerin asla vitrine çıkmaz."}{" "}
                 Değiştirmek için <b>Düzenle</b> → <b>Vitrin&apos;de göster</b>.
               </p>
             </div>
             <AddShowButton
               nextOrder={shows.reduce((max, show) => Math.max(max, show.sort_order), 0) + 1}
               takenSlugs={shows.map((show) => show.slug)}
+              genreOptions={genreOptions}
               schemaReady={schema.ready}
               onAdded={handleReload}
             />
           </div>
 
-          {shows.length > 0 && (
-            <div className="mt-5 flex flex-wrap items-center gap-3">
-              <div className="flex min-w-56 flex-1 items-center gap-2 rounded-full border border-border bg-background px-4">
-                <Search size={15} className="shrink-0 text-muted-foreground" />
-                <input
-                  className="h-10 min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none"
-                  value={query}
-                  onChange={(event) => setQuery(event.target.value)}
-                  placeholder="Seri ara (ad veya adres)"
-                  aria-label="Seri ara"
-                />
-              </div>
-              {filtering && (
-                <span className="text-xs text-muted-foreground">
-                  {visibleShows.length} sonuç · sıralamak için aramayı temizle
-                </span>
-              )}
-            </div>
-          )}
-
+          {/* Arama kutusu artık bu kartın DIŞINDA (iki bölümü birden süzer) —
+              yukarıya taşındı. `datalist` ise formda kullanıldığı için burada
+              kalmalı. */}
           <datalist id="shows-genre-options">
             {genreOptions.map((genre) => (
               <option key={genre} value={genre} />
@@ -302,7 +393,7 @@ function AdminPage() {
           </datalist>
 
           <div className="mt-4 space-y-2">
-            {visibleShows.map((show) => {
+            {seriesShows.map((show) => {
               const index = shows.findIndex((item) => item.id === show.id);
               if (expandedId === show.id) {
                 return (
@@ -324,7 +415,7 @@ function AdminPage() {
               }
               return (
                 <ShowRow
-                  anizmCount={anizmCountForShow(show.mal_id)}
+                  trCount={trCoverage[show.id] ?? 0}
                   key={show.id}
                   show={show}
                   counts={counts[show.id] ?? EMPTY_COUNTS}
@@ -336,14 +427,100 @@ function AdminPage() {
                 />
               );
             })}
-            {shows.length === 0 && (
+            {shows.length - totalMovies === 0 && !filtering && (
               <p className="rounded-2xl border border-dashed border-border p-4 text-sm text-muted-foreground">
                 Henüz seri yok. &quot;Yeni seri ekle&quot; ile başla.
               </p>
             )}
-            {shows.length > 0 && visibleShows.length === 0 && (
+            {filtering && seriesShows.length === 0 && (
               <p className="rounded-2xl border border-dashed border-border p-4 text-sm text-muted-foreground">
                 Aramaya uyan seri yok.
+              </p>
+            )}
+          </div>
+        </section>
+
+        {/*
+          ═══════════════════════════════════════════════════════════════════════
+          FİLMLER — SERİLERDEN AYRI BÖLÜM
+          (kullanıcı isteği: "filmler eklemek için ayrı yer ekle, seriler değil de
+          filmler diye".)
+
+          NEDEN AYRI: film tek parça içeriktir; sezon/bölüm akışı yoktur. Aynı
+          listede durunca (a) panelde "0 bölüm" satırı olarak görünüyor, (b)
+          sıralama ve vitrin mantığı dizi akışına göre işliyordu. Ayrı bölüm
+          sayesinde "Yeni film ekle" düğmesi kaydı doğrudan `kind: "movie"` ile
+          oluşturur ve hiç sezon açmaz (bkz. `AddShowButton`).
+
+          Görsel olarak da ayrı bir kart: aynı renk olsaydı iki liste karışırdı.
+          ═══════════════════════════════════════════════════════════════════════
+        */}
+        <section className="admin-card">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <h2 className="flex items-center gap-3 font-display text-2xl text-foreground">
+                <span className="admin-card-label" aria-hidden />
+                Filmler
+              </h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {totalMovies} film. Filmler tek parçadır — sezon/bölüm açılmaz; kaynak seçimi izleme
+                sayfasından yapılır.
+              </p>
+            </div>
+            <AddShowButton
+              kind="movie"
+              nextOrder={shows.reduce((max, show) => Math.max(max, show.sort_order), 0) + 1}
+              takenSlugs={shows.map((show) => show.slug)}
+              genreOptions={genreOptions}
+              schemaReady={schema.ready}
+              onAdded={handleReload}
+            />
+          </div>
+
+          <div className="mt-4 space-y-2">
+            {movieShows.map((show) => {
+              const index = shows.findIndex((item) => item.id === show.id);
+              if (expandedId === show.id) {
+                return (
+                  <ShowEditor
+                    key={show.id}
+                    show={show}
+                    first={index === 0}
+                    last={index === shows.length - 1}
+                    takenSlugs={shows
+                      .filter((item) => item.id !== show.id)
+                      .map((item) => item.slug)}
+                    schemaReady={schema.ready}
+                    onMove={(dir) => void moveShow(show, dir)}
+                    onClose={() => setExpandedId(null)}
+                    onToggleFeatured={() => void toggleFeatured(show)}
+                    onReload={handleReload}
+                  />
+                );
+              }
+              return (
+                <ShowRow
+                  trCount={trCoverage[show.id] ?? 0}
+                  key={show.id}
+                  show={show}
+                  counts={counts[show.id] ?? EMPTY_COUNTS}
+                  first={filtering || index === 0}
+                  last={filtering || index === shows.length - 1}
+                  onEdit={() => setExpandedId(show.id)}
+                  onMove={(dir) => void moveShow(show, dir)}
+                  onDelete={() => deleteShow(show)}
+                />
+              );
+            })}
+            {totalMovies === 0 && !filtering && (
+              <p className="rounded-2xl border border-dashed border-border p-4 text-sm text-muted-foreground">
+                Henüz film yok. &quot;Yeni film ekle&quot; ile ekle — ör. Jujutsu Kaisen 0 (MAL
+                48561).
+              </p>
+            )}
+            {filtering && movieShows.length === 0 && (
+              <p className="rounded-2xl border border-dashed border-border p-4 text-sm text-muted-foreground">
+                Aramaya uyan film yok.
               </p>
             )}
           </div>
@@ -395,10 +572,16 @@ function AdminPage() {
           </ul>
         </section>
 
-        <DataHealthPanel onNotice={setNotice} />
+        <DataHealthPanel onNotice={handleReload} />
 
         <AdSection adCodes={adCodes} />
       </main>
+
+      {/* Panelin her yerinden çalışan bildirim katmanı. */}
+      <AdminToaster />
+      {/* SİTEYE ÖZEL ONAY PENCERESİ — native `window.confirm` yerine. Panelin her
+          yerinden `confirmAction()` ile çağrılır (bkz. `lib/admin-confirm.ts`). */}
+      <AdminConfirmHost />
     </div>
   );
 }
@@ -424,7 +607,10 @@ function AdSection({ adCodes }: { adCodes: Record<string, string> }) {
         {AD_SLOTS.map((slot) => {
           const saved = (adCodes[slot.key] ?? "").trim();
           return (
-            <div key={slot.key} className="flex flex-col rounded-2xl bg-background/50 p-3">
+            // `min-w-0` ŞART: ızgara/flex çocuğu varsayılan olarak içeriğinden
+            // küçülemez; reklam kodundaki uzun URL'ler kartı 623px'e genişletip
+            // MOBİLDE sayfayı yatay kaydırtıyordu (ölçüm: scrollWidth 667 > 375).
+            <div key={slot.key} className="flex min-w-0 flex-col rounded-2xl bg-background/50 p-3">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="text-xs font-bold text-foreground">{slot.label}</span>
                 <span
@@ -438,7 +624,9 @@ function AdSection({ adCodes }: { adCodes: Record<string, string> }) {
                 </span>
               </div>
               {/* Salt okunur: kullanıcı isteğiyle kilitli. Kod görünsün, değişmesin. */}
-              <pre className="mt-2 min-h-16 flex-1 overflow-x-auto whitespace-pre-wrap rounded-xl border border-border bg-background p-2 font-mono text-[11px] leading-5 text-muted-foreground">
+              {/* `overflow-wrap:anywhere`: kod içindeki uzun ve boşluksuz URL'ler
+                  alt satıra kırılsın — yoksa kutu taşar (mobil taşmanın kaynağı). */}
+              <pre className="mt-2 min-h-16 flex-1 overflow-x-auto rounded-xl border border-border bg-background p-2 font-mono text-[11px] leading-5 break-words text-muted-foreground [overflow-wrap:anywhere]">
                 {saved || defaultAdSource(slot.key)}
               </pre>
             </div>

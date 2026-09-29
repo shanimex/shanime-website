@@ -171,6 +171,7 @@ export type Database = {
       };
       shows: {
         Row: {
+          animecix_id: number | null;
           banner_image_path: string | null;
           banner_video_path: string | null;
           created_at: string;
@@ -187,6 +188,7 @@ export type Database = {
           year: string;
         };
         Insert: {
+          animecix_id?: number | null;
           banner_image_path?: string | null;
           banner_video_path?: string | null;
           created_at?: string;
@@ -203,6 +205,7 @@ export type Database = {
           year?: string;
         };
         Update: {
+          animecix_id?: number | null;
           banner_image_path?: string | null;
           banner_video_path?: string | null;
           created_at?: string;

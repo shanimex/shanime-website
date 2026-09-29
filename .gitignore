@@ -44,3 +44,7 @@ media/
 shot-*.png
 streamtape_*.png
 streamtape-*.png
+
+# Canli hata gunlugu (gelistirme araci) - repoya girmesin
+.dev-log.jsonl
+.dev-server.log

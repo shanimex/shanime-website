@@ -1,0 +1,549 @@
+{
+  "episode_sources": [
+    {
+      "created_at": "2026-09-29T11:42:07.948163+00:00",
+      "episode_id": "046b9c52-691a-4957-a4c9-530d8e26ab99",
+      "id": "e52d25de-63db-4895-aadb-aa936565c96c",
+      "label": "Anizm",
+      "language": "tr",
+      "provider": "anizm",
+      "sort_order": 0,
+      "url": "https://anizmplayer.com/video/90e08c6d15d206857d4fd54fa2f334bc"
+    },
+    {
+      "created_at": "2026-09-29T11:42:07.948163+00:00",
+      "episode_id": "046b9c52-691a-4957-a4c9-530d8e26ab99",
+      "id": "5405dca2-bc01-4dd0-9549-c574c1b9e696",
+      "label": "TauVideo",
+      "language": "tr",
+      "provider": "animecix",
+      "sort_order": 1,
+      "url": "https://tau-video.xyz/embed/6671cce56966a596e379b245?vid=651143"
+    },
+    {
+      "created_at": "2026-09-29T11:42:07.948163+00:00",
+      "episode_id": "046b9c52-691a-4957-a4c9-530d8e26ab99",
+      "id": "6039002b-4746-4373-80cc-c8913c57102f",
+      "label": "MegaPlay",
+      "language": "en",
+      "provider": "megaplay",
+      "sort_order": 2,
+      "url": "@megaplay"
+    },
+    {
+      "created_at": "2026-09-29T11:42:11.012403+00:00",
+      "episode_id": "c78b6852-c619-4b4c-aa2d-b866017655d6",
+      "id": "a80051c3-751d-4b63-8d74-1080c9501c94",
+      "label": "Anizm",
+      "language": "tr",
+      "provider": "anizm",
+      "sort_order": 0,
+      "url": "https://anizmplayer.com/video/f14b58e9a94401142accfdb75947a361"
+    },
+    {
+      "created_at": "2026-09-29T11:42:11.012403+00:00",
+      "episode_id": "c78b6852-c619-4b4c-aa2d-b866017655d6",
+      "id": "61acb376-6cec-4a12-aa54-215200fbdf15",
+      "label": "TauVideo",
+      "language": "tr",
+      "provider": "animecix",
+      "sort_order": 1,
+      "url": "https://tau-video.xyz/embed/64be9cecb64b25167a11e931?vid=567023"
+    },
+    {
+      "created_at": "2026-09-29T11:42:11.012403+00:00",
+      "episode_id": "c78b6852-c619-4b4c-aa2d-b866017655d6",
+      "id": "32e617e7-4c5a-406e-8d52-02ecc4f1b2b5",
+      "label": "MegaPlay",
+      "language": "en",
+      "provider": "megaplay",
+      "sort_order": 2,
+      "url": "@megaplay"
+    },
+    {
+      "created_at": "2026-09-29T11:42:14.04018+00:00",
+      "episode_id": "701f903a-a635-4644-a928-8e6038ff55e2",
+      "id": "d4182d5d-35e9-4e83-bb01-5b3777ed1bec",
+      "label": "Anizm",
+      "language": "tr",
+      "provider": "anizm",
+      "sort_order": 0,
+      "url": "https://anizmplayer.com/video/8feeb5ed0776e02943859128347dc015"
+    },
+    {
+      "created_at": "2026-09-29T11:42:14.04018+00:00",
+      "episode_id": "701f903a-a635-4644-a928-8e6038ff55e2",
+      "id": "2ddb63d7-44ce-4721-8b97-5baac3b77141",
+      "label": "TauVideo",
+      "language": "tr",
+      "provider": "animecix",
+      "sort_order": 1,
+      "url": "https://tau-video.xyz/embed/64d0b263696168264d5dd856?vid=577427"
+    },
+    {
+      "created_at": "2026-09-29T11:42:14.04018+00:00",
+      "episode_id": "701f903a-a635-4644-a928-8e6038ff55e2",
+      "id": "32cdcf6d-3b97-442a-a0a0-a8547293338e",
+      "label": "MegaPlay",
+      "language": "en",
+      "provider": "megaplay",
+      "sort_order": 2,
+      "url": "@megaplay"
+    },
+    {
+      "created_at": "2026-09-29T11:42:17.041027+00:00",
+      "episode_id": "5a86b634-5f9d-49f1-9e44-a01153e4552c",
+      "id": "4bd42874-05e6-4798-aecf-ce02fd6f8749",
+      "label": "Anizm",
+      "language": "tr",
+      "provider": "anizm",
+      "sort_order": 0,
+      "url": "https://anizmplayer.com/video/eafe3b34c187bf70fdba568313c8007b"
+    },
+    {
+      "created_at": "2026-09-29T11:42:17.041027+00:00",
+      "episode_id": "5a86b634-5f9d-49f1-9e44-a01153e4552c",
+      "id": "9c5c96de-f9cb-4518-993f-84f3c83a3767",
+      "label": "TauVideo",
+      "language": "tr",
+      "provider": "animecix",
+      "sort_order": 1,
+      "url": "https://tau-video.xyz/embed/64e2abd19c4e18521a0f94f7?vid=583834"
+    },
+    {
+      "created_at": "2026-09-29T11:42:17.041027+00:00",
+      "episode_id": "5a86b634-5f9d-49f1-9e44-a01153e4552c",
+      "id": "0c85568b-ca3d-4667-bfa5-e0e5336c05e9",
+      "label": "MegaPlay",
+      "language": "en",
+      "provider": "megaplay",
+      "sort_order": 2,
+      "url": "@megaplay"
+    },
+    {
+      "created_at": "2026-09-29T11:42:20.229381+00:00",
+      "episode_id": "a661bbf1-e190-43b4-b115-07eb533ede34",
+      "id": "22019bfb-5ef1-4786-a1f8-020e28297270",
+      "label": "Anizm",
+      "language": "tr",
+      "provider": "anizm",
+      "sort_order": 0,
+      "url": "https://anizmplayer.com/video/030d13e49bb7d1add5ac5ea2e4a43231"
+    },
+    {
+      "created_at": "2026-09-29T11:42:20.229381+00:00",
+      "episode_id": "a661bbf1-e190-43b4-b115-07eb533ede34",
+      "id": "32cf70d7-6b72-4959-83ba-78aef85dee30",
+      "label": "TauVideo",
+      "language": "tr",
+      "provider": "animecix",
+      "sort_order": 1,
+      "url": "https://tau-video.xyz/embed/64f5aff50738cf7fbd2e314b?vid=587145"
+    },
+    {
+      "created_at": "2026-09-29T11:42:20.229381+00:00",
+      "episode_id": "a661bbf1-e190-43b4-b115-07eb533ede34",
+      "id": "2b4934bf-3573-439b-b8e1-4e8d2f11e77a",
+      "label": "MegaPlay",
+      "language": "en",
+      "provider": "megaplay",
+      "sort_order": 2,
+      "url": "@megaplay"
+    },
+    {
+      "created_at": "2026-09-29T11:42:23.240832+00:00",
+      "episode_id": "529d4b8e-2d48-4355-a077-012ee8f31ba7",
+      "id": "d4b228c1-5518-418c-9ef2-0d5a7add6e80",
+      "label": "Anizm",
+      "language": "tr",
+      "provider": "anizm",
+      "sort_order": 0,
+      "url": "https://anizmplayer.com/video/647eb61673d5e4df8a069bde0d77fff5"
+    },
+    {
+      "created_at": "2026-09-29T11:42:23.240832+00:00",
+      "episode_id": "529d4b8e-2d48-4355-a077-012ee8f31ba7",
+      "id": "850b0a28-b4bb-4437-9970-347e131da754",
+      "label": "TauVideo",
+      "language": "tr",
+      "provider": "animecix",
+      "sort_order": 1,
+      "url": "https://tau-video.xyz/embed/65085ce3500b95f594abbe59?vid=589912"
+    },
+    {
+      "created_at": "2026-09-29T11:42:23.240832+00:00",
+      "episode_id": "529d4b8e-2d48-4355-a077-012ee8f31ba7",
+      "id": "06c657ba-60ef-4ad5-96c6-261eb2d94e66",
+      "label": "MegaPlay",
+      "language": "en",
+      "provider": "megaplay",
+      "sort_order": 2,
+      "url": "@megaplay"
+    },
+    {
+      "created_at": "2026-09-29T11:42:09.510617+00:00",
+      "episode_id": "c7d651d1-78f3-4293-a4ac-0adec33097fc",
+      "id": "bf11a2b4-12d4-44f6-bf85-3be608f2c8df",
+      "label": "Anizm",
+      "language": "tr",
+      "provider": "anizm",
+      "sort_order": 0,
+      "url": "https://anizmplayer.com/video/87be96790ea277c50f980ce4df0b4412"
+    },
+    {
+      "created_at": "2026-09-29T11:42:09.510617+00:00",
+      "episode_id": "c7d651d1-78f3-4293-a4ac-0adec33097fc",
+      "id": "c2f8d419-f312-4224-b1e2-2a9c7fa2be69",
+      "label": "TauVideo",
+      "language": "tr",
+      "provider": "animecix",
+      "sort_order": 1,
+      "url": "https://tau-video.xyz/embed/64b52473b4cf561a8ea5ebbe?vid=566985"
+    },
+    {
+      "created_at": "2026-09-29T11:42:09.510617+00:00",
+      "episode_id": "c7d651d1-78f3-4293-a4ac-0adec33097fc",
+      "id": "c15a208a-9903-425e-acea-686d1bafd27f",
+      "label": "MegaPlay",
+      "language": "en",
+      "provider": "megaplay",
+      "sort_order": 2,
+      "url": "@megaplay"
+    },
+    {
+      "created_at": "2026-09-29T11:42:12.494536+00:00",
+      "episode_id": "a2f3fdd7-44d3-4fd9-9d55-ec84ba76d836",
+      "id": "b38cd1d6-18e4-46a5-8bd7-787ceadf1029",
+      "label": "Anizm",
+      "language": "tr",
+      "provider": "anizm",
+      "sort_order": 0,
+      "url": "https://anizmplayer.com/video/3f4ab9445df9b78ef3d6ee752e33a07d"
+    },
+    {
+      "created_at": "2026-09-29T11:42:12.494536+00:00",
+      "episode_id": "a2f3fdd7-44d3-4fd9-9d55-ec84ba76d836",
+      "id": "8b096530-d0b4-46ab-867b-31626a644af5",
+      "label": "TauVideo",
+      "language": "tr",
+      "provider": "animecix",
+      "sort_order": 1,
+      "url": "https://tau-video.xyz/embed/64c8eb7150004a84d703e32f?vid=572645"
+    },
+    {
+      "created_at": "2026-09-29T11:42:12.494536+00:00",
+      "episode_id": "a2f3fdd7-44d3-4fd9-9d55-ec84ba76d836",
+      "id": "e03dbdea-9fd8-4518-a755-f692fb189dba",
+      "label": "MegaPlay",
+      "language": "en",
+      "provider": "megaplay",
+      "sort_order": 2,
+      "url": "@megaplay"
+    },
+    {
+      "created_at": "2026-09-29T11:42:15.521186+00:00",
+      "episode_id": "4b9919ed-8295-402c-8e69-a2f51fd70c24",
+      "id": "e45e86fc-f2b0-4b48-b629-d8dca95ff3d7",
+      "label": "Anizm",
+      "language": "tr",
+      "provider": "anizm",
+      "sort_order": 0,
+      "url": "https://anizmplayer.com/video/52f0ab576a3efd4c9e6f71fcab5ecdba"
+    },
+    {
+      "created_at": "2026-09-29T11:42:15.521186+00:00",
+      "episode_id": "4b9919ed-8295-402c-8e69-a2f51fd70c24",
+      "id": "038c4d23-7182-43d4-9440-0bc47cdafa2a",
+      "label": "TauVideo",
+      "language": "tr",
+      "provider": "animecix",
+      "sort_order": 1,
+      "url": "https://tau-video.xyz/embed/64d9db7c28edaf68b3c26d17?vid=582180"
+    },
+    {
+      "created_at": "2026-09-29T11:42:15.521186+00:00",
+      "episode_id": "4b9919ed-8295-402c-8e69-a2f51fd70c24",
+      "id": "908268be-1fcd-48b7-9708-32edc6d68b8b",
+      "label": "MegaPlay",
+      "language": "en",
+      "provider": "megaplay",
+      "sort_order": 2,
+      "url": "@megaplay"
+    },
+    {
+      "created_at": "2026-09-29T11:42:18.603085+00:00",
+      "episode_id": "fecae532-de8f-4d6e-90de-5123323221bb",
+      "id": "946209d3-779f-4e59-ab44-226baaec8315",
+      "label": "Anizm",
+      "language": "tr",
+      "provider": "anizm",
+      "sort_order": 0,
+      "url": "https://anizmplayer.com/video/acc4d82eb0e3c3652d1f6644dba4c8e2"
+    },
+    {
+      "created_at": "2026-09-29T11:42:18.603085+00:00",
+      "episode_id": "fecae532-de8f-4d6e-90de-5123323221bb",
+      "id": "a3c52332-25fa-4d5a-8c17-736f107f2f9a",
+      "label": "TauVideo",
+      "language": "tr",
+      "provider": "animecix",
+      "sort_order": 1,
+      "url": "https://tau-video.xyz/embed/64f1cbc281c0e5f4a5e37644?vid=586268"
+    },
+    {
+      "created_at": "2026-09-29T11:42:18.603085+00:00",
+      "episode_id": "fecae532-de8f-4d6e-90de-5123323221bb",
+      "id": "f30ab22e-5cd0-40a8-98e2-7c525399557c",
+      "label": "MegaPlay",
+      "language": "en",
+      "provider": "megaplay",
+      "sort_order": 2,
+      "url": "@megaplay"
+    },
+    {
+      "created_at": "2026-09-29T11:42:21.732078+00:00",
+      "episode_id": "0c7e9d02-19ee-48f2-97e7-7872518a299f",
+      "id": "4fbfc9d0-fb69-4e30-a267-ad88d9de935a",
+      "label": "Anizm",
+      "language": "tr",
+      "provider": "anizm",
+      "sort_order": 0,
+      "url": "https://anizmplayer.com/video/0135456d6a3c1051f0ed54e37cef0700"
+    },
+    {
+      "created_at": "2026-09-29T11:42:21.732078+00:00",
+      "episode_id": "0c7e9d02-19ee-48f2-97e7-7872518a299f",
+      "id": "68a9a4ed-e256-480a-8802-d968dd8cabd9",
+      "label": "TauVideo",
+      "language": "tr",
+      "provider": "animecix",
+      "sort_order": 1,
+      "url": "https://tau-video.xyz/embed/6506e797500b95f594abbe41?vid=589783"
+    },
+    {
+      "created_at": "2026-09-29T11:42:21.732078+00:00",
+      "episode_id": "0c7e9d02-19ee-48f2-97e7-7872518a299f",
+      "id": "073f2d18-5953-48a2-90f2-26280973e90d",
+      "label": "MegaPlay",
+      "language": "en",
+      "provider": "megaplay",
+      "sort_order": 2,
+      "url": "@megaplay"
+    },
+    {
+      "created_at": "2026-09-29T11:42:24.789467+00:00",
+      "episode_id": "f0ce4ad3-4701-4326-8f2e-026e9c3ca21d",
+      "id": "a4763be1-2844-418b-97ec-df184b4c7f7e",
+      "label": "Anizm",
+      "language": "tr",
+      "provider": "anizm",
+      "sort_order": 0,
+      "url": "https://anizmplayer.com/video/03b059d4abd989c7cc2d79e8fc008cea"
+    },
+    {
+      "created_at": "2026-09-29T11:42:24.789467+00:00",
+      "episode_id": "f0ce4ad3-4701-4326-8f2e-026e9c3ca21d",
+      "id": "0f521008-6625-45b3-8196-0edf999d8274",
+      "label": "TauVideo",
+      "language": "tr",
+      "provider": "animecix",
+      "sort_order": 1,
+      "url": "https://tau-video.xyz/embed/6510a3fea42d4cda68348d86?vid=591260"
+    },
+    {
+      "created_at": "2026-09-29T11:42:24.789467+00:00",
+      "episode_id": "f0ce4ad3-4701-4326-8f2e-026e9c3ca21d",
+      "id": "7e517fb6-ec18-4bc5-9f15-903b93c32793",
+      "label": "MegaPlay",
+      "language": "en",
+      "provider": "megaplay",
+      "sort_order": 2,
+      "url": "@megaplay"
+    }
+  ],
+  "episodes": [
+    {
+      "created_at": "2026-09-29T11:42:07.691484+00:00",
+      "duration": "",
+      "id": "046b9c52-691a-4957-a4c9-530d8e26ab99",
+      "number": 1,
+      "season": 2,
+      "show_id": "4582d4a5-c92f-4d48-a0ff-190c15680f26",
+      "summary": "",
+      "title": "The Brokenhearted Mage",
+      "updated_at": "2026-09-29T11:42:07.691484+00:00",
+      "watch_url": "https://anizmplayer.com/video/90e08c6d15d206857d4fd54fa2f334bc"
+    },
+    {
+      "created_at": "2026-09-29T11:42:09.347648+00:00",
+      "duration": "",
+      "id": "c7d651d1-78f3-4293-a4ac-0adec33097fc",
+      "number": 2,
+      "season": 2,
+      "show_id": "4582d4a5-c92f-4d48-a0ff-190c15680f26",
+      "summary": "",
+      "title": "The Forest in the Dead of Night",
+      "updated_at": "2026-09-29T11:42:09.347648+00:00",
+      "watch_url": "https://anizmplayer.com/video/87be96790ea277c50f980ce4df0b4412"
+    },
+    {
+      "created_at": "2026-09-29T11:42:10.890065+00:00",
+      "duration": "",
+      "id": "c78b6852-c619-4b4c-aa2d-b866017655d6",
+      "number": 3,
+      "season": 2,
+      "show_id": "4582d4a5-c92f-4d48-a0ff-190c15680f26",
+      "summary": "",
+      "title": "Abrupt Approach",
+      "updated_at": "2026-09-29T11:42:10.890065+00:00",
+      "watch_url": "https://anizmplayer.com/video/f14b58e9a94401142accfdb75947a361"
+    },
+    {
+      "created_at": "2026-09-29T11:42:12.363325+00:00",
+      "duration": "",
+      "id": "a2f3fdd7-44d3-4fd9-9d55-ec84ba76d836",
+      "number": 4,
+      "season": 2,
+      "show_id": "4582d4a5-c92f-4d48-a0ff-190c15680f26",
+      "summary": "",
+      "title": "Letter of Invitation",
+      "updated_at": "2026-09-29T11:42:12.363325+00:00",
+      "watch_url": "https://anizmplayer.com/video/3f4ab9445df9b78ef3d6ee752e33a07d"
+    },
+    {
+      "created_at": "2026-09-29T11:42:13.884313+00:00",
+      "duration": "",
+      "id": "701f903a-a635-4644-a928-8e6038ff55e2",
+      "number": 5,
+      "season": 2,
+      "show_id": "4582d4a5-c92f-4d48-a0ff-190c15680f26",
+      "summary": "",
+      "title": "Ranoa University of Magic",
+      "updated_at": "2026-09-29T11:42:13.884313+00:00",
+      "watch_url": "https://anizmplayer.com/video/8feeb5ed0776e02943859128347dc015"
+    },
+    {
+      "created_at": "2026-09-29T11:42:15.391195+00:00",
+      "duration": "",
+      "id": "4b9919ed-8295-402c-8e69-a2f51fd70c24",
+      "number": 6,
+      "season": 2,
+      "show_id": "4582d4a5-c92f-4d48-a0ff-190c15680f26",
+      "summary": "",
+      "title": "I Don`t Want to Die",
+      "updated_at": "2026-09-29T11:42:15.391195+00:00",
+      "watch_url": "https://anizmplayer.com/video/52f0ab576a3efd4c9e6f71fcab5ecdba"
+    },
+    {
+      "created_at": "2026-09-29T11:42:16.9013+00:00",
+      "duration": "",
+      "id": "5a86b634-5f9d-49f1-9e44-a01153e4552c",
+      "number": 7,
+      "season": 2,
+      "show_id": "4582d4a5-c92f-4d48-a0ff-190c15680f26",
+      "summary": "",
+      "title": "The Kidnapping and Confinement of Beast Girls",
+      "updated_at": "2026-09-29T11:42:16.9013+00:00",
+      "watch_url": "https://anizmplayer.com/video/eafe3b34c187bf70fdba568313c8007b"
+    },
+    {
+      "created_at": "2026-09-29T11:42:18.433048+00:00",
+      "duration": "",
+      "id": "fecae532-de8f-4d6e-90de-5123323221bb",
+      "number": 8,
+      "season": 2,
+      "show_id": "4582d4a5-c92f-4d48-a0ff-190c15680f26",
+      "summary": "",
+      "title": "The Fiance of Despair",
+      "updated_at": "2026-09-29T11:42:18.433048+00:00",
+      "watch_url": "https://anizmplayer.com/video/acc4d82eb0e3c3652d1f6644dba4c8e2"
+    },
+    {
+      "created_at": "2026-09-29T11:42:20.089441+00:00",
+      "duration": "",
+      "id": "a661bbf1-e190-43b4-b115-07eb533ede34",
+      "number": 9,
+      "season": 2,
+      "show_id": "4582d4a5-c92f-4d48-a0ff-190c15680f26",
+      "summary": "",
+      "title": "The White Mask",
+      "updated_at": "2026-09-29T11:42:20.089441+00:00",
+      "watch_url": "https://anizmplayer.com/video/030d13e49bb7d1add5ac5ea2e4a43231"
+    },
+    {
+      "created_at": "2026-09-29T11:42:21.612776+00:00",
+      "duration": "",
+      "id": "0c7e9d02-19ee-48f2-97e7-7872518a299f",
+      "number": 10,
+      "season": 2,
+      "show_id": "4582d4a5-c92f-4d48-a0ff-190c15680f26",
+      "summary": "",
+      "title": "These Feelings",
+      "updated_at": "2026-09-29T11:42:21.612776+00:00",
+      "watch_url": "https://anizmplayer.com/video/0135456d6a3c1051f0ed54e37cef0700"
+    },
+    {
+      "created_at": "2026-09-29T11:42:23.109936+00:00",
+      "duration": "",
+      "id": "529d4b8e-2d48-4355-a077-012ee8f31ba7",
+      "number": 11,
+      "season": 2,
+      "show_id": "4582d4a5-c92f-4d48-a0ff-190c15680f26",
+      "summary": "",
+      "title": "To You",
+      "updated_at": "2026-09-29T11:42:23.109936+00:00",
+      "watch_url": "https://anizmplayer.com/video/647eb61673d5e4df8a069bde0d77fff5"
+    },
+    {
+      "created_at": "2026-09-29T11:42:24.635287+00:00",
+      "duration": "",
+      "id": "f0ce4ad3-4701-4326-8f2e-026e9c3ca21d",
+      "number": 12,
+      "season": 2,
+      "show_id": "4582d4a5-c92f-4d48-a0ff-190c15680f26",
+      "summary": "",
+      "title": "I Want to Tell You",
+      "updated_at": "2026-09-29T11:42:24.635287+00:00",
+      "watch_url": "https://anizmplayer.com/video/03b059d4abd989c7cc2d79e8fc008cea"
+    }
+  ],
+  "fetchedAt": "2026-09-29T13:44:35.720Z",
+  "meta": {
+    "episodesStatus": 200,
+    "seasonsStatus": 200,
+    "sourcesStatus": 200,
+    "tokenFound": true
+  },
+  "seasons": [
+    {
+      "created_at": "2026-09-29T11:42:05.679941+00:00",
+      "id": "bb1fddc2-065f-4ef3-b4c1-dbbafe3905f7",
+      "mal_id": 51179,
+      "number": 2,
+      "parts": null,
+      "show_id": "4582d4a5-c92f-4d48-a0ff-190c15680f26",
+      "sort_order": 2,
+      "title": "",
+      "updated_at": "2026-09-29T11:42:05.679941+00:00"
+    }
+  ],
+  "show": {
+    "animecix_id": 7350,
+    "banner_image_path": "banners/4db7067b-95f3-4a4e-bc92-721bcc1f987f.jpg",
+    "banner_video_path": "banners/284ab5d1-05a6-4988-a1fd-681ea6d3724f.mp4",
+    "created_at": "2026-09-18T19:30:50.622049+00:00",
+    "description": "İşsiz, umutsuz bir adam trafik kazasında ölür ve büyü dünyasında bebek olarak yeniden doğar. Rudeus Greyrat olarak yeni hayatında tüm hatalarını telafi etmeye ve ailesini korumaya kararlıdır.",
+    "genre": "Başka Dünya, Drama, Aksiyon, Macera, Fantastik",
+    "id": "4582d4a5-c92f-4d48-a0ff-190c15680f26",
+    "image_path": "static/anime-data/mushoku-tensei/anime-cover.jpg",
+    "is_featured": false,
+    "kind": "series",
+    "mal_id": 39535,
+    "slug": "mushoku-tensei",
+    "sort_order": 1,
+    "subtitle": "Mushoku Tensei: Isekai Ittara Honki Dasu",
+    "title": "Mushoku Tensei: Jobless Reincarnation",
+    "watch_url": "",
+    "year": "2021"
+  }
+}

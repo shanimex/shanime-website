@@ -54,7 +54,7 @@ const today = new Date().toISOString().slice(0, 10);
 const entries = [
   { loc: `${SITE}/`, changefreq: "daily", priority: "1.0" },
   ...shows.map((show) => ({
-    loc: `${SITE}/seri/${show.slug?.trim() ? show.slug : show.id}`,
+    loc: `${SITE}/anime/${show.slug?.trim() ? show.slug : show.id}`,
     changefreq: "weekly",
     priority: "0.8",
   })),

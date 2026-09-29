@@ -1,5 +1,6 @@
 import type { ClipboardEvent } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { EMBED_PROVIDERS } from "@/lib/embed-provider";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const db = supabase as any;
@@ -116,6 +117,9 @@ export function canonicalEmbedUrl(url: string): string {
 export function extractEmbedUrl(raw: string): string {
   const text = raw.trim();
   if (!text) return "";
+  // Sağlayıcı direktifi (`@megaplay`, `@anizm`): BİREBİR korunur. Adres sanılıp
+  // işlenirse `resolveEpisodeEmbed` direktifi tanımaz ve oynatıcı boşa düşer.
+  if (/^@[a-z0-9_-]+$/i.test(text)) return text.toLowerCase();
   const src = text.match(/src\s*=\s*["']([^"']+)["']/i);
   if (src?.[1]) return canonicalEmbedUrl(src[1].trim());
   const bare = text.match(/https:\/\/[^\s"'<>]+/i);
@@ -143,6 +147,17 @@ export function pasteEmbed(onSet: (value: string) => void) {
 export function watchUrlError(url: string): string | null {
   const value = extractEmbedUrl(url);
   if (!value) return null;
+  // Sağlayıcı direktifi: HTTPS kuralına tabi değil, ama sağlayıcı GERÇEKTEN var olmalı
+  // (panelde kaynak listesinden seçildiği için normalde hep geçerli).
+  if (value.startsWith("@")) {
+    const id = value.slice(1);
+    if (id in EMBED_PROVIDERS) return null;
+    const known = Object.keys(EMBED_PROVIDERS)
+      .filter((key) => key !== "none")
+      .map((key) => `@${key}`)
+      .join(", ");
+    return `Bilinmeyen sağlayıcı: ${value}. Bilinenler: ${known}.`;
+  }
   if (value.length > 500) return "Video linki çok uzun.";
   if (/["'<>\s]/.test(value))
     return "Link geçersiz karakter içeriyor. Embed kodunun içindeki link otomatik alınır, düz linki yapıştır.";

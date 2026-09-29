@@ -46,6 +46,38 @@ export interface EmbedSubtitleTrack {
   label: string;
 }
 
+/**
+ * `show_seasons.parts` (jsonb) satırı — çok part'lı sezonlarda bölüm kimliğini çözer.
+ *
+ * Şekil (AnizipSyncPanel yazar): `{ malId, start, count, animecixId? }`.
+ *   · `malId`  → part'ın KENDİ MAL kimliği (ör. Mushoku Tensei Cour 2 = 45576)
+ *   · `start`  → part'ın SEZON İÇİ mutlak başlangıç bölümü (1 tabanlı)
+ *   · `count`  → part'taki bölüm sayısı
+ * Ölçüm (29.09.2026): `megaplay.buzz/stream/mal/45576/1/sub` → `File 27753` (VAR),
+ * yani part kataloğu megaplay'de **1 tabanlı göreli** numaralandırılır; mutlak
+ * bölüm `absolute - start + 1` ile part içi numaraya çevrilir.
+ */
+export interface SeasonPartEntry {
+  /** Part'ın kendi MAL kimliği. Geçersizse satır yok sayılır. */
+  malId?: number | null;
+  /** Part'ın sezon içi mutlak başlangıç bölümü (1 tabanlı). */
+  start?: number | null;
+  /** Part'taki bölüm sayısı. */
+  count?: number | null;
+  /** animecix kimliği (varsa; burada kullanılmaz). */
+  animecixId?: number | null;
+}
+
+/** MegaPlay sorgusunun hedefi: hangi kayıt (MAL) + hangi (göreli) bölüm. */
+export interface MegaplayTarget {
+  /** Sorguda kullanılacak MAL kimliği (part varsa part'ın kendisi). */
+  malId: number;
+  /** Part içi GÖRELİ bölüm numarası (part yoksa mutlak numara). */
+  episode: number;
+  /** Eşleşen part satırı; part yoksa `null`. */
+  part: { malId: number; start: number; count: number } | null;
+}
+
 export interface EmbedProviderRequest {
   /** MyAnimeList kimliği. Şemada yoksa null. */
   malId: number | null;
@@ -60,10 +92,16 @@ export interface EmbedProviderRequest {
   tmdbId?: number | null;
   /** Sezon numarası (1 tabanlı) — megaplay'de KULLANILMAZ, vidsrc'te zorunlu. */
   season: number;
-  /** Bölüm numarası (1 tabanlı). */
+  /** Bölüm numarası (1 tabanlı). Çok part'lı sezonda MUTLAK (sezon içi) numaradır. */
   episode: number;
   /** Altyazı ("sub") veya dublaj ("dub"). */
   language?: "sub" | "dub";
+  /**
+   * Sezonun `show_seasons.parts` kayıtları. Bölüm bir part aralığına düşüyorsa
+   * sorgu part'ın kendi kimliği + göreli numarasıyla yapılır (bkz. `megaplayTarget`).
+   * Boş/yoksa mevcut davranış korunur (sezonun kendi kimliği, mutlak numara).
+   */
+  parts?: SeasonPartEntry[] | null;
   /**
    * Harici altyazı izleri. Sağlayıcı destekliyorsa embed adresine eklenir.
    *
@@ -108,6 +146,24 @@ function fillTemplate(template: string, request: EmbedProviderRequest): string |
   return url;
 }
 
+/**
+ * MegaPlay embed şablonları — TEK kaynak.
+ *
+ * `mal` yolu birincil (istenen: MAL kimliği elimizde var), `ani` yolu **yedek**.
+ * NEDEN YEDEK GEREKLİ: megaplay dokümanı \"not every show is synced or mapped to
+ * MAL\" diyor; MAL eşlemesi olmayan bölümde (`mal/` adresi oynatıcı yerine hata
+ * sayfası döndürür) aynı bölüm AniList kimliğiyle `ani/` yolunda bulunabiliyor.
+ * Ölçüm (29.09.2026): `mal/40748/1/sub` ve `ani/113415/1/sub` aynı dosyayı
+ * (File 116363) verdi → iki yol aynı kataloğu gösteriyor, yani yedek gerçek.
+ *
+ * ⚠️ Şablonlar burada ÜRETİLMEZ, yalnızca doğrulanır: hangi adresin oynadığına
+ * sunucu rotası karar verir (bkz. `src/routes/api.embed.ts`).
+ */
+export const MEGAPLAY_MAL_TEMPLATE = "https://megaplay.buzz/stream/mal/{mal}/{ep}/{lang}";
+
+/** Yedek şablon — AniList kimliğiyle (bkz. yukarıdaki not). */
+export const MEGAPLAY_ANI_TEMPLATE = "https://megaplay.buzz/stream/ani/{ani}/{ep}/{lang}";
+
 export const EMBED_PROVIDERS: Record<EmbedProviderId, EmbedProvider> = {
   /**
    * Kapalı. Bölüm adresi veritabanındaki `watch_url`'den gelir (bugünkü davranış).
@@ -135,16 +191,25 @@ export const EMBED_PROVIDERS: Record<EmbedProviderId, EmbedProvider> = {
   megaplay: {
     id: "megaplay",
     label: "MegaPlay (MAL kimliği)",
-    template: "https://megaplay.buzz/stream/mal/{mal}/{ep}/{lang}",
+    template: MEGAPLAY_MAL_TEMPLATE,
     requiresMalId: true,
     evidence:
       "megaplay.buzz /api dokümanı: 'Endpoint (MAL id + episode): https://megaplay.buzz/stream/mal/{mal-id}/{ep-num}/{language}'. " +
       "Risk: MAL eşlemesi tam değil — 40748 için HTTP 410 ('removed due a copyright violation' örüntüsü).",
     buildUrl(request) {
-      if (!request.malId) return null;
+      // ⚠️ Bölüm bir PART'a aitse (bkz. `megaplayTarget`): part kaydının kendi MAL
+      // kimliği + PART İÇİ göreli numara kullanılır. Aksi davranış eski haliyle
+      // aynıdır (sezonun kendi kimliği, mutlak numara).
+      const target = megaplayTarget(request);
+      if (!target) return null;
       const template = EMBED_PROVIDERS.megaplay.template;
       if (!template) return null;
-      return fillTemplate(template, request);
+      return fillTemplate(template, {
+        ...request,
+        malId: target.malId,
+        episode: target.episode,
+        language: normalizeEmbedLanguage(request.language),
+      });
     },
   },
 
@@ -359,6 +424,120 @@ export function buildProviderUrl(
 ): string | null {
   const provider = (EMBED_PROVIDERS as Record<string, EmbedProvider | undefined>)[providerId];
   return provider ? provider.buildUrl(request) : null;
+}
+
+/** Geçerli bir kimlik mi? (0/NaN/negatif/ondalık adres üretmez.) */
+function isPositiveInt(value: number | null | undefined): value is number {
+  return typeof value === "number" && Number.isInteger(value) && value > 0;
+}
+
+/**
+ * Dil segmentini megaplay'in kabul ettiği iki değere indirger: `sub` | `dub`.
+ *
+ * NEDEN: `tr` gibi başka bir değer megaplay'de **Error** sayfası döndürür
+ * (ölçüm 29.09.2026: `/stream/mal/45576/1/tr` → `Error - MegaPlay`). Bilinmeyen/
+ * eksik değer güvenli varsayılan olan `sub`'a düşer.
+ */
+export function normalizeEmbedLanguage(language: "sub" | "dub" | undefined | null): "sub" | "dub" {
+  return language === "dub" ? "dub" : "sub";
+}
+
+/**
+ * MegaPlay sorgusunun HEDEFİ: hangi kayıt + hangi bölüm numarası?
+ *
+ * KURAL (part çözümü): bölüm bir part aralığına düşüyorsa (`start ≤ ep < start+count`)
+ * sorgu **o part'ın kendi MAL kimliği** + **part içi göreli numara**
+ * (`absolute - start + 1`) ile yapılır. Part yoksa mevcut davranış korunur:
+ * sezonun kendi MAL kimliği + mutlak numara.
+ *
+ * Ölçüm (29.09.2026, Mushoku Tensei S1):
+ *   · Part 1 = MAL 39535 (1–11): `/mal/39535/1/sub` → `File 31629` (VAR)
+ *   · Part 2 = MAL 45576 (12–23): mutlak 15 → `/mal/45576/4/sub` → `File 27752` (VAR)
+ *   · `/mal/39535/12/sub` → `Error` (Part 1'de 12. bölüm YOK) — part çözümü şart.
+ */
+export function megaplayTarget(
+  request: Pick<EmbedProviderRequest, "malId" | "episode" | "parts">,
+): MegaplayTarget | null {
+  const episode = request.episode;
+  if (!Number.isInteger(episode) || episode <= 0) return null;
+
+  const part = findMegaplayPart(request.parts, episode);
+  if (part) return { malId: part.malId, episode: episode - part.start + 1, part };
+
+  if (!isPositiveInt(request.malId)) return null;
+  return { malId: request.malId, episode, part: null };
+}
+
+/** Bölümü kapsayan part satırı (geçersiz satırlar sessizce atlanır). */
+function findMegaplayPart(
+  parts: SeasonPartEntry[] | null | undefined,
+  episode: number,
+): { malId: number; start: number; count: number } | null {
+  if (!Array.isArray(parts)) return null;
+  for (const entry of parts) {
+    const malId = entry?.malId;
+    const start = entry?.start;
+    const count = entry?.count;
+    if (!isPositiveInt(malId) || !isPositiveInt(start) || !isPositiveInt(count)) continue;
+    if (episode >= start && episode < start + count) return { malId, start, count };
+  }
+  return null;
+}
+
+/**
+ * MegaPlay için DENENECEK adresler, ÖNCELİK SIRASIYLA:
+ *   1) `mal/` şablonu (MAL kimliği),
+ *   2) `ani/` şablonu (AniList kimliği),
+ *   3) `mal/` — DİĞER dil (yalnızca birincil dil oynatmıyorsa; `tr` asla üretilmez).
+ *
+ * ⚠️ NEDEN `fillTemplate`'e güvenilmiyor: `{ani}` yer tutucusu boş kalırsa
+ * `.../ani//15/sub` üretilir ve `fillTemplate`'in \"boş yer tutucu\" koruması bu
+ * biçimi her zaman yakalayamaz. Bu yüzden kimlik burada AÇIKÇA denetlenir;
+ * bilinmeyen kimlik aday listesine hiç girmez.
+ *
+ * ⚠️ `season` KULLANILMAZ: megaplay'de sezon parametresi yoktur — sezon, kimliğin
+ * kendisinde kodludur (her sezonun ayrı MAL/AniList kaydı vardır).
+ */
+export function megaplayCandidateUrls(request: EmbedProviderRequest): string[] {
+  const target = megaplayTarget(request);
+  if (!target) return [];
+
+  const primary = normalizeEmbedLanguage(request.language);
+  const alternate: "sub" | "dub" = primary === "sub" ? "dub" : "sub";
+  const urls: string[] = [];
+
+  // Bir dil için: önce `mal/` (birincil), sonra `ani/` (yedek). Sıra korunur.
+  const add = (language: "sub" | "dub") => {
+    const scoped: EmbedProviderRequest = {
+      ...request,
+      malId: target.malId,
+      episode: target.episode,
+      language,
+    };
+    const mal = fillTemplate(MEGAPLAY_MAL_TEMPLATE, scoped);
+    if (mal && !urls.includes(mal)) urls.push(mal);
+    if (isPositiveInt(request.anilistId)) {
+      const ani = fillTemplate(MEGAPLAY_ANI_TEMPLATE, scoped);
+      if (ani && !urls.includes(ani)) urls.push(ani);
+    }
+  };
+
+  add(primary);
+  // İkinci deneme YALNIZCA yedek amaçlı: birincil dil hiçbir yolda oynamazsa.
+  add(alternate);
+  return urls;
+}
+
+/**
+ * Adres bir megaplay `stream/` çözüm adresi mi?
+ *
+ * NEDEN GEREKLİ: \"çözülen adres\" (sağlayıcı şablonundan ÜRETİLEN adres, ör.
+ * `@megaplay`) doğrulanmalıdır; veritabanına elle yazılmış bölüme özel adresler
+ * (Anizm/TauVideo) DOĞRULANMAZ — anizm referer korumalı olduğu için sunucudan
+ * yapılan bir deneme YANLIŞ NEGATİF verirdi.
+ */
+export function isMegaplayStreamUrl(url: string | null | undefined): boolean {
+  return typeof url === "string" && /^https:\/\/megaplay\.buzz\/stream\//i.test(url);
 }
 
 /**

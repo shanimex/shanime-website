@@ -12,8 +12,18 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as AuthRouteImport } from './routes/auth'
+import { Route as ApiAnilistRouteImport } from './routes/api.anilist'
+import { Route as ApiAnilistCoverRouteImport } from './routes/api.anilist-cover'
+import { Route as ApiAnimecixRouteImport } from './routes/api.animecix'
+import { Route as ApiAnizmRouteImport } from './routes/api.anizm'
+import { Route as ApiDevLogRouteImport } from './routes/api.dev-log'
+import { Route as ApiEmbedRouteImport } from './routes/api.embed'
+import { Route as ApiTrTitlesRouteImport } from './routes/api.tr-titles'
+import { Route as ApiTranslateRouteImport } from './routes/api.translate'
 import { Route as IzleSlugRouteImport } from './routes/izle.$slug'
 import { Route as SeriSlugRouteImport } from './routes/seri.$slug'
+import { Route as AnimeSlugIndexRouteImport } from './routes/anime.$slug.index'
+import { Route as AnimeSlugSeasonSeasonEpisodeEpisodeRouteImport } from './routes/anime.$slug.season.$season.episode.$episode'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -30,6 +40,46 @@ const AuthRoute = AuthRouteImport.update({
   path: '/auth',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiAnilistRoute = ApiAnilistRouteImport.update({
+  id: '/api/anilist',
+  path: '/api/anilist',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAnilistCoverRoute = ApiAnilistCoverRouteImport.update({
+  id: '/api/anilist-cover',
+  path: '/api/anilist-cover',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAnimecixRoute = ApiAnimecixRouteImport.update({
+  id: '/api/animecix',
+  path: '/api/animecix',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAnizmRoute = ApiAnizmRouteImport.update({
+  id: '/api/anizm',
+  path: '/api/anizm',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiDevLogRoute = ApiDevLogRouteImport.update({
+  id: '/api/dev-log',
+  path: '/api/dev-log',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiEmbedRoute = ApiEmbedRouteImport.update({
+  id: '/api/embed',
+  path: '/api/embed',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiTrTitlesRoute = ApiTrTitlesRouteImport.update({
+  id: '/api/tr-titles',
+  path: '/api/tr-titles',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiTranslateRoute = ApiTranslateRouteImport.update({
+  id: '/api/translate',
+  path: '/api/translate',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IzleSlugRoute = IzleSlugRouteImport.update({
   id: '/izle/$slug',
   path: '/izle/$slug',
@@ -40,43 +90,140 @@ const SeriSlugRoute = SeriSlugRouteImport.update({
   path: '/seri/$slug',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AnimeSlugIndexRoute = AnimeSlugIndexRouteImport.update({
+  id: '/anime/$slug/',
+  path: '/anime/$slug/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AnimeSlugSeasonSeasonEpisodeEpisodeRoute =
+  AnimeSlugSeasonSeasonEpisodeEpisodeRouteImport.update({
+    id: '/anime/$slug/season/$season/episode/$episode',
+    path: '/anime/$slug/season/$season/episode/$episode',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
   '/auth': typeof AuthRoute
+  '/api/anilist': typeof ApiAnilistRoute
+  '/api/anilist-cover': typeof ApiAnilistCoverRoute
+  '/api/animecix': typeof ApiAnimecixRoute
+  '/api/anizm': typeof ApiAnizmRoute
+  '/api/dev-log': typeof ApiDevLogRoute
+  '/api/embed': typeof ApiEmbedRoute
+  '/api/tr-titles': typeof ApiTrTitlesRoute
+  '/api/translate': typeof ApiTranslateRoute
   '/izle/$slug': typeof IzleSlugRoute
   '/seri/$slug': typeof SeriSlugRoute
+  '/anime/$slug/': typeof AnimeSlugIndexRoute
+  '/anime/$slug/season/$season/episode/$episode': typeof AnimeSlugSeasonSeasonEpisodeEpisodeRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
   '/auth': typeof AuthRoute
+  '/api/anilist': typeof ApiAnilistRoute
+  '/api/anilist-cover': typeof ApiAnilistCoverRoute
+  '/api/animecix': typeof ApiAnimecixRoute
+  '/api/anizm': typeof ApiAnizmRoute
+  '/api/dev-log': typeof ApiDevLogRoute
+  '/api/embed': typeof ApiEmbedRoute
+  '/api/tr-titles': typeof ApiTrTitlesRoute
+  '/api/translate': typeof ApiTranslateRoute
   '/izle/$slug': typeof IzleSlugRoute
   '/seri/$slug': typeof SeriSlugRoute
+  '/anime/$slug': typeof AnimeSlugIndexRoute
+  '/anime/$slug/season/$season/episode/$episode': typeof AnimeSlugSeasonSeasonEpisodeEpisodeRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
   '/auth': typeof AuthRoute
+  '/api/anilist': typeof ApiAnilistRoute
+  '/api/anilist-cover': typeof ApiAnilistCoverRoute
+  '/api/animecix': typeof ApiAnimecixRoute
+  '/api/anizm': typeof ApiAnizmRoute
+  '/api/dev-log': typeof ApiDevLogRoute
+  '/api/embed': typeof ApiEmbedRoute
+  '/api/tr-titles': typeof ApiTrTitlesRoute
+  '/api/translate': typeof ApiTranslateRoute
   '/izle/$slug': typeof IzleSlugRoute
   '/seri/$slug': typeof SeriSlugRoute
+  '/anime/$slug/': typeof AnimeSlugIndexRoute
+  '/anime/$slug/season/$season/episode/$episode': typeof AnimeSlugSeasonSeasonEpisodeEpisodeRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/admin' | '/auth' | '/izle/$slug' | '/seri/$slug'
+  fullPaths:
+    | '/'
+    | '/admin'
+    | '/auth'
+    | '/api/anilist'
+    | '/api/anilist-cover'
+    | '/api/animecix'
+    | '/api/anizm'
+    | '/api/dev-log'
+    | '/api/embed'
+    | '/api/tr-titles'
+    | '/api/translate'
+    | '/izle/$slug'
+    | '/seri/$slug'
+    | '/anime/$slug/'
+    | '/anime/$slug/season/$season/episode/$episode'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/admin' | '/auth' | '/izle/$slug' | '/seri/$slug'
-  id: '__root__' | '/' | '/admin' | '/auth' | '/izle/$slug' | '/seri/$slug'
+  to:
+    | '/'
+    | '/admin'
+    | '/auth'
+    | '/api/anilist'
+    | '/api/anilist-cover'
+    | '/api/animecix'
+    | '/api/anizm'
+    | '/api/dev-log'
+    | '/api/embed'
+    | '/api/tr-titles'
+    | '/api/translate'
+    | '/izle/$slug'
+    | '/seri/$slug'
+    | '/anime/$slug'
+    | '/anime/$slug/season/$season/episode/$episode'
+  id:
+    | '__root__'
+    | '/'
+    | '/admin'
+    | '/auth'
+    | '/api/anilist'
+    | '/api/anilist-cover'
+    | '/api/animecix'
+    | '/api/anizm'
+    | '/api/dev-log'
+    | '/api/embed'
+    | '/api/tr-titles'
+    | '/api/translate'
+    | '/izle/$slug'
+    | '/seri/$slug'
+    | '/anime/$slug/'
+    | '/anime/$slug/season/$season/episode/$episode'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AdminRoute: typeof AdminRoute
   AuthRoute: typeof AuthRoute
+  ApiAnilistRoute: typeof ApiAnilistRoute
+  ApiAnilistCoverRoute: typeof ApiAnilistCoverRoute
+  ApiAnimecixRoute: typeof ApiAnimecixRoute
+  ApiAnizmRoute: typeof ApiAnizmRoute
+  ApiDevLogRoute: typeof ApiDevLogRoute
+  ApiEmbedRoute: typeof ApiEmbedRoute
+  ApiTrTitlesRoute: typeof ApiTrTitlesRoute
+  ApiTranslateRoute: typeof ApiTranslateRoute
   IzleSlugRoute: typeof IzleSlugRoute
   SeriSlugRoute: typeof SeriSlugRoute
+  AnimeSlugIndexRoute: typeof AnimeSlugIndexRoute
+  AnimeSlugSeasonSeasonEpisodeEpisodeRoute: typeof AnimeSlugSeasonSeasonEpisodeEpisodeRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -102,6 +249,62 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/anilist': {
+      id: '/api/anilist'
+      path: '/api/anilist'
+      fullPath: '/api/anilist'
+      preLoaderRoute: typeof ApiAnilistRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/anilist-cover': {
+      id: '/api/anilist-cover'
+      path: '/api/anilist-cover'
+      fullPath: '/api/anilist-cover'
+      preLoaderRoute: typeof ApiAnilistCoverRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/animecix': {
+      id: '/api/animecix'
+      path: '/api/animecix'
+      fullPath: '/api/animecix'
+      preLoaderRoute: typeof ApiAnimecixRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/anizm': {
+      id: '/api/anizm'
+      path: '/api/anizm'
+      fullPath: '/api/anizm'
+      preLoaderRoute: typeof ApiAnizmRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/dev-log': {
+      id: '/api/dev-log'
+      path: '/api/dev-log'
+      fullPath: '/api/dev-log'
+      preLoaderRoute: typeof ApiDevLogRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/embed': {
+      id: '/api/embed'
+      path: '/api/embed'
+      fullPath: '/api/embed'
+      preLoaderRoute: typeof ApiEmbedRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/tr-titles': {
+      id: '/api/tr-titles'
+      path: '/api/tr-titles'
+      fullPath: '/api/tr-titles'
+      preLoaderRoute: typeof ApiTrTitlesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/translate': {
+      id: '/api/translate'
+      path: '/api/translate'
+      fullPath: '/api/translate'
+      preLoaderRoute: typeof ApiTranslateRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/izle/$slug': {
       id: '/izle/$slug'
       path: '/izle/$slug'
@@ -116,6 +319,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SeriSlugRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/anime/$slug/': {
+      id: '/anime/$slug/'
+      path: '/anime/$slug'
+      fullPath: '/anime/$slug/'
+      preLoaderRoute: typeof AnimeSlugIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/anime/$slug/season/$season/episode/$episode': {
+      id: '/anime/$slug/season/$season/episode/$episode'
+      path: '/anime/$slug/season/$season/episode/$episode'
+      fullPath: '/anime/$slug/season/$season/episode/$episode'
+      preLoaderRoute: typeof AnimeSlugSeasonSeasonEpisodeEpisodeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -123,8 +340,19 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AdminRoute: AdminRoute,
   AuthRoute: AuthRoute,
+  ApiAnilistRoute: ApiAnilistRoute,
+  ApiAnilistCoverRoute: ApiAnilistCoverRoute,
+  ApiAnimecixRoute: ApiAnimecixRoute,
+  ApiAnizmRoute: ApiAnizmRoute,
+  ApiDevLogRoute: ApiDevLogRoute,
+  ApiEmbedRoute: ApiEmbedRoute,
+  ApiTrTitlesRoute: ApiTrTitlesRoute,
+  ApiTranslateRoute: ApiTranslateRoute,
   IzleSlugRoute: IzleSlugRoute,
   SeriSlugRoute: SeriSlugRoute,
+  AnimeSlugIndexRoute: AnimeSlugIndexRoute,
+  AnimeSlugSeasonSeasonEpisodeEpisodeRoute:
+    AnimeSlugSeasonSeasonEpisodeEpisodeRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

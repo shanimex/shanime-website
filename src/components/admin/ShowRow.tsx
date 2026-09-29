@@ -12,7 +12,7 @@ export type ShowCounts = { seasons: number; episodes: number };
 export function ShowRow({
   show,
   counts,
-  anizmCount,
+  trCount,
   first,
   last,
   onEdit,
@@ -21,8 +21,13 @@ export function ShowRow({
 }: {
   show: ShowWithImage;
   counts: ShowCounts;
-  /** Bu dizi için anizm (Türkçe altyazı) kaydı hazır olan bölüm sayısı. */
-  anizmCount: number;
+  /**
+   * CANLI Türkçe kapsama: bu dizinin `episode_sources.language='tr'` satırı olan
+   * bölüm sayısı (bkz. `lib/episode-sources.ts → fetchTurkishCoverage`). Rozetin
+   * PAYI budur; paydası `counts.episodes`tir. Eskiden derleme zamanı dosyasından
+   * ön ek sayılırdı — YANLIŞTI, bkz. `lib/anizm.ts` notu.
+   */
+  trCount: number;
   first: boolean;
   last: boolean;
   onEdit: () => void;
@@ -48,22 +53,25 @@ export function ShowRow({
         </p>
       </div>
       {/* KAYNAK DURUMU — sistem iki kaynak üzerinden çalışır:
-          TR: anizm (altyazı videoda), EN: megaplay (oynatıcının CC menüsü). */}
+           TR: anizm (altyazı videoda), EN: megaplay (oynatıcının CC menüsü).
+           "TR a/b" artık GERÇEK kapsamadır: a = en az bir Türkçe kaynağı
+           (`episode_sources.language='tr'`) olan bölüm sayısı, b = toplam bölüm.
+           Eşitse normal (yeşil), eksikse amber, hiç yoksa kırmızı. */}
       <span
         className={`hidden shrink-0 rounded-full px-3 py-1 text-[11px] font-bold md:inline ${
-          counts.episodes > 0 && anizmCount >= counts.episodes
+          counts.episodes > 0 && trCount >= counts.episodes
             ? "bg-primary/15 text-primary"
-            : anizmCount > 0
+            : trCount > 0
               ? "bg-amber-500/15 text-amber-600"
               : "bg-destructive/15 text-destructive"
         }`}
-        title="Türkçe altyazı: anizm kaydı hazır olan bölüm sayısı / toplam bölüm"
+        title="Türkçe kaynak kapsaması: en az bir Türkçe kaynağı (episode_sources · dil 'tr') olan bölüm / toplam bölüm. Panelden kaynak işaretlendikçe CANLI güncellenir."
       >
-        TR {anizmCount}/{counts.episodes}
+        TR {trCount}/{counts.episodes}
       </span>
       <span
         className="hidden shrink-0 rounded-full bg-secondary px-3 py-1 text-[11px] font-bold text-foreground md:inline"
-        title="İngilizce altyazı: megaplay oynatıcısının kendi CC menüsünden seçilir"
+        title="İngilizce altyazı: varsayılan sağlayıcı megaplay — oynatıcının kendi CC menüsünden seçilir"
       >
         EN megaplay
       </span>

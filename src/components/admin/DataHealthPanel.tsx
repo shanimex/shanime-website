@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { AlertTriangle, CheckCircle2, Loader2, RefreshCw, Wrench } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { toast } from "@/lib/admin-toast";
 import { db } from "@/lib/admin";
 import {
   findBrokenUrls,
@@ -67,7 +68,12 @@ export function DataHealthPanel({ onNotice }: { onNotice: (message: string) => v
     void load();
   }, [load]);
 
-  async function fixUrl(item: BrokenEpisodeUrl) {
+  /**
+   * Tek kaydı düzeltir. `quiet=true` iken başarı bildirimi GÖSTERİLMEZ: "hepsini
+   * düzelt" akışında her satır için ayrı bildirim çıkmasın, tek özet yetsin
+   * (hata varsa yine gösterilir — sessizce yutulmaz).
+   */
+  async function fixUrl(item: BrokenEpisodeUrl, quiet = false) {
     const { error: writeError } = await db
       .from("show_episodes")
       .update({ watch_url: FIX_URL })
@@ -75,13 +81,18 @@ export function DataHealthPanel({ onNotice }: { onNotice: (message: string) => v
       .eq("season", item.season)
       .eq("number", item.number);
     if (writeError) {
-      alert("Düzeltilemedi: " + writeError.message);
+      toast.error(
+        `Düzeltilemedi (${item.slug} S${item.season}B${item.number}): ${writeError.message}`,
+      );
       return;
     }
-    onNotice(`${item.slug} S${item.season}B${item.number} adresi ${FIX_URL} olarak düzeltildi.`);
+    if (!quiet) {
+      onNotice(`${item.slug} S${item.season}B${item.number} adresi ${FIX_URL} olarak düzeltildi.`);
+    }
   }
 
-  async function fixSeason(item: MissingSeasonRow) {
+  /** Sezon kaydı oluşturur (bkz. `fixUrl` — `quiet` aynı işi görür). */
+  async function fixSeason(item: MissingSeasonRow, quiet = false) {
     const { error: writeError } = await db.from("show_seasons").insert({
       show_id: item.showId,
       number: item.number,
@@ -89,19 +100,25 @@ export function DataHealthPanel({ onNotice }: { onNotice: (message: string) => v
       sort_order: item.number,
     });
     if (writeError) {
-      alert("Sezon kaydı oluşturulamadı: " + writeError.message);
+      toast.error(
+        `Sezon kaydı oluşturulamadı (${item.slug} S${item.number}): ${writeError.message}`,
+      );
       return;
     }
-    onNotice(`${item.slug} için ${item.number}. Sezon kaydı oluşturuldu.`);
+    if (!quiet) onNotice(`${item.slug} için ${item.number}. Sezon kaydı oluşturuldu.`);
   }
 
   async function fixAll() {
+    if (total === 0) {
+      toast.info("Düzeltilecek bir şey yok — veri temiz.");
+      return;
+    }
     setBusy(true);
     try {
       const urls = [...brokenUrls];
       const seasons = [...missingSeasons];
-      for (const item of urls) await fixUrl(item);
-      for (const item of seasons) await fixSeason(item);
+      for (const item of urls) await fixUrl(item, true);
+      for (const item of seasons) await fixSeason(item, true);
       await load();
       onNotice(`${urls.length} bağlantı + ${seasons.length} sezon kaydı düzeltildi.`);
     } finally {
@@ -124,12 +141,12 @@ export function DataHealthPanel({ onNotice }: { onNotice: (message: string) => v
             <Loader2 size={14} className="animate-spin" /> Taranıyor…
           </span>
         ) : total === 0 ? (
-          <span className="inline-flex items-center gap-2 text-primary">
+          <span className="animate-rise-in inline-flex items-center gap-2 text-emerald-400">
             <CheckCircle2 size={15} /> Sorun yok — tüm oynatıcı adresleri ve sezon kayıtları
             yerinde.
           </span>
         ) : (
-          <span className="inline-flex items-center gap-2 text-foreground">
+          <span className="animate-rise-in inline-flex items-center gap-2 text-foreground">
             <AlertTriangle size={15} /> {total} sorun bulundu.
           </span>
         )}

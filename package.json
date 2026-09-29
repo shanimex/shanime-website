@@ -11,6 +11,8 @@
     "lint": "eslint .",
     "sitemap": "node scripts/generate-sitemap.mjs",
     "covers:sync": "node scripts/sync-episode-covers.mjs",
+    "covers:manifest": "node scripts/generate-episode-cover-manifest.mjs",
+    "logos:manifest": "node scripts/generate-anime-logo-manifest.mjs",
     "format": "prettier --write ."
   },
   "overrides": {

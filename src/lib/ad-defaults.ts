@@ -4,7 +4,7 @@ import { prerollVastUrls } from "@/lib/mybid";
  * Reklam slotlarının **koddaki varsayılan** kaynağı — tek doğruluk kaynağı.
  *
  * NEDEN AYRI DOSYA: aynı bilgi iki yerde gerekiyor —
- *   1. reklamı sayfaya çizen bileşen (`components/AdsterraUnit.tsx`),
+ *   1. reklamı sayfaya çizen bileşen (`components/site/AdsterraUnit.tsx`),
  *   2. admin panelinde "şu anda hangi kod çalışıyor" bilgisini GÖSTEREN kilitli kutu.
  * Anahtarları iki dosyada kopyalamak kaçınılmaz olarak ayrışıyordu.
  *

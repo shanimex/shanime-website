@@ -33,7 +33,7 @@ paylaşılmaz, depoya girmez.
 
 ```sh
 npm run dev        # geliştirme sunucusu -> http://localhost:8080
-npm run build      # üretim derlemesi (.output/)
+npm run build      # üretim derlemesi -> dist/
 npm run preview    # derlemeyi yerelde önizle
 npm run lint       # kod denetimi
 npm run format     # biçimlendirme
@@ -44,15 +44,17 @@ npm run sitemap       # public/sitemap.xml üretir
 ## Klasör düzeni
 
 ```
-public/          Statik dosyalar (logo, yedek görseller, robots.txt, sitemap)
+public/                 Statik dosyalar (logo, yedek görseller, robots.txt, sitemap)
 src/
-  components/    Arayüz bileşenleri
-  routes/        Sayfalar (dosya adı = adres)
-  lib/           Veri erişimi ve yardımcılar
-  integrations/  Supabase istemcileri
-scripts/         Bakım betikleri (kapak senkronu, site haritası)
-supabase/        Veritabanı migration'ları ve yapılandırma
-docs/            Proje belgeleri
+  components/site/      Siteye bakan bileşenler
+  components/admin/     Yönetim paneli bileşenleri
+  components/ui/        Temel UI (button)
+  routes/               Sayfalar (dosya adı = adres)
+  lib/                  Veri erişimi ve yardımcılar
+  integrations/         Supabase istemcileri
+scripts/                Bakım betikleri (kapak senkronu, site haritası)
+supabase/               Veritabanı migration'ları ve yapılandırma
+docs/                   Proje belgeleri (yapi.md + arastirma/plan/durum/rehber)
 ```
 
 ## Sayfalar
@@ -67,7 +69,7 @@ docs/            Proje belgeleri
 
 ## Belgeler
 
-- [Proje yapısı](docs/PROJE-YAPISI.md)
-- [Durum raporu](docs/DURUM-RAPORU.md) — yapılan işlerin günlüğü
-- [Denetim raporu](docs/DENETIM-RAPORU.md)
-- [Logo ve içerik rehberi](docs/LOGO-REHBERI.md) — kod bilmeden içerik değiştirme
+- [Proje yapısı](docs/yapi.md)
+- [Durum raporu](docs/durum/DURUM-RAPORU.md) — yapılan işlerin günlüğü
+- [Denetim raporu](docs/durum/DENETIM-RAPORU.md)
+- [Logo ve içerik rehberi](docs/rehber/LOGO-REHBERI.md) — kod bilmeden içerik değiştirme

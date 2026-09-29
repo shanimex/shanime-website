@@ -1,8 +1,10 @@
-import { CloudDownload, Loader2 } from "lucide-react";
+﻿import { CloudDownload, Loader2 } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { toast } from "@/lib/admin-toast";
 import { db, inputCls } from "@/lib/admin";
 import { syncAllEpisodePosters } from "@/lib/episode-covers";
+import { devMark } from "@/lib/dev-log";
 import {
   fileMatchesSeries,
   listVoeFiles,
@@ -52,7 +54,9 @@ export function VoeSyncPanel({
 
   async function fetchList() {
     if (!key.trim()) {
-      setNote("Önce Voe API anahtarını gir (Voe → Ayarlar → Hesap → API Ayrıntıları).");
+      const text = "Önce Voe API anahtarını gir (Voe → Ayarlar → Hesap → API Ayrıntıları).";
+      setNote(text);
+      toast.error(text);
       return;
     }
     setBusy(true);
@@ -82,7 +86,9 @@ export function VoeSyncPanel({
           : `${files.length} dosya tarandı ama dosya adından sezon/bölüm çözülemedi. Dosya adlarını "Seri S01E05 - Bölüm adı" biçiminde yüklersen otomatik çözülür.`,
       );
     } catch (error) {
-      setNote(`Liste alınamadı: ${error instanceof Error ? error.message : "bilinmeyen hata"}`);
+      const text = `Liste alınamadı: ${error instanceof Error ? error.message : "bilinmeyen hata"}`;
+      setNote(text);
+      toast.error(text);
     } finally {
       setBusy(false);
     }
@@ -92,7 +98,9 @@ export function VoeSyncPanel({
     if (!rows) return;
     const chosen = rows.filter((row) => picked[row.file.code] && !row.exists);
     if (chosen.length === 0) {
-      setNote("Eklenecek yeni bölüm seçilmedi.");
+      const text = "Eklenecek yeni bölüm seçilmedi.";
+      setNote(text);
+      toast.error(text);
       return;
     }
     setBusy(true);
@@ -115,9 +123,15 @@ export function VoeSyncPanel({
       setRows(null);
       setPicked({});
       setNote(`${payload.length} bölüm eklendi.`);
+      // CANLI KONSOL: Voe'dan kaç bölüm eklendiği kayda geçer.
+      devMark("Voe'dan bölüm çekildi", { eklenen: payload.length });
       await onDone(`${payload.length} bölüm Voe'dan eklendi.`);
     } catch (error) {
-      setNote(`Eklenemedi: ${error instanceof Error ? error.message : "bilinmeyen hata"}`);
+      const text = `Eklenemedi: ${error instanceof Error ? error.message : "bilinmeyen hata"}`;
+      setNote(text);
+      toast.error(text);
+      // CANLI KONSOL: hata sebebiyle birlikte kaydedilir.
+      devMark("Voe'dan çekme başarısız", { sebep: text });
     } finally {
       setBusy(false);
     }

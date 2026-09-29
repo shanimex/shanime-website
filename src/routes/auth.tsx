@@ -1,3 +1,4 @@
+// /auth — Yönetici giriş/kayıt ekranı: panele erişim için e-posta ile oturum açma.
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -57,13 +58,13 @@ function AuthPage() {
       <div className="w-full max-w-sm rounded-3xl border border-border bg-card p-8 shadow-2xl">
         <a href="/" className="mb-6 flex items-center justify-center">
           <img
-            src="/shanime-logo.png"
+            src="/shanime-logo.png?v=6"
             alt="shanime logosu"
-            width={800}
-            height={187}
+            width={1060}
+            height={856}
             loading="eager"
             decoding="async"
-            className="h-10 w-auto object-contain"
+            className="h-14 w-auto object-contain"
           />
           <span className="sr-only">shanime</span>
         </a>
