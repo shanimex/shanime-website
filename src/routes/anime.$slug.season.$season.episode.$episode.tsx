@@ -2194,8 +2194,12 @@ function EpisodeSidebar({
   // `scrollIntoView` BURADA ÇALIŞMIYOR: effect, yerleşim oturmadan çalışıyor ve
   // hiç kaydırma yapmıyor. Bu yüzden kaydırma iki adımda elle yapılır — önce
   // çizimin tamamlanması beklenir, sonra kapsayıcının scrollTop'u hesaplanır.
+  //
+  // İKİNCİ DENEME (kapak resimleri geç yüklenip satır boylarını değiştirince
+  // ilk hesap şaşıyordu; liste tepede kalıyordu). Aynı değere yazmak görsel
+  // sıçrama yapmaz — zaten doğruysa no-op'tur.
   useEffect(() => {
-    const frame = window.requestAnimationFrame(() => {
+    const scrollToActive = () => {
       const list = listRef.current;
       const row = activeRef.current;
       if (!list || !row) return;
@@ -2207,8 +2211,13 @@ function EpisodeSidebar({
         list.scrollTop -
         (list.clientHeight - row.clientHeight) / 2;
       list.scrollTop = Math.max(0, offset);
-    });
-    return () => window.cancelAnimationFrame(frame);
+    };
+    const frame = window.requestAnimationFrame(scrollToActive);
+    const late = window.setTimeout(scrollToActive, 600);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.clearTimeout(late);
+    };
   }, [currentEpisodeId]);
 
   return (
@@ -2323,54 +2332,69 @@ function EpisodeSidebar({
               OLMAYABİLİR; bu yüzden özel bölümler sezon verisiyle gelir (bkz.
               lib/season-specials.ts, 6 saat önbellekli). Numaraları `0`dır ve
               1..N aralığının DIŞINDA durur → part offset/numaralandırma KAYMAZ.
+
+              ÇİFT KAYIT KORUMASI: panel bazı özel bölümleri veritabanına da yazar
+              (oynatılabilir `0` satırı). Aynı başlık hem katalogda hem DB'de
+              varsa katalog kopyası GİZLENİR — DB satırı oynatılabilir olandır,
+              liste iki kez göstermez.
               ═══════════════════════════════════════════════════════════════════
             */}
-            {(activeSeason.specials ?? []).map((special) => {
-              const active = special.id === currentEpisodeId;
-              const specialRow: Episode = {
-                id: special.id,
-                show_id: activeSeason.show_id,
-                season: activeSeason.number,
-                number: 0,
-                title: special.title,
-                summary: "",
-                duration: "",
-                watch_url: "",
-                thumbnail: special.image,
-              };
-              return (
-                <li key={special.id} ref={active ? activeRef : undefined}>
-                  <Link
-                    to="/anime/$slug/season/$season/episode/$episode"
-                    params={{ slug, season: String(activeSeason.number), episode: "0" }}
-                    preload={false}
-                    aria-current={active ? "page" : undefined}
-                    className={`flex items-center gap-2.5 rounded-lg p-1.5 transition-colors ${
-                      active ? "bg-accent/15" : "hover:bg-secondary focus-visible:bg-secondary"
-                    }`}
-                  >
-                    <SidebarCover
-                      slug={slug}
-                      episode={specialRow}
-                      seriesPoster={seriesPoster}
-                      malId={malId}
-                    />
-                    <span className="min-w-0 flex-1">
-                      <span
-                        className={`block text-xs font-bold ${active ? "text-accent" : "text-foreground"}`}
-                      >
-                        {t("series.episodeLabel", { number: 0 })}
-                      </span>
-                      {special.title ? (
-                        <span className="block truncate text-[11px] text-muted-foreground">
-                          {special.title}
+            {(activeSeason.specials ?? [])
+              .filter((special) => {
+                const name = (special.title ?? "").trim().toLocaleLowerCase("tr");
+                if (!name) return true;
+                return !activeSeason.episodes.some(
+                  (episode) =>
+                    episode.number === 0 &&
+                    (episode.title ?? "").trim().toLocaleLowerCase("tr") === name,
+                );
+              })
+              .map((special) => {
+                const active = special.id === currentEpisodeId;
+                const specialRow: Episode = {
+                  id: special.id,
+                  show_id: activeSeason.show_id,
+                  season: activeSeason.number,
+                  number: 0,
+                  title: special.title,
+                  summary: "",
+                  duration: "",
+                  watch_url: "",
+                  thumbnail: special.image,
+                };
+                return (
+                  <li key={special.id} ref={active ? activeRef : undefined}>
+                    <Link
+                      to="/anime/$slug/season/$season/episode/$episode"
+                      params={{ slug, season: String(activeSeason.number), episode: "0" }}
+                      preload={false}
+                      aria-current={active ? "page" : undefined}
+                      className={`flex items-center gap-2.5 rounded-lg p-1.5 transition-colors ${
+                        active ? "bg-accent/15" : "hover:bg-secondary focus-visible:bg-secondary"
+                      }`}
+                    >
+                      <SidebarCover
+                        slug={slug}
+                        episode={specialRow}
+                        seriesPoster={seriesPoster}
+                        malId={malId}
+                      />
+                      <span className="min-w-0 flex-1">
+                        <span
+                          className={`block text-xs font-bold ${active ? "text-accent" : "text-foreground"}`}
+                        >
+                          {t("series.episodeLabel", { number: 0 })}
                         </span>
-                      ) : null}
-                    </span>
-                  </Link>
-                </li>
-              );
-            })}
+                        {special.title ? (
+                          <span className="block truncate text-[11px] text-muted-foreground">
+                            {special.title}
+                          </span>
+                        ) : null}
+                      </span>
+                    </Link>
+                  </li>
+                );
+              })}
             {activeSeason.episodes.map((episode, index) => {
               const active = episode.id === currentEpisodeId;
               // Çeviri gelmezse (ya da dil İngilizce ise) ORİJİNAL ad gösterilir.
