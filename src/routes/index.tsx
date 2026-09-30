@@ -3687,8 +3687,10 @@ function Index() {
     <div className="min-h-screen bg-background">
       {/* Üst şerit: içerik üstünden kayan buzlu cam (kullanıcı isteği, 30.09.2026:
           "daha güzel hale getir"). Düz opak zemin + sert çizgi yerine yarı saydam
-          + bulanıklık: vitrin görseli altından yumuşak geçiş yapar. */}
-      <header className="sticky top-0 z-50 border-b border-border/60 bg-background/80 backdrop-blur-md supports-[backdrop-filter]:bg-background/60">
+          + bulanıklık: vitrin görseli altından yumuşak geçiş yapar. Renk kapkara
+          değil lacivert-siyam (anikoto tarzı): temanın mor alt tonuyla uyumlu,
+          kırmızı logoyu öne çıkarır. */}
+      <header className="sticky top-0 z-50 border-b border-white/[0.07] bg-[#141724]/85 backdrop-blur-md supports-[backdrop-filter]:bg-[#141724]/65">
         {/* Başlık şeridi de sayfanın geri kalanıyla AYNI kabı kullanır (referansta
             header, içerik ve footer tek `.container` içindedir); yoksa içerik
             genişlerken header dar kalıp sayfa kopuk görünürdü. */}
