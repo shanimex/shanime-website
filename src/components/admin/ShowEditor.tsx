@@ -406,12 +406,18 @@ export function ShowEditor({
       toast.error("Başlık boş olamaz.");
       return;
     }
-    // Video linki ÖNCE doğrulanır (DB'ye dokunmadan): bozuk link varsa hiçbir
-    // şey yazılmaz, kullanıcı tek mesajla döner.
+    // Video linki ÖNCE doğrulanır (DB'ye dokunmadan): boş (kaldırma) +
+    // embed (YouTube/Vimeo) + dosya adresi (R2 mp4, /static/…) geçerlidir.
+    // R2 adresleri DOSYADIR ve kabul edilir (ölçüm: cdn.shanime.xyz adresi
+    // "embed değil" diye reddediliyordu).
     const videoRaw = videoLink.trim();
-    if (videoRaw && heroVideoSource(videoRaw).kind !== "embed") {
+    const videoLooksUrl =
+      videoRaw === "" ||
+      heroVideoSource(videoRaw).kind === "embed" ||
+      /^(https?:\/\/|\/)[^\s]+$/i.test(videoRaw);
+    if (!videoLooksUrl) {
       toast.error(
-        "Bu adres YouTube/Vimeo linki değil. Link yapıştır ya da soldaki kutuya mp4 dosyası yükle.",
+        "Bu adres video linki gibi durmuyor. Link yapıştır ya da soldaki kutuya mp4 dosyası yükle.",
       );
       return;
     }
@@ -610,7 +616,7 @@ export function ShowEditor({
             {/* LİNK BLOĞU — düğmesiz: link ANA Kaydet ile yazılır (kullanıcı
                 isteği, 30.09.2026). Ayrı Kaydet vardı, kaldırıldı; akış tek
                 düğmede toplandı. */}
-            <div className="min-w-[15rem] flex-1 rounded-xl border border-dashed border-border p-2.5">
+            <div className="min-w-[15rem] flex-1 rounded-xl bg-card/60 p-2.5">
               <span className="mb-1.5 block text-[10px] font-extrabold uppercase tracking-wider text-muted-foreground">
                 Vitrin videosu — link (ana Kaydet ile yazılır)
               </span>
@@ -879,12 +885,12 @@ export function ShowEditor({
                   paneli AÇAR. */}
               <ListVideo size={14} /> {kind === "movie" ? "Film kaynağı" : "Bölüm Yöneticisi"}
             </Button>
-            {/* Kaydet EN SAĞDA (kullanıcı isteği, 30.09.2026). Tonu kirli takibinden:
-                değişiklik varsa canlı kırmızı, yoksa soluk (yine basılabilir). */}
+            {/* Kaydet HEP KIRMIZI (kullanıcı isteği, 30.09.2026) — değişiklik
+                yoksa SADECE soluklaşır. Tonu kirli takibinden. */}
             <Button
               size="sm"
-              variant={isDirty ? "default" : "outline"}
-              className="ml-auto h-8 rounded-full px-3 text-xs"
+              variant="default"
+              className={`ml-auto h-8 rounded-full px-3 text-xs ${isDirty ? "" : "opacity-50 saturate-50"}`}
               onClick={() => void save()}
               disabled={disabled}
               title={isDirty ? "Değişiklikleri kaydet" : "Kaydedilecek değişiklik yok"}
