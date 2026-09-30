@@ -11,7 +11,7 @@
 // sayfasının görünümü AYNEN korunur.
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, ChevronDown, Home, LayoutGrid, List, Play } from "lucide-react";
+import { ArrowLeft, Check, ChevronDown, Home, LayoutGrid, List, Play } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { AdSlot, useAdCode } from "@/components/site/AdSlot";
@@ -245,7 +245,7 @@ function EpisodeRow({
       onClick={onOpen}
       className="group flex items-center gap-3 rounded-xl border border-border bg-card p-2.5 transition-colors hover:border-accent/60 hover:bg-secondary focus-visible:border-accent focus-visible:outline-none sm:gap-4 sm:p-3"
     >
-      {/* KAPAK + alt gölge + sol alt köşe etiketi (16:9 yatay kutu). */}
+      {/* KAPAK + alt gölge + altta ortalı sezon/bölüm etiketi (16:9 yatay kutu). */}
       <span className="relative aspect-video w-28 shrink-0 overflow-hidden rounded-lg bg-secondary sm:w-40">
         <EpisodeCover
           number={episode.number}
@@ -267,9 +267,17 @@ function EpisodeRow({
           aria-hidden
           className="absolute inset-x-0 bottom-0 h-9 bg-gradient-to-t from-background/95 to-transparent"
         />
-        <span className="absolute bottom-1 left-2 font-mono text-[11px] font-bold tracking-wider text-foreground/90">
+        <span className="absolute inset-x-0 bottom-1 text-center text-[11px] font-semibold tracking-[0.2em] text-foreground/90">
           {overlay}
         </span>
+        {watched ? (
+          <span
+            title={t("series.watchedBadge")}
+            className="absolute right-1.5 top-1.5 grid size-5 place-items-center rounded-full bg-emerald-500/90 text-white shadow"
+          >
+            <Check size={12} strokeWidth={3.5} />
+          </span>
+        ) : null}
       </span>
 
       {/* BAŞLIK + (varsa) AÇIKLAMA. */}
@@ -280,26 +288,19 @@ function EpisodeRow({
         ) : null}
       </span>
 
-      {/* SAĞDAKİ ROZETLER: "3. Bölüm" (+ izlendi işareti) + yayın tarihi.
-          Tarih `episode.airdate`ten gelir (ani.zip, uzun önbellekli); yoksa rozet
-          atlanır, uydurma yazılmaz. */}
-      <span className="flex shrink-0 items-center gap-2">
-        {watched && (
-          <span className="rounded-full border border-accent/40 bg-background/95 px-2 py-0.5 text-[10px] font-bold text-accent">
-            {t("series.watchedBadge")}
-          </span>
-        )}
-        <span className="rounded-lg border border-accent/40 bg-accent/10 px-2 py-0.5 text-[11px] font-bold text-accent">
-          {t("series.episodeLabel", { number: episode.number })}
-        </span>
-        {episode.airdate ? (
-          <span
-            className="rounded-lg border border-border px-2 py-0.5 text-[11px] font-bold text-muted-foreground"
-            title={formatAirdate(episode.airdate, lang, true)}
-          >
-            {formatAirdate(episode.airdate, lang, false)}
-          </span>
-        ) : null}
+      {/* SAĞDAKİ METİN: "1. Bölüm · 3/4/2016" — kutusuz, düz metin.
+          Tarih `episode.airdate`ten gelir (ani.zip, uzun önbellekli); yoksa
+          yazılmaz, uydurma yazılmaz. İzlendi işareti kapağın köşesindedir. */}
+      <span
+        className="shrink-0 text-[11px] font-semibold text-muted-foreground"
+        title={episode.airdate ? formatAirdate(episode.airdate, lang, true) : undefined}
+      >
+        {[
+          t("series.episodeLabel", { number: episode.number }),
+          episode.airdate ? formatAirdate(episode.airdate, lang, false) : "",
+        ]
+          .filter(Boolean)
+          .join(" · ")}
       </span>
     </Link>
   );

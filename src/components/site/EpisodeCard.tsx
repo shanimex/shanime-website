@@ -141,7 +141,7 @@ export function EpisodeCard({
         aria-hidden
         className="absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-background/95 to-transparent"
       />
-      <span className="absolute bottom-1.5 left-2 font-mono text-[11px] font-bold tracking-wider text-foreground/90">
+      <span className="absolute inset-x-0 bottom-1.5 text-center text-[11px] font-semibold tracking-[0.2em] text-foreground/90">
         S {String(episode.season).padStart(2, "0")} B {String(episode.number).padStart(2, "0")}
       </span>
 
@@ -157,24 +157,19 @@ export function EpisodeCard({
     </div>
   );
 
+  const metaLine = [
+    t("series.episodeLabel", { number: episode.number }),
+    episode.duration || "",
+    episode.airdate ? formatAirdate(episode.airdate, lang, false) : "",
+  ]
+    .filter(Boolean)
+    .join(" · ");
   const badges = (
-    <div className="flex shrink-0 items-center gap-2">
-      <span className="rounded-lg border border-accent/40 bg-accent/10 px-2 py-0.5 text-[11px] font-bold text-accent">
-        {t("series.episodeLabel", { number: episode.number })}
-      </span>
-      {episode.duration ? (
-        <span className="rounded-lg border border-border px-2 py-0.5 text-[11px] font-bold text-muted-foreground">
-          {episode.duration}
-        </span>
-      ) : null}
-      {episode.airdate ? (
-        <span
-          className="rounded-lg border border-border px-2 py-0.5 text-[11px] font-bold text-muted-foreground"
-          title={formatAirdate(episode.airdate, lang, true)}
-        >
-          {formatAirdate(episode.airdate, lang, false)}
-        </span>
-      ) : null}
+    <div
+      className="shrink-0 text-[11px] font-semibold text-muted-foreground"
+      title={episode.airdate ? formatAirdate(episode.airdate, lang, true) : undefined}
+    >
+      {metaLine}
     </div>
   );
 
