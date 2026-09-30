@@ -14,11 +14,13 @@ import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ImageDrop } from "@/components/admin/ImageDrop";
 import { SeasonsPanel } from "@/components/admin/SeasonsPanel";
+import { AnizipSyncProvider } from "@/components/admin/AnizipSyncProvider";
 import { toast } from "@/lib/admin-toast";
 import { db, inputCls, slugify, uniqueSlug } from "@/lib/admin";
 import { cn } from "@/lib/utils";
 import { showSlug } from "@/lib/content";
 import { isPartContinuation } from "@/lib/puffy";
+import { heroVideoSource } from "@/lib/hero-video";
 /**
  * MAL ARAMASI + 404 MESAJI ARTIK ORTAK YARDIMCIDAN GELİR.
  * Aynı AniList sorgusu burada ve `AddShowButton` içinde kopyalanmıştı; tek kaynak
@@ -40,7 +42,6 @@ export function ShowEditor({
   takenSlugs,
   schemaReady,
   onMove,
-  onClose,
   onToggleFeatured,
   onReload,
 }: {
@@ -56,6 +57,11 @@ export function ShowEditor({
   onReload: (message: string) => void;
 }) {
   const [title, setTitle] = useState(show.title);
+  /**
+   * Vitrin video LİNKİ (YouTube/Vimeo). Dosya yüklemeye alternatif: link kaydedilince
+   * vitrin videoyu gömülü oynatıcıyla gösterir, depolamıza hiçbir şey girmez.
+   */
+  const [videoLink, setVideoLink] = useState(show.banner_video_path ?? "");
   const [subtitle, setSubtitle] = useState(show.subtitle ?? "");
   const [description, setDescription] = useState(show.description ?? "");
   const [year, setYear] = useState(show.year ?? "");
@@ -179,6 +185,11 @@ export function ShowEditor({
     setBannerUrl(show.banner_image ?? "");
   }, [show.banner_image]);
 
+  // Video LİNKİ kutusu kayıt sonrası (yükleme/silme) tazelenir.
+  useEffect(() => {
+    setVideoLink(show.banner_video_path ?? "");
+  }, [show.banner_video_path]);
+
   async function handleCover(file: File) {
     setBusy(true);
     try {
@@ -235,6 +246,50 @@ export function ShowEditor({
       onReload(`"${show.title}" vitrin videosu güncellendi.`);
     } catch (error) {
       toast.error("Video yüklenemedi: " + (error instanceof Error ? error.message : String(error)));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  /**
+   * VİTRİN VİDEOSUNU **LİNK** OLARAK KAYDET (YouTube/Vimeo).
+   *
+   * NEDEN (kullanıcı isteği, 30.09.2026): "embed sayesinde Cloudflare'e gitmez,
+   * depolama artmaz" — doğru. Gömülü videoda dosya bizim depomuza hiç girmez.
+   * Ayrıca mp4 yolu 8 MB ile sınırlıydı; gerçek bir video sığmıyordu.
+   *
+   * KURAL: yalnızca TANINAN video sitesi linki kabul edilir. Rastgele bir adres
+   * yazılırsa `<iframe>`e konamayacağı için uyarılır (dosya yolu için soldaki
+   * kutu kullanılır).
+   */
+  async function handleVideoLink() {
+    const raw = videoLink.trim();
+    const source = heroVideoSource(raw);
+    if (raw && source.kind !== "embed") {
+      toast.error(
+        "Bu adres YouTube/Vimeo linki değil. Link yapıştır ya da soldaki kutuya mp4 dosyası yükle.",
+      );
+      return;
+    }
+    setBusy(true);
+    try {
+      const previous = show.banner_video_path ?? "";
+      const { error } = await db.from("shows").update({ banner_video_path: raw }).eq("id", show.id);
+      if (error) throw error;
+      // Linke geçildiyse ESKİ DOSYA depodan silinir (yer kaplamasın) — ama yalnızca
+      // bizim depomuzdaki bir dosyaysa; linkse silme çağrısı yapılmaz.
+      if (previous && previous !== raw && heroVideoSource(previous).kind === "file") {
+        await deleteImage(previous);
+      }
+      onReload(
+        raw
+          ? `"${show.title}" vitrin video linki kaydedildi.`
+          : `"${show.title}" vitrin videosu kaldırıldı.`,
+      );
+    } catch (error) {
+      toast.error(
+        "Video linki kaydedilemedi: " + (error instanceof Error ? error.message : String(error)),
+      );
     } finally {
       setBusy(false);
     }
@@ -461,62 +516,68 @@ export function ShowEditor({
   const parsedMal = Number.parseInt(malInput.trim(), 10);
   const unsavedMalId = Number.isFinite(parsedMal) && parsedMal > 0 ? parsedMal : null;
 
+  // DERLİ TOPLU / SIKI YERLEŞİM (kullanıcı isteği, 30.09.2026): dış boşluk
+  // p-4 → p-3.5, kolonlar arası gap-4 → gap-3. Renkler tonlu.
   return (
-    <div className="rounded-2xl border border-border bg-secondary/40 p-4">
-      <div className="flex flex-col gap-4 sm:flex-row">
-        {/* flex-wrap: telefonda kutu genişlikleri ekrana sığmadığında kutular
+    <div className="rounded-2xl border border-border bg-secondary/40 p-3.5">
+      <div className="flex flex-col gap-3 sm:flex-row">
+        {/* SOL KOLON — TEK ÇERÇEVE, İKİ SATIR (kapak → banner / video → link).
+            flex-wrap: telefonda kutu genişlikleri ekrana sığmadığında kutular
             kırpılmak yerine alt satıra iner. */}
-        <div className="flex shrink-0 flex-wrap gap-3">
-          <div>
-            <span className="mb-1 block text-[11px] font-bold text-muted-foreground">
-              Dikey Kapak
-            </span>
-            <ImageDrop
-              label="Dikey kapak"
-              onFile={(file) => void handleCover(file)}
-              disabled={disabled}
-              className="group relative h-28 w-20 shrink-0 overflow-hidden rounded-xl border border-border bg-card"
-            >
-              <img
-                src={show.image}
-                alt=""
-                className="h-full w-full object-cover transition-opacity group-hover:opacity-60"
-              />
-              <span className="absolute inset-0 grid place-items-center bg-black/40 opacity-0 transition-opacity group-hover:opacity-100">
-                <ImagePlus size={18} className="text-white" />
+        <div className="shrink-0 rounded-xl border border-border bg-card/40 p-2.5">
+          <div className="flex flex-wrap gap-3">
+            <div>
+              <span className="mb-1 block text-[11px] font-bold text-muted-foreground">
+                Dikey Kapak
               </span>
-            </ImageDrop>
-          </div>
-
-          <div>
-            <span className="mb-1 block text-[11px] font-bold text-muted-foreground">
-              Vitrin Banner&apos;ı (16:9)
-            </span>
-            <ImageDrop
-              label="Vitrin banner'ı (16:9)"
-              onFile={(file) => void handleBanner(file)}
-              disabled={disabled}
-              className="group relative h-28 w-36 shrink-0 overflow-hidden rounded-xl border border-dashed border-border bg-card sm:w-44"
-            >
-              {bannerUrl ? (
+              <ImageDrop
+                label="Dikey kapak"
+                onFile={(file) => void handleCover(file)}
+                disabled={disabled}
+                className="group relative h-28 w-20 shrink-0 overflow-hidden rounded-xl border border-border bg-card"
+              >
                 <img
-                  src={bannerUrl}
+                  src={show.image}
                   alt=""
                   className="h-full w-full object-cover transition-opacity group-hover:opacity-60"
                 />
-              ) : (
-                <div className="flex h-full w-full flex-col items-center justify-center p-2 text-center text-xs text-muted-foreground transition-colors group-hover:text-foreground">
-                  <ImagePlus size={20} className="mb-1 text-primary" />
-                  <span className="font-bold">Banner Yükle</span>
-                  <span className="text-[10px] text-muted-foreground">
-                    Boşsa ana sayfa kapak görselini kullanır
-                  </span>
-                </div>
-              )}
-              <span className="absolute inset-0 grid place-items-center bg-black/40 opacity-0 transition-opacity group-hover:opacity-100">
-                <ImagePlus size={20} className="text-white" />
+                <span className="absolute inset-0 grid place-items-center bg-black/40 opacity-0 transition-opacity group-hover:opacity-100">
+                  <ImagePlus size={18} className="text-white" />
+                </span>
+              </ImageDrop>
+            </div>
+            <div>
+              <span className="mb-1 block text-[11px] font-bold text-muted-foreground">
+                Vitrin Banner&apos;ı (16:9)
               </span>
-            </ImageDrop>
+              <ImageDrop
+                label="Vitrin banner'ı (16:9)"
+                onFile={(file) => void handleBanner(file)}
+                disabled={disabled}
+                className="group relative h-28 w-36 shrink-0 overflow-hidden rounded-xl border border-dashed border-border bg-card sm:w-44"
+              >
+                {bannerUrl ? (
+                  <img
+                    src={bannerUrl}
+                    alt=""
+                    className="h-full w-full object-cover transition-opacity group-hover:opacity-60"
+                  />
+                ) : (
+                  <div className="flex h-full w-full flex-col items-center justify-center p-2 text-center text-xs text-muted-foreground transition-colors group-hover:text-foreground">
+                    <ImagePlus size={20} className="mb-1 text-primary" />
+                    <span className="font-bold">Banner Yükle</span>
+                    <span className="text-[10px] text-muted-foreground">
+                      Boşsa ana sayfa kapak görselini kullanır
+                    </span>
+                  </div>
+                )}
+                <span className="absolute inset-0 grid place-items-center bg-black/40 opacity-0 transition-opacity group-hover:opacity-100">
+                  <ImagePlus size={20} className="text-white" />
+                </span>
+              </ImageDrop>
+            </div>
+          </div>
+          <div className="mt-2.5 flex flex-wrap items-stretch gap-3">
             <ImageDrop
               label="Vitrin videosu"
               accept="video/mp4"
@@ -526,12 +587,56 @@ export function ShowEditor({
             >
               <Video size={20} className="text-primary" />
               <span className="text-[11px] font-bold text-foreground">
-                {show.banner_video_path ? "Video yüklü" : "Vitrin videosu"}
+                {show.banner_video_path
+                  ? heroVideoSource(show.banner_video_path).kind === "embed"
+                    ? "Link kayıtlı"
+                    : "Video yüklü"
+                  : "Vitrin videosu"}
               </span>
               <span className="text-[10px] leading-4 text-muted-foreground">
-                mp4 · tıkla ya da sürükle
+                mp4 · en fazla 100 MB
               </span>
             </ImageDrop>
+            {/*
+            VİTRİN VİDEOSU — LİNK (YouTube/Vimeo).
+            Kullanıcı isteği (30.09.2026): "embed ile… depolama artmaz, Cloudflare'e
+            gitmez." Doğru: gömülü videoda dosya bizim depomuza HİÇ girmez ve 100 MB
+            sınırı da yoktur. Link yapıştırıp kaydetmek yeterli; boş bırakıp
+            kaydetmek videoyu KALDIRIR ve varsa eski dosyayı depodan siler.
+          */}
+            {/* LİNK BLOĞU — "havada duran" input/buton çifti bitti (kullanıcı isteği: "düzelt
+          toparla"). Artık kesikli çerçeveli, üstünde küçük etiketi olan TEK blok: ne işe yaradığı
+          etiketten okunur, gözü boşlukta bırakmaz. Renkler tonlu (nötr kenarlık + soluk etiket),
+          buton da kısa: "Kaydet". */}
+            <div className="min-w-[15rem] flex-1 rounded-xl border border-dashed border-border p-2.5">
+              <span className="mb-1.5 block text-[10px] font-extrabold uppercase tracking-wider text-muted-foreground">
+                Vitrin videosu — link
+              </span>
+              <div className="flex flex-wrap items-center gap-2">
+                <input
+                  // `min-w-[15rem]`: dar kolonda input KIRPILIYORDU ("https://cdn.shanime.xy…"
+                  // diye kesiliyordu — kullanıcı ekran görüntüsü 30.09.2026). Artık en az
+                  // 15rem yer ister, sığmazsa satır altına kayar; içerik hiç kesilmez.
+                  className={cn(inputCls, "min-w-[15rem] flex-1")}
+                  value={videoLink}
+                  onChange={(event) => setVideoLink(event.target.value)}
+                  placeholder="YouTube linki — ör. https://youtu.be/…"
+                  aria-label="Vitrin video linki"
+                  disabled={disabled}
+                />
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="rounded-full"
+                  onClick={() => void handleVideoLink()}
+                  disabled={disabled || busy}
+                  title="Linki vitrin videosu olarak kaydet (boş bırakırsan video kaldırılır)"
+                >
+                  {busy ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}{" "}
+                  Kaydet
+                </Button>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -798,15 +903,12 @@ export function ShowEditor({
             >
               <ArrowDown size={14} />
             </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              className="rounded-full sm:ml-auto"
-              onClick={onClose}
-              disabled={disabled}
-            >
-              <X size={14} /> Kapat
-            </Button>
+            {/*
+              ALTTaki "Kapat" DÜĞMESİ KALDIRILDI (kullanıcı isteği, 30.09.2026):
+              "altta kapat butonu olmayacak; Düzenle yazısı Kapat düğmesine dönecek."
+              Düzenleme alanını artık satırdaki düğme (Düzenle ↔ Kapat) kapatıyor —
+              iki ayrı kapatma yolu kafa karıştırıyordu.
+            */}
           </div>
         </div>
       </div>
@@ -831,51 +933,53 @@ export function ShowEditor({
           "1. sezonu oluştur" satırı, elle ekleme formu) kendi boşluğunu kendisi
           verir — bkz. `SeasonsPanel` kök elemanı (fragment). */}
       {episodesOpen && (
-        <SeasonsPanel
-          showId={show.id}
-          slug={showSlug(show)}
-          /**
-           * ⚠️ KAYDEDİLMEMİŞ KİMLİK DE GEÇERLİ SAYILIR.
-           *
-           * ESKİ DAVRANIŞ `show.mal_id` (veritabanındaki değer) idi. Kullanıcı
-           * MAL kimliğini yazıp KAYDETMEDEN "Katalogdan çek"e bastığında panel
-           * hâlâ "MAL kimliği yok" diyordu — kullanıcının yaşadığı tıkanma tam
-           * buydu. Artık kutudaki değer geçerliyse o kullanılır; böylece kaydetme
-           * sırası önemli olmaktan çıkar.
-           */
-          malId={unsavedMalId ?? show.mal_id ?? null}
-          /**
-           * ⚠️ SERİNİN KENDİ KİMLİĞİ — AYRI GEÇİLİR, `malId` İLE KARIŞTIRILMAZ.
-           *
-           * ── ÖLÇÜLEN HATA (29.09.2026) ───────────────────────────────────────────
-           * `malId` yukarıda bilerek "kutudaki (kaydedilmemiş) değer"dir: kullanıcı
-           * kimliği yazıp KAYDETMEDEN katalog çekebilsin diye. Ama panel sezon/part
-           * zincirini de bu değerden KURUYORDU. Kullanıcı "MAL'de ara" ile 45576'yı
-           * seçtiğinde `confirmMal` kutuyu `45576`ya yazıyor → `malId` = 45576 oluyor
-           * → zincir 45576'dan başlayınca 45576 KENDİSİ "1. sezon, part yok" sanılıyor
-           * ve uyarı "serinin kendi kimliği — 1. sezon hedeflendi." çıkıyordu.
-           *
-           * Doğrusu: zincir (ve "bu kimlik serinin kendi kimliği mi?" kararı) SERİNİN
-           * VERİTABANINDAKİ kök kimliğinden (`shows.mal_id`) kurulmalıdır. Bu değer
-           * ayrı verilir; panel onu kullanır, `malId` yalnızca katalog çekme yedeği
-           * olarak kalır.
-           */
-          seriesMalId={show.mal_id ?? null}
-          /** Film tek parçadır: panel "Yeni sezon ekle" düğmesini gizler. */
-          singlePart={kind === "movie"}
-          /**
-           * MAL EŞLEŞMESİ ONAYLANINCA KATALOG KENDİLİĞİNDEN AÇILSIN.
-           *
-           * Kullanıcı isteği (28.09.2026): "MAL'de ara yaptıktan sonra açılacak
-           * dedim; katalog düğmesini oradan yok et diyorum." `searchMal()`
-           * başarılı olduğunda bu sayaç artar, `SeasonsPanel` de ilk sezonun
-           * katalog popup'ını açar — ayrı düğmeye gerek kalmaz.
-           */
-          catalogOpenRequest={catalogRequest}
-          onCatalogOpenHandled={() => setCatalogRequest(null)}
-          schemaReady={schemaReady}
-          onNotice={onReload}
-        />
+        <AnizipSyncProvider>
+          <SeasonsPanel
+            showId={show.id}
+            slug={showSlug(show)}
+            /**
+             * ⚠️ KAYDEDİLMEMİŞ KİMLİK DE GEÇERLİ SAYILIR.
+             *
+             * ESKİ DAVRANIŞ `show.mal_id` (veritabanındaki değer) idi. Kullanıcı
+             * MAL kimliğini yazıp KAYDETMEDEN "Katalogdan çek"e bastığında panel
+             * hâlâ "MAL kimliği yok" diyordu — kullanıcının yaşadığı tıkanma tam
+             * buydu. Artık kutudaki değer geçerliyse o kullanılır; böylece kaydetme
+             * sırası önemli olmaktan çıkar.
+             */
+            malId={unsavedMalId ?? show.mal_id ?? null}
+            /**
+             * ⚠️ SERİNİN KENDİ KİMLİĞİ — AYRI GEÇİLİR, `malId` İLE KARIŞTIRILMAZ.
+             *
+             * ── ÖLÇÜLEN HATA (29.09.2026) ───────────────────────────────────────────
+             * `malId` yukarıda bilerek "kutudaki (kaydedilmemiş) değer"dir: kullanıcı
+             * kimliği yazıp KAYDETMEDEN katalog çekebilsin diye. Ama panel sezon/part
+             * zincirini de bu değerden KURUYORDU. Kullanıcı "MAL'de ara" ile 45576'yı
+             * seçtiğinde `confirmMal` kutuyu `45576`ya yazıyor → `malId` = 45576 oluyor
+             * → zincir 45576'dan başlayınca 45576 KENDİSİ "1. sezon, part yok" sanılıyor
+             * ve uyarı "serinin kendi kimliği — 1. sezon hedeflendi." çıkıyordu.
+             *
+             * Doğrusu: zincir (ve "bu kimlik serinin kendi kimliği mi?" kararı) SERİNİN
+             * VERİTABANINDAKİ kök kimliğinden (`shows.mal_id`) kurulmalıdır. Bu değer
+             * ayrı verilir; panel onu kullanır, `malId` yalnızca katalog çekme yedeği
+             * olarak kalır.
+             */
+            seriesMalId={show.mal_id ?? null}
+            /** Film tek parçadır: panel "Yeni sezon ekle" düğmesini gizler. */
+            singlePart={kind === "movie"}
+            /**
+             * MAL EŞLEŞMESİ ONAYLANINCA KATALOG KENDİLİĞİNDEN AÇILSIN.
+             *
+             * Kullanıcı isteği (28.09.2026): "MAL'de ara yaptıktan sonra açılacak
+             * dedim; katalog düğmesini oradan yok et diyorum." `searchMal()`
+             * başarılı olduğunda bu sayaç artar, `SeasonsPanel` de ilk sezonun
+             * katalog popup'ını açar — ayrı düğmeye gerek kalmaz.
+             */
+            catalogOpenRequest={catalogRequest}
+            onCatalogOpenHandled={() => setCatalogRequest(null)}
+            schemaReady={schemaReady}
+            onNotice={onReload}
+          />
+        </AnizipSyncProvider>
       )}
     </div>
   );
