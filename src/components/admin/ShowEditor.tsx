@@ -626,8 +626,9 @@ export function ShowEditor({
               </div>
             </div>
             {/* AÇIKLAMA — video linkinin ALTINDA, çizgili ayrı blok (sol çerçevenin
-                parçası; alt boşluğu doldurur). */}
-            <div className="mt-2.5 border-t border-border pt-2.5">
+                parçası; alt boşluğu doldurur). `w-full`: üstteki satıra sığışıp
+                yana kaymasın diye kendi satırına indirilir. */}
+            <div className="mt-2.5 w-full border-t border-border pt-2.5">
               <textarea
                 className="min-h-24 w-full rounded-xl border border-border bg-card p-3 text-sm text-foreground outline-none transition-colors focus:border-primary"
                 value={description}
