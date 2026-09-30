@@ -20,6 +20,7 @@ import { Route as ApiDevLogRouteImport } from './routes/api.dev-log'
 import { Route as ApiEmbedRouteImport } from './routes/api.embed'
 import { Route as ApiTrTitlesRouteImport } from './routes/api.tr-titles'
 import { Route as ApiTranslateRouteImport } from './routes/api.translate'
+import { Route as ApiUploadRouteImport } from './routes/api.upload'
 import { Route as IzleSlugRouteImport } from './routes/izle.$slug'
 import { Route as SeriSlugRouteImport } from './routes/seri.$slug'
 import { Route as AnimeSlugIndexRouteImport } from './routes/anime.$slug.index'
@@ -80,6 +81,11 @@ const ApiTranslateRoute = ApiTranslateRouteImport.update({
   path: '/api/translate',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiUploadRoute = ApiUploadRouteImport.update({
+  id: '/api/upload',
+  path: '/api/upload',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IzleSlugRoute = IzleSlugRouteImport.update({
   id: '/izle/$slug',
   path: '/izle/$slug',
@@ -114,6 +120,7 @@ export interface FileRoutesByFullPath {
   '/api/embed': typeof ApiEmbedRoute
   '/api/tr-titles': typeof ApiTrTitlesRoute
   '/api/translate': typeof ApiTranslateRoute
+  '/api/upload': typeof ApiUploadRoute
   '/izle/$slug': typeof IzleSlugRoute
   '/seri/$slug': typeof SeriSlugRoute
   '/anime/$slug/': typeof AnimeSlugIndexRoute
@@ -131,6 +138,7 @@ export interface FileRoutesByTo {
   '/api/embed': typeof ApiEmbedRoute
   '/api/tr-titles': typeof ApiTrTitlesRoute
   '/api/translate': typeof ApiTranslateRoute
+  '/api/upload': typeof ApiUploadRoute
   '/izle/$slug': typeof IzleSlugRoute
   '/seri/$slug': typeof SeriSlugRoute
   '/anime/$slug': typeof AnimeSlugIndexRoute
@@ -149,6 +157,7 @@ export interface FileRoutesById {
   '/api/embed': typeof ApiEmbedRoute
   '/api/tr-titles': typeof ApiTrTitlesRoute
   '/api/translate': typeof ApiTranslateRoute
+  '/api/upload': typeof ApiUploadRoute
   '/izle/$slug': typeof IzleSlugRoute
   '/seri/$slug': typeof SeriSlugRoute
   '/anime/$slug/': typeof AnimeSlugIndexRoute
@@ -168,6 +177,7 @@ export interface FileRouteTypes {
     | '/api/embed'
     | '/api/tr-titles'
     | '/api/translate'
+    | '/api/upload'
     | '/izle/$slug'
     | '/seri/$slug'
     | '/anime/$slug/'
@@ -185,6 +195,7 @@ export interface FileRouteTypes {
     | '/api/embed'
     | '/api/tr-titles'
     | '/api/translate'
+    | '/api/upload'
     | '/izle/$slug'
     | '/seri/$slug'
     | '/anime/$slug'
@@ -202,6 +213,7 @@ export interface FileRouteTypes {
     | '/api/embed'
     | '/api/tr-titles'
     | '/api/translate'
+    | '/api/upload'
     | '/izle/$slug'
     | '/seri/$slug'
     | '/anime/$slug/'
@@ -220,6 +232,7 @@ export interface RootRouteChildren {
   ApiEmbedRoute: typeof ApiEmbedRoute
   ApiTrTitlesRoute: typeof ApiTrTitlesRoute
   ApiTranslateRoute: typeof ApiTranslateRoute
+  ApiUploadRoute: typeof ApiUploadRoute
   IzleSlugRoute: typeof IzleSlugRoute
   SeriSlugRoute: typeof SeriSlugRoute
   AnimeSlugIndexRoute: typeof AnimeSlugIndexRoute
@@ -305,6 +318,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiTranslateRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/upload': {
+      id: '/api/upload'
+      path: '/api/upload'
+      fullPath: '/api/upload'
+      preLoaderRoute: typeof ApiUploadRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/izle/$slug': {
       id: '/izle/$slug'
       path: '/izle/$slug'
@@ -348,6 +368,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiEmbedRoute: ApiEmbedRoute,
   ApiTrTitlesRoute: ApiTrTitlesRoute,
   ApiTranslateRoute: ApiTranslateRoute,
+  ApiUploadRoute: ApiUploadRoute,
   IzleSlugRoute: IzleSlugRoute,
   SeriSlugRoute: SeriSlugRoute,
   AnimeSlugIndexRoute: AnimeSlugIndexRoute,

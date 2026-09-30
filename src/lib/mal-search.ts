@@ -228,9 +228,9 @@ export async function searchMal(opts: {
  * AniList kapak CDN'i (`s4.anilist.co`) `Access-Control-Allow-Origin` BAŞLIĞI
  * GÖNDERMİYOR. Doğrudan `fetch(coverUrl)` bu yüzden tarayıcıda CORS ile
  * reddedilir (kapak yalnızca `<img src>` ile GÖSTERİLEBİLİR, indirilemez).
- * Poster Supabase Storage'a yüklenmesi gerektiği için (projedeki desen:
- * `uploadImage(file,"posters")` → `shows.image_path`) baytlar sunucu vekilinden
- * alınır; vekil yalnızca AniList alan adlarına izin verir.
+ * Poster R2'ye yüklenmesi gerektiği için (projedeki desen:
+ * `uploadImage(file,"posters")` → herkese açık R2 URL'si → `shows.image_path`) baytlar
+ * sunucu vekilinden alınır; vekil yalnızca AniList alan adlarına izin verir.
  * ═══════════════════════════════════════════════════════════════════════════
  *
  * NOT: Bu yardımcı TARAYICIDA çalışır (göreli `/api/...` adresi kullanır).

@@ -183,7 +183,20 @@ export type ShowDetail = {
 };
 
 const BUCKET = "images";
-const SIGNED_URL_TTL = 60 * 60; // 1 saat
+const SIGNED_URL_TTL = 60 * 60; // 1 saat (yalnızca ESKİ Supabase yolları için)
+
+/** R2 herkese açık adresi (istemci). Örn. https://pub-xxx.r2.dev — `.env` → `VITE_R2_PUBLIC_URL`. */
+function r2PublicBase(): string {
+  return ((import.meta.env["VITE_R2_PUBLIC_URL"] as string | undefined) ?? "").replace(/\/+$/, "");
+}
+
+/** R2 URL'sinden nesne anahtarını çıkarır (`posters/…`); bizim adresimiz değilse "". */
+export function r2KeyOf(url: string): string {
+  const base = r2PublicBase();
+  if (!base || !url.startsWith(`${base}/`)) return "";
+  const key = url.slice(base.length + 1).split(/[?#]/)[0] ?? "";
+  return /^[\w./-]+$/.test(key) && !key.includes("..") ? key : "";
+}
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = supabase as any;
@@ -218,6 +231,9 @@ export async function signImagePaths(paths: string[]): Promise<Map<string, strin
   for (const path of paths) {
     if (!path) continue;
     if (isStaticPath(path)) result.set(path, staticUrl(path));
+    // R2/dış adresler olduğu gibi kullanılır: herkese açık + önbelleklenebilir,
+    // imza döngüsü (kota katili) yok. Yalnızca ESKİ Supabase yolları imzalanır.
+    else if (/^https?:\/\//i.test(path)) result.set(path, path);
     else toSign.add(path);
   }
   const unique = [...toSign];
@@ -278,12 +294,28 @@ export async function fetchShows(): Promise<ShowWithImage[]> {
   });
 }
 
+/**
+ * Panelden görsel yükleme — R2'ye (`/api/upload`), DB'ye herkese açık URL yazılır.
+ *
+ * ESKİDEN Supabase Storage'a gidiyordu (`images/posters/…` + imzalı URL). İmzalar
+ * 1 saatte bir ölüyor, her ziyaretçi kapakları baştan indiriyordu → 33 GB egress
+ * ile kota patladı. R2 adresleri sabit + önbelleklenebilir + egress ücretsiz.
+ */
 async function uploadToBucket(file: File, folder: string, fallbackExt: string): Promise<string> {
-  const ext = file.name.split(".").pop() ?? fallbackExt;
-  const path = `${folder}/${crypto.randomUUID()}.${ext}`;
-  const { error } = await supabase.storage.from(BUCKET).upload(path, file);
-  if (error) throw error;
-  return path;
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token ?? "";
+  const form = new FormData();
+  form.set("folder", folder);
+  form.set("file", file, file.name || `upload.${fallbackExt}`);
+  const res = await fetch("/api/upload", {
+    method: "POST",
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    body: form,
+  });
+  if (!res.ok) throw new Error(`Yükleme başarısız (${res.status}).`);
+  const json = (await res.json()) as { ok?: boolean; url?: string };
+  if (!json.ok || !json.url) throw new Error("Yükleme başarısız.");
+  return json.url;
 }
 
 export async function uploadImage(file: File, folder: string): Promise<string> {
@@ -302,6 +334,23 @@ export async function uploadVideo(file: File, folder: string): Promise<string> {
  */
 export async function deleteImage(path: string): Promise<void> {
   if (!path || isStaticPath(path)) return;
+  // R2 adresi → sunucu rotasından silinir (başarısızlık sessiz geçilir;
+  // yetim dosya kotaya girmez, sonra temizlenebilir).
+  if (/^https?:\/\//i.test(path)) {
+    const key = r2KeyOf(path);
+    if (!key) return;
+    try {
+      const { data } = await supabase.auth.getSession();
+      const token = data.session?.access_token ?? "";
+      await fetch(`/api/upload?key=${encodeURIComponent(key)}`, {
+        method: "DELETE",
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+    } catch {
+      // Sessiz geçilir (bkz. yukarı).
+    }
+    return;
+  }
   await supabase.storage.from(BUCKET).remove([path]);
 }
 
