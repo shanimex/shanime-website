@@ -88,6 +88,7 @@ const tr = {
   "common.openMenu": "Menüyü aç",
   "common.closeMenu": "Menüyü kapat",
   "common.explore": "Keşfet",
+  "common.random": "Rastgele",
   "common.logoAlt": "shanime logosu",
   "common.homeAria": "shanime ana sayfa",
   "common.mainNav": "Ana navigasyon",
@@ -237,6 +238,8 @@ const tr = {
   "series.rowView": "Satır görünümü",
   "series.gridView": "Izgara görünümü",
   "series.watchedBadge": "izlendi",
+  // Detay sayfasındaki bölüm satırında "EN SON EKLENEN" bölümün rozeti.
+  "series.newBadge": "YENİ",
   "series.showMore": "{count} bölüm daha göster",
   "series.similar": "Benzer seriler",
   "series.seasonFallback": "{number}. Sezon",
@@ -256,12 +259,11 @@ const tr = {
   "series.seasonEpisodeBadge": "S{season} B{number}",
   // Aynı etiketin boşluksuz biçimi (ana sayfa "son bölümler" satırı: "S1B1").
   "series.seasonEpisodeCode": "S{season}B{number}",
-  // Bölüm satırındaki kapak üzerine bindirilen köşe etiketi (referans biçimi:
-  // "S 03 B 01"). Numaralar iki basamağa tamamlanır ama tamamlama GÖRÜNÜR METNİN
-  // parçası olmadığı için çağıran tarafta yapılır; sözlükte yalnızca harf/ayraç
-  // düzeni durur (İngilizcede "E"). Ayrı anahtar çünkü yukarıdaki iki biçim
-  // (boşluklu/boşluksuz kart etiketleri) yerinde AYNEN kalıyor.
-  "series.seasonEpisodeOverlay": "S {season} B {number}",
+  // Bölüm satırındaki kapak üzerine bindirilen köşe etiketi ("S1 B1"). Kullanıcı
+  // isteği (30.09.2026): "s1 b1 yazsın, s 01 b 01 değil" — numaralar artık İKİ
+  // BASAMAĞA TAMAMLANMAZ (tamamlama çağıran taraftan kaldırıldı). Harf/ayraç
+  // düzeni dile bağlı olduğu için sözlükte durur (İngilizcede "E").
+  "series.seasonEpisodeOverlay": "S{season} B{number}",
 
   // ---- İzleme sayfası ----
   "watch.episodeNotFound": "Bölüm bulunamadı",
@@ -415,6 +417,7 @@ const en: Record<I18nKey, string> = {
   "common.openMenu": "Open menu",
   "common.closeMenu": "Close menu",
   "common.explore": "Explore",
+  "common.random": "Random",
   "common.logoAlt": "shanime logo",
   "common.homeAria": "shanime home",
   "common.mainNav": "Main navigation",
@@ -540,6 +543,7 @@ const en: Record<I18nKey, string> = {
   "series.rowView": "Row view",
   "series.gridView": "Grid view",
   "series.watchedBadge": "watched",
+  "series.newBadge": "NEW",
   "series.showMore": "Show {count} more episodes",
   "series.similar": "Similar series",
   "series.seasonFallback": "Season {number}",
@@ -547,7 +551,7 @@ const en: Record<I18nKey, string> = {
   "series.seasonEpisodeLabel": "Season {season} Episode {number}",
   "series.seasonEpisodeBadge": "S{season} E{number}",
   "series.seasonEpisodeCode": "S{season}E{number}",
-  "series.seasonEpisodeOverlay": "S {season} E {number}",
+  "series.seasonEpisodeOverlay": "S{season} E{number}",
 
   // ---- Watch page ----
   "watch.episodeNotFound": "Episode not found",

@@ -1,5 +1,5 @@
 ﻿// / — Ana sayfa: vitrin bandı, trend seriler ve tüm animelerin listelendiği ızgara.
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import {
   ArrowRight,
@@ -11,6 +11,7 @@ import {
   Menu,
   Play,
   Search,
+  Shuffle,
   Tag,
   Tv,
   X,
@@ -2967,6 +2968,20 @@ function Index() {
   useDocumentTitle(t("meta.homeTitle"));
   const [menuOpen, setMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+  const navigate = useNavigate();
+  /**
+   * RASTGELE SERİ (anikoto başlığındaki zar gibi).
+   *
+   * Yalnızca adresi olan (slug) kayıtlar havuzdadır; geri kalan (taslak/kayıtsız)
+   * eleme dışı kalır ki ölü adrese düşülmesin. Menü açıksa kapatılır.
+   */
+  const goRandom = () => {
+    const pool = shows.filter((show): show is HeroCard & { slug: string } => Boolean(show.slug));
+    if (pool.length === 0) return;
+    const pick = pool[Math.floor(Math.random() * pool.length)] as { slug: string };
+    setMenuOpen(false);
+    navigate({ to: "/anime/$slug", params: { slug: pick.slug } });
+  };
   // Anasayfa reklamı: panelde `ad_home` kodu varsa PANEL kazanır, boşsa
   // koddaki Adsterra birimi çalışır (slot vardı ama içi boştu → reklam yoktu).
   const adHome = useAdCode("ad_home");
@@ -3694,7 +3709,27 @@ function Index() {
         {/* Başlık şeridi de sayfanın geri kalanıyla AYNI kabı kullanır (referansta
             header, içerik ve footer tek `.container` içindedir); yoksa içerik
             genişlerken header dar kalıp sayfa kopuk görünürdü. */}
-        <div className={`${PAGE_CONTAINER} flex h-16 items-center justify-between gap-5`}>
+        <div className={`${PAGE_CONTAINER} flex h-16 items-center gap-2 sm:gap-3`}>
+          {/* Hamburger HER boyutta (anikoto gibi): bağlantılar açılır paneldedir. */}
+          <Button
+            variant="ghost"
+            size="icon"
+            className="icon-btn shrink-0"
+            aria-label={menuOpen ? t("common.closeMenu") : t("common.openMenu")}
+            aria-expanded={menuOpen}
+            onClick={() => setMenuOpen((open) => !open)}
+          >
+            <span
+              key={menuOpen ? "close" : "menu"}
+              className="grid place-items-center motion-safe:animate-[icon-swap_200ms_cubic-bezier(0.22,1,0.36,1)_both]"
+            >
+              {menuOpen ? (
+                <X size={21} aria-hidden="true" />
+              ) : (
+                <Menu size={21} aria-hidden="true" />
+              )}
+            </span>
+          </Button>
           <a
             href="#top"
             onClick={scrollToTop}
@@ -3727,46 +3762,42 @@ function Index() {
               (Ölçüler: "Ana sayfa" ≈ 66,7 px / "Home" ≈ 39,1 px → 70; "Seriler" ≈
               48,9 px / "Series" ≈ 44,6 px → 51; "Bu sezon" ≈ 60,5 px / "This season"
               ≈ 81,8 px → 84.) */}
-          <nav aria-label={t("common.mainNav")} className="hidden items-center gap-8 md:flex">
-            <a
-              href="#top"
-              onClick={scrollToTop}
-              className="link-hover min-w-[70px] text-center text-base font-extrabold text-accent"
-            >
-              {t("common.home")}
-            </a>
-            <a
-              href="#series"
-              className="link-hover min-w-[51px] text-center text-base font-bold text-muted-foreground transition-colors hover:text-foreground"
-            >
-              {t("common.series")}
-            </a>
-            <a
-              href="#season"
-              className="link-hover min-w-[84px] text-center text-base font-bold text-muted-foreground transition-colors hover:text-foreground"
-            >
-              {t("common.thisSeason")}
-            </a>
-          </nav>
-          {/* Dil değiştirici: nav ile arama arasında; mobilde de görünür. */}
+          {/* Bağlantılar hamburger menüdedir (anikoto başlığı gibi); çift menü olmaz. */}
+          {/* Dil değiştirici: arama ile menü arasında; mobilde de görünür. */}
           <LanguageToggle />
+          {/* HIZLI ERİŞİM (anikoto başlığındaki zar gibi): rastgele seri açar.
+              Ölü düğme değildir — gerçekten gezinir (bkz. `goRandom`). */}
+          <Button
+            variant="ghost"
+            size="icon"
+            className="icon-btn hidden shrink-0 md:grid"
+            aria-label={t("common.random")}
+            title={t("common.random")}
+            onClick={goRandom}
+          >
+            <Shuffle size={18} aria-hidden="true" />
+          </Button>
           {/* Dışarı tıklamayı denetleyen effect, tıklamanın panelin İÇİNDE olup
               olmadığını bu kapsayıcının ref'i üzerinden anlıyor. Ref buraya
               bağlanmazsa `desktopSearchRef.current` her zaman null kalır, açılır
               panelin ve kutunun içine yapılan tıklama da "dışarı" sayılır; panel
               bağlantının tıklaması işlenmeden kapanır ve seri sayfasına hiç
               gidilmez. */}
-          <div ref={desktopSearchRef} className="relative hidden items-center gap-3 md:flex">
-            <Button
-              variant="ghost"
-              size="icon"
-              className={`search-button rounded-full bg-secondary ${searchOpen ? "is-open" : ""}`}
-              aria-label={searchOpen ? t("common.closeSearch") : t("common.search")}
-              aria-expanded={searchOpen}
-              onClick={() => setSearchOpen((open) => !open)}
+          <div
+            ref={desktopSearchRef}
+            className="relative hidden min-w-0 flex-1 items-center justify-center px-2 md:flex"
+          >
+            {/* Ortada arama hapı (anikoto `#search` gibi): tıklayınca aynı açılır
+                kart belirir; ayrı büyüteç düğmesi kalmadı. */}
+            <button
+              type="button"
+              onClick={() => setSearchOpen(true)}
+              aria-label={t("common.search")}
+              className="flex h-10 w-full max-w-xl min-w-0 items-center gap-2.5 rounded-full border border-white/10 bg-white/5 px-4 text-sm text-muted-foreground transition-all hover:border-white/20 hover:text-foreground active:scale-[0.99]"
             >
-              <Search className="search-button-icon" size={18} />
-            </Button>
+              <Search size={16} aria-hidden="true" className="shrink-0" />
+              <span className="truncate">{t("common.searchPlaceholder")}</span>
+            </button>
             {/*
               "Keşfet / Explore" DÜĞMESİ KALDIRILDI (kullanıcı, 28.09.2026:
               "explore keşfet butonunu gereksiz, kaldırsana onu sil").
@@ -3781,7 +3812,7 @@ function Index() {
               kayboldu; çip genişlikleri zaten sabit (`w-8`) olduğu için kayma yok.
             */}
             {searchOpen && (
-              <div className="absolute right-16 top-14 z-50 w-80 rounded-3xl border border-border bg-popover p-4 shadow-2xl motion-safe:animate-pop-in motion-reduce:animate-none">
+              <div className="absolute left-1/2 top-full z-50 mt-2 w-[min(26rem,92vw)] -translate-x-1/2 rounded-3xl border border-border bg-popover p-4 shadow-2xl motion-safe:animate-pop-in motion-reduce:animate-none">
                 <div className="flex items-center gap-2 rounded-full border-2 border-primary px-4">
                   <Search size={17} className="text-muted-foreground" />
                   <label className="sr-only" htmlFor="search">
@@ -3813,33 +3844,15 @@ function Index() {
               </div>
             )}
           </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="md:hidden icon-btn"
-            aria-label={menuOpen ? t("common.closeMenu") : t("common.openMenu")}
-            aria-expanded={menuOpen}
-            onClick={() => setMenuOpen((open) => !open)}
-          >
-            <span
-              key={menuOpen ? "close" : "menu"}
-              className="grid place-items-center motion-safe:animate-[icon-swap_200ms_cubic-bezier(0.22,1,0.36,1)_both]"
-            >
-              {menuOpen ? (
-                <X size={21} aria-hidden="true" />
-              ) : (
-                <Menu size={21} aria-hidden="true" />
-              )}
-            </span>
-          </Button>
         </div>
         {menuOpen && (
           <nav
             ref={mobileSearchRef}
-            className="flex flex-col border-t border-border px-5 py-4 motion-safe:animate-pop-in motion-reduce:animate-none md:hidden"
+            aria-label={t("common.mainNav")}
+            className="flex flex-col border-t border-border px-5 py-2 motion-safe:animate-pop-in motion-reduce:animate-none md:absolute md:inset-x-auto md:left-4 md:top-full md:z-50 md:mt-2 md:w-72 md:rounded-2xl md:border md:bg-popover md:p-2 md:shadow-2xl"
           >
             <a
-              className="py-3 font-bold text-primary"
+              className="rounded-xl py-3 font-bold text-primary transition-colors hover:bg-secondary md:px-3 md:py-2.5 md:text-sm"
               href="#top"
               onClick={(event) => {
                 scrollToTop(event);
@@ -3848,46 +3861,62 @@ function Index() {
             >
               {t("common.home")}
             </a>
-            <a className="py-3 font-bold" href="#series" onClick={() => setMenuOpen(false)}>
+            <a
+              className="rounded-xl py-3 font-bold transition-colors hover:bg-secondary md:px-3 md:py-2.5 md:text-sm"
+              href="#series"
+              onClick={() => setMenuOpen(false)}
+            >
               {t("common.series")}
             </a>
-            <a className="py-3 font-bold" href="#season" onClick={() => setMenuOpen(false)}>
+            <a
+              className="rounded-xl py-3 font-bold transition-colors hover:bg-secondary md:px-3 md:py-2.5 md:text-sm"
+              href="#season"
+              onClick={() => setMenuOpen(false)}
+            >
               {t("common.thisSeason")}
             </a>
+            <button
+              type="button"
+              onClick={goRandom}
+              className="flex items-center gap-2.5 rounded-xl py-3 text-left font-bold transition-colors hover:bg-secondary md:px-3 md:py-2.5 md:text-sm"
+            >
+              <Shuffle size={16} aria-hidden="true" className="text-muted-foreground" />
+              {t("common.random")}
+            </button>
 
-            {/* Masaüstündeki arama kutusu `md` altında gizli olduğu için
-                telefonda arama yapılamıyordu; aynı `query` durumunu kullanan
-                alan menüye eklendi. Kutu, yazdıkça ana sayfadaki seri
-                ızgarasını süzer (`filtered` → `#series`). */}
-            <div className="mt-2 flex items-center gap-2 rounded-full border-2 border-primary px-4">
-              <Search size={17} className="text-muted-foreground" />
-              <label className="sr-only" htmlFor="search-mobile">
-                {t("common.search")}
-              </label>
-              <input
-                id="search-mobile"
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder={t("common.searchPlaceholder")}
-                className="h-11 min-w-0 flex-1 bg-transparent text-sm outline-none"
-              />
-              {query ? (
-                <button
-                  type="button"
-                  aria-label={t("common.clearSearch")}
-                  onClick={() => setQuery("")}
-                  className="icon-btn shrink-0 text-muted-foreground"
-                >
-                  <X size={16} aria-hidden="true" />
-                </button>
-              ) : null}
+            {/* Mobil arama menüdedir (masaüstü hapı `md` altında gizlidir).
+                Kutu, yazdıkça ana sayfadaki seri ızgarasını süzer. */}
+            <div className="md:hidden">
+              <div className="mt-2 flex items-center gap-2 rounded-full border-2 border-primary px-4">
+                <Search size={17} className="text-muted-foreground" />
+                <label className="sr-only" htmlFor="search-mobile">
+                  {t("common.search")}
+                </label>
+                <input
+                  id="search-mobile"
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                  placeholder={t("common.searchPlaceholder")}
+                  className="h-11 min-w-0 flex-1 bg-transparent text-sm outline-none"
+                />
+                {query ? (
+                  <button
+                    type="button"
+                    aria-label={t("common.clearSearch")}
+                    onClick={() => setQuery("")}
+                    className="icon-btn shrink-0 text-muted-foreground"
+                  >
+                    <X size={16} aria-hidden="true" />
+                  </button>
+                ) : null}
+              </div>
+              {/* ÖNERİ PANELİ (MOBİL) — masaüstüyle AYNI bileşen, kutunun hemen
+                  altında ve AKIŞ İÇİNDE durur (menü zaten açılır bir panel; burada
+                  absolute konum dar ekranda sayfa içeriğinin üstüne binerdi).
+                  Menü açık olduğu için görünürlük kapısı yalnızca yazıdır;
+                  eşleşme yoksa bileşen kendini çizmez (`SearchSuggestionPanel`). */}
+              <SearchSuggestionPanel query={query} items={searchSuggestions} className="mt-2" />
             </div>
-            {/* ÖNERİ PANELİ (MOBİL) — masaüstüyle AYNI bileşen, kutunun hemen
-                altında ve AKIŞ İÇİNDE durur (menü zaten açılır bir panel; burada
-                absolute konum dar ekranda sayfa içeriğinin üstüne binerdi).
-                Menü açık olduğu için görünürlük kapısı yalnızca yazıdır;
-                eşleşme yoksa bileşen kendini çizmez (`SearchSuggestionPanel`). */}
-            <SearchSuggestionPanel query={query} items={searchSuggestions} className="mt-2" />
           </nav>
         )}
       </header>
