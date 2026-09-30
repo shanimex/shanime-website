@@ -1,5 +1,15 @@
 import BAKED_THUMBS from "@/data/episode-thumbs.json";
 import BAKED_TMDB from "@/data/mal-tmdb.json";
+import { cachedRead } from "@/lib/server-cache";
+
+/**
+ * Yayın tarihi önbellek ömrü: 7 gün.
+ *
+ * NEDEN UZUN: yayın tarihi DEĞİŞMEZ bir veridir (bölüm bir kez yayınlanır).
+ * Katalog okumaları (120 sn) gibi taze tutmaya gerek yok; uzun TTL hem
+ * upstream'i hem kotayı korur.
+ */
+export const TTL_AIRDATE_SECONDS = 7 * 24 * 60 * 60;
 
 /**
  * Bölüm kapakları — GERÇEK bölüm görselleri (ani.zip / TVDB).
@@ -60,4 +70,48 @@ export function tmdbIdForMal(malId: number | null | undefined): number | null {
   if (!malId) return null;
   const value = Number(tmdbMap[String(malId)]);
   return Number.isFinite(value) && value > 0 ? value : null;
+}
+
+type RawAirEpisode = {
+  seasonNumber?: unknown;
+  episodeNumber?: unknown;
+  airDate?: unknown;
+};
+
+/**
+ * Bir MAL kaydının bölüm yayın tarihleri (`"sezon:bölüm" → "YYYY-MM-DD"`).
+ *
+ * NEDEN: detay sayfasındaki bölüm kartları yayın tarihi rozeti taşır
+ * (referans sitelerdeki gibi). Tarih veritabanında tutulmaz — ani.zip'ten
+ * okunup uzun süreli önbelleğe yazılır (değişmez veri). Kayıt/istek başarısız
+ * olursa BOŞ döner; kart tarihi atlar, sayfa düşmez.
+ */
+export async function fetchSeasonAirdates(malId: number): Promise<Record<string, string>> {
+  if (!Number.isFinite(malId) || malId <= 0) return {};
+  return cachedRead<Record<string, string>>(
+    `anizip-airdates:${malId}`,
+    TTL_AIRDATE_SECONDS,
+    async () => {
+      const out: Record<string, string> = {};
+      let json: { episodes?: Record<string, RawAirEpisode> };
+      try {
+        const res = await fetch(`https://api.ani.zip/mappings?mal_id=${malId}`, {
+          headers: { Accept: "application/json" },
+        });
+        if (!res.ok) return out;
+        json = (await res.json()) as { episodes?: Record<string, RawAirEpisode> };
+      } catch {
+        return out;
+      }
+      for (const ep of Object.values(json.episodes ?? {})) {
+        const season = Number(ep.seasonNumber ?? NaN);
+        const number = Number(ep.episodeNumber ?? NaN);
+        const date = typeof ep.airDate === "string" ? ep.airDate.slice(0, 10) : "";
+        if (!Number.isFinite(season) || !Number.isFinite(number)) continue;
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) continue;
+        out[`${season}:${number}`] = date;
+      }
+      return out;
+    },
+  );
 }

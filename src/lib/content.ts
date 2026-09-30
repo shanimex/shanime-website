@@ -1,7 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import EPISODE_COVER_FILES from "@/data/episode-cover-files.json";
 import EPISODE_POSTERS from "@/data/episode-posters.json";
-import { anizipCover } from "@/lib/anizip-covers";
+import { anizipCover, fetchSeasonAirdates } from "@/lib/anizip-covers";
 import type { SeasonPartEntry } from "@/lib/embed-provider";
 import {
   animecixCoversForEpisodes,
@@ -146,6 +146,12 @@ export type Episode = {
    * sunucuda üretilip istemciye serileştirilir, hydration farkı olmaz.
    */
   animecixC?: string;
+  /**
+   * Yayın tarihi (`YYYY-MM-DD`, ani.zip). Veritabanında tutulmaz — detay
+   * okunurken sezon (+ part) MAL kimliklerinden çözülüp nesneye yazılır.
+   * Yoksa kart tarih rozetini atlar.
+   */
+  airdate?: string;
 };
 
 export type ShowWithImage = Show & {
@@ -639,6 +645,38 @@ async function loadShowDetail(slug: string): Promise<ShowDetail | null> {
 
   // Sezon gruplaması bir kez yapılır: hem sayfa verisinde hem sezon sayısında kullanılır.
   const grouped = groupSeasons((seasonsRes.data ?? []) as Season[], episodes, show.id);
+
+  /**
+   * YAYIN TARİHLERİ — sezon (+ part) MAL kimliklerinden, uzun önbellekli.
+   *
+   * Eşleşen bölüme `airdate` yazılır; eşleşmeyene YAZILMAZ (kart rozeti atlar).
+   * Anahtar katalogun kendi `sezon:bölüm`üdür — part kataloğu mutlak numaralı
+   * olduğu için part bölümleri de tutar (S1 13–25 ↔ 50602 kataloğu 1:13–1:25).
+   * Hata yutulur: tarihsiz kart, tarihsiz kalır; sayfa düşmez.
+   */
+  const airBySeason = new Map<number, Record<string, string>>();
+  await Promise.all(
+    grouped.map(async (season) => {
+      const mals = [
+        Number(season.mal_id ?? 0),
+        ...(season.parts ?? []).map((part) => Number(part.malId ?? 0)),
+      ].filter((id) => Number.isFinite(id) && id > 0);
+      const merged: Record<string, string> = {};
+      for (const id of mals) {
+        try {
+          const table = await fetchSeasonAirdates(id);
+          for (const [key, value] of Object.entries(table)) merged[key] ??= value;
+        } catch {
+          // Sessiz (bkz. yukarı).
+        }
+      }
+      airBySeason.set(season.number, merged);
+    }),
+  );
+  for (const ep of episodes) {
+    const date = airBySeason.get(ep.season)?.[`${ep.season}:${ep.number}`];
+    if (date) ep.airdate = date;
+  }
 
   /**
    * ÖZEL / ÖN BÖLÜMLER (`0. Bölüm`) — KATALOGDAN, önbellekli.

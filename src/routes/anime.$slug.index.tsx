@@ -16,7 +16,7 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { AdSlot, useAdCode } from "@/components/site/AdSlot";
 import { AdsterraLeaderboard, AdsterraNative } from "@/components/site/AdsterraUnit";
-import { EpisodeCard } from "@/components/site/EpisodeCard";
+import { EpisodeCard, formatAirdate } from "@/components/site/EpisodeCard";
 import { EpisodeCover } from "@/components/site/EpisodeCover";
 import { LanguageToggle } from "@/components/site/LanguageToggle";
 import { supabase } from "@/integrations/supabase/client";
@@ -170,11 +170,10 @@ function seasonLabel(season: { number: number; title: string }, t: Translate): s
  * diğer kartlarla aynı istemci içi gezinme kalıbını kullanır (`preload={false}` —
  * gerekçe ana sayfa kartlarındaki kota/egress notuyla aynı).
  *
- * YAYIN TARİHİ ROZETİ NEDEN YOK: `show_episodes` tablosunda yayın tarihi alanı
- * BULUNMUYOR (`types.ts`: id, show_id, season, number, title, summary, duration,
- * watch_url, thumbnail_path, created_at, updated_at). `created_at` kaydın
- * veritabanına EKLENME anıdır, bölümün yayın tarihi değildir; bu yüzden ikinci
- * rozet (tarih) hiç çizilmez — uydurma tarih yazılmaz.
+ * YAYIN TARİHİ ROZETİ: `episode.airdate`ten gelir (ani.zip `airDate`, detay
+ * okunurken 7 günlük önbellekle çözülür — bkz. `lib/anizip-covers.ts`
+ * `fetchSeasonAirdates`). Tarih yoksa rozet atlanır; uydurma yazılmaz.
+ * (`show_episodes` tablosunda tarih kolonu yoktur; `created_at` eklenme anıdır.)
  *
  * AÇIKLAMA SATIRI: `episode.summary` (şemada VAR) doluysa tek/iki satır yazılır;
  * boşsa satır hiç çizilmez.
@@ -207,7 +206,7 @@ function EpisodeRow({
   /** Satıra tıklanınca ilerleme kaydını günceller (mevcut davranış korunur). */
   onOpen: () => void;
 }) {
-  const { t } = useLang();
+  const { t, lang } = useLang();
   /**
    * BÖLÜM ADI/AÇIKLAMASI ARTIK İÇERİK ÇEVİRİSİNDEN GEÇER (kullanıcı, 28.09.2026:
    * "TR butonuna basınca bölüm adları da TR olacak … bütün her şeyi TR çevirsin").
@@ -246,7 +245,7 @@ function EpisodeRow({
       onClick={onOpen}
       className="group flex items-center gap-3 rounded-xl border border-border bg-card p-2.5 transition-colors hover:border-accent/60 hover:bg-secondary focus-visible:border-accent focus-visible:outline-none sm:gap-4 sm:p-3"
     >
-      {/* KAPAK + köşe etiketi (16:9 yatay kutu — YAKLAŞIK 112/160 px). */}
+      {/* KAPAK + alt gölge + sol alt köşe etiketi (16:9 yatay kutu). */}
       <span className="relative aspect-video w-28 shrink-0 overflow-hidden rounded-lg bg-secondary sm:w-40">
         <EpisodeCover
           number={episode.number}
@@ -264,7 +263,11 @@ function EpisodeRow({
           ]}
           resolveFallback={() => resolvePosterForEpisode(episode.watch_url)}
         />
-        <span className="absolute left-1.5 top-1.5 rounded bg-background/95 px-1.5 py-0.5 text-[10px] font-extrabold tracking-wide text-accent">
+        <span
+          aria-hidden
+          className="absolute inset-x-0 bottom-0 h-9 bg-gradient-to-t from-background/95 to-transparent"
+        />
+        <span className="absolute bottom-1 left-2 font-mono text-[11px] font-bold tracking-wider text-foreground/90">
           {overlay}
         </span>
       </span>
@@ -277,8 +280,9 @@ function EpisodeRow({
         ) : null}
       </span>
 
-      {/* SAĞDAKİ ROZETLER: "3. Bölüm" (+ izlendi işareti). Tarih rozeti bilerek
-          YOK — şemada yayın tarihi alanı bulunmuyor (yukarıdaki nota bakın). */}
+      {/* SAĞDAKİ ROZETLER: "3. Bölüm" (+ izlendi işareti) + yayın tarihi.
+          Tarih `episode.airdate`ten gelir (ani.zip, uzun önbellekli); yoksa rozet
+          atlanır, uydurma yazılmaz. */}
       <span className="flex shrink-0 items-center gap-2">
         {watched && (
           <span className="rounded-full border border-accent/40 bg-background/95 px-2 py-0.5 text-[10px] font-bold text-accent">
@@ -288,6 +292,14 @@ function EpisodeRow({
         <span className="rounded-lg border border-accent/40 bg-accent/10 px-2 py-0.5 text-[11px] font-bold text-accent">
           {t("series.episodeLabel", { number: episode.number })}
         </span>
+        {episode.airdate ? (
+          <span
+            className="rounded-lg border border-border px-2 py-0.5 text-[11px] font-bold text-muted-foreground"
+            title={formatAirdate(episode.airdate, lang, true)}
+          >
+            {formatAirdate(episode.airdate, lang, false)}
+          </span>
+        ) : null}
       </span>
     </Link>
   );

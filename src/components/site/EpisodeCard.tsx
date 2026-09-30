@@ -47,6 +47,24 @@ type EpisodeCardProps = {
 };
 
 /**
+ * `YYYY-MM-DD` → yerelleştirilmiş kısa tarih ("3.04.2016" / "4/3/2016").
+ * `weekday=true` ise gün adıyla ("3 Nisan 2016, Cuma").
+ */
+export function formatAirdate(iso: string, lang: string, weekday: boolean): string {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso.trim());
+  if (!match) return iso;
+  const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+  if (Number.isNaN(date.getTime())) return iso;
+  const locale = lang === "tr" ? "tr-TR" : "en-US";
+  return date.toLocaleDateString(locale, {
+    day: "numeric",
+    month: "numeric",
+    year: "numeric",
+    ...(weekday ? { weekday: "long" as const } : {}),
+  });
+}
+
+/**
  * Bölüm kartı.
  *
  * Kapak zinciri: panelden yüklenen kapak → sağlayıcı kapağı → bölüme ait GERÇEK
@@ -63,7 +81,7 @@ export function EpisodeCard({
   seriesPoster,
   malId,
 }: EpisodeCardProps) {
-  const { t } = useLang();
+  const { t, lang } = useLang();
   // İzleme hedefi: kardeşlerle aynı `Link` kalıbı. `preload={false}`: ızgara ve
   // satır listeleri yoğundur, fareyle üzerinden geçmek tıklama değildir; önden
   // çekme hover başına boşa okuma (kota/egress) üretirdi. Gezinme yine anındadır.
@@ -118,15 +136,13 @@ export function EpisodeCard({
         className="absolute inset-0 bg-gradient-to-t from-background via-background/40 to-transparent opacity-80"
       />
 
-      {/* animecix'teki gibi kapağın altında sezon/bölüm etiketi ("S1 B1"). */}
+      {/* Kapak altı gölge + sol altta sezon/bölüm etiketi ("S 01 B 01", tek renk). */}
       <span
         aria-hidden
-        className="absolute inset-x-0 bottom-0 h-9 bg-gradient-to-t from-background/95 to-transparent"
+        className="absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-background/95 to-transparent"
       />
-      <span className="absolute inset-x-0 bottom-1 text-center text-[10px] font-bold tracking-widest text-foreground/90">
-        {/* Kısa bölüm etiketi ("S1 B1" / "S1 E1"): kısaltma dile bağlı olduğu
-            için metin sözlükten gelir, burada harf birleştirilmez. */}
-        {t("series.seasonEpisodeBadge", { season: episode.season, number: episode.number })}
+      <span className="absolute bottom-1.5 left-2 font-mono text-[11px] font-bold tracking-wider text-foreground/90">
+        S {String(episode.season).padStart(2, "0")} B {String(episode.number).padStart(2, "0")}
       </span>
 
       {/* Hover'da oynat düğmesi. */}
@@ -149,6 +165,14 @@ export function EpisodeCard({
       {episode.duration ? (
         <span className="rounded-lg border border-border px-2 py-0.5 text-[11px] font-bold text-muted-foreground">
           {episode.duration}
+        </span>
+      ) : null}
+      {episode.airdate ? (
+        <span
+          className="rounded-lg border border-border px-2 py-0.5 text-[11px] font-bold text-muted-foreground"
+          title={formatAirdate(episode.airdate, lang, true)}
+        >
+          {formatAirdate(episode.airdate, lang, false)}
         </span>
       ) : null}
     </div>
