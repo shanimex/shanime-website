@@ -1,15 +1,4 @@
-﻿import {
-  ArrowDown,
-  ArrowUp,
-  ImagePlus,
-  ListVideo,
-  Loader2,
-  Save,
-  Search,
-  Star,
-  Video,
-  X,
-} from "lucide-react";
+﻿import { ImagePlus, ListVideo, Loader2, Save, Search, Star, Video, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ImageDrop } from "@/components/admin/ImageDrop";
@@ -37,21 +26,15 @@ import {
 
 export function ShowEditor({
   show,
-  first,
-  last,
   takenSlugs,
   schemaReady,
-  onMove,
   onToggleFeatured,
   onReload,
 }: {
   show: ShowWithImage;
-  first: boolean;
-  last: boolean;
   /** Bu seri hariç, sistemde kullanılan slug'lar. */
   takenSlugs: (string | null)[];
   schemaReady: boolean;
-  onMove: (dir: -1 | 1) => void;
   onClose: () => void;
   onToggleFeatured: () => void;
   onReload: (message: string) => void;
@@ -642,6 +625,17 @@ export function ShowEditor({
                 </Button>
               </div>
             </div>
+            {/* AÇIKLAMA — video linkinin ALTINDA, çizgili ayrı blok (sol çerçevenin
+                parçası; alt boşluğu doldurur). */}
+            <div className="mt-2.5 border-t border-border pt-2.5">
+              <textarea
+                className="min-h-24 w-full rounded-xl border border-border bg-card p-3 text-sm text-foreground outline-none transition-colors focus:border-primary"
+                value={description}
+                onChange={(event) => setDescription(event.target.value)}
+                placeholder="Detay sayfası açıklaması"
+                aria-label="Açıklama"
+              />
+            </div>
           </div>
         </div>
 
@@ -836,13 +830,18 @@ export function ShowEditor({
           ) : null}
 
           <div className="mt-3 flex flex-wrap items-center gap-2">
+            {/* Vitrin = ana sayfadaki büyük slider. Tıklayınca anında kaydedilir. */}
             <Button
               size="sm"
+              variant={show.is_featured ? "toggleOn" : "outline"}
               className="rounded-full"
-              onClick={() => void save()}
+              onClick={onToggleFeatured}
               disabled={disabled}
+              aria-pressed={show.is_featured}
+              title="Ana sayfa vitrininde (büyük slider) bu seri dönsün mü?"
             >
-              {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />} Kaydet
+              <Star size={14} className={show.is_featured ? "fill-current" : ""} />
+              {show.is_featured ? "Vitrin'de" : "Vitrin'e ekle"}
             </Button>
             <Button
               size="sm"
@@ -875,38 +874,16 @@ export function ShowEditor({
                   paneli AÇAR. */}
               <ListVideo size={14} /> {kind === "movie" ? "Film kaynağı" : "Bölüm Yöneticisi"}
             </Button>
-            {/* Vitrin = ana sayfadaki büyük slider. Tıklayınca anında kaydedilir. */}
+            {/* Kaydet EN SAĞDA (kullanıcı isteği, 30.09.2026). Sıralama okları
+                editörden KALDIRILDI — satırdaki oklar dururken burada biri üstte
+                biri altta çiziliyordu; taşıma yalnızca satırdan yapılır. */}
             <Button
               size="sm"
-              variant={show.is_featured ? "toggleOn" : "outline"}
-              className="rounded-full"
-              onClick={onToggleFeatured}
+              className="ml-auto rounded-full"
+              onClick={() => void save()}
               disabled={disabled}
-              aria-pressed={show.is_featured}
-              title="Ana sayfa vitrininde (büyük slider) bu seri dönsün mü?"
             >
-              <Star size={14} className={show.is_featured ? "fill-current" : ""} />
-              {show.is_featured ? "Vitrin'de" : "Vitrin'e ekle"}
-            </Button>
-            <Button
-              size="sm"
-              variant="ghost"
-              className="h-10 w-10 rounded-full sm:h-9 sm:w-9"
-              onClick={() => onMove(-1)}
-              disabled={first || disabled}
-              aria-label="Yukarı taşı"
-            >
-              <ArrowUp size={14} />
-            </Button>
-            <Button
-              size="sm"
-              variant="ghost"
-              className="h-10 w-10 rounded-full sm:h-9 sm:w-9"
-              onClick={() => onMove(1)}
-              disabled={last || disabled}
-              aria-label="Aşağı taşı"
-            >
-              <ArrowDown size={14} />
+              {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />} Kaydet
             </Button>
             {/*
               ALTTaki "Kapat" DÜĞMESİ KALDIRILDI (kullanıcı isteği, 30.09.2026):
@@ -917,14 +894,6 @@ export function ShowEditor({
           </div>
         </div>
       </div>
-
-      <textarea
-        className="mt-3 min-h-24 w-full rounded-xl border border-border bg-card p-3 text-sm text-foreground outline-none focus:border-primary"
-        value={description}
-        onChange={(event) => setDescription(event.target.value)}
-        placeholder="Detay sayfası açıklaması"
-        aria-label="Açıklama"
-      />
 
       {/* SARMALAYICI SADELEŞTİ — ÇİZGİ/BOŞLUK KALINTISI KALDIRILDI.
           Kullanıcı bildirimi (28.09.2026): "hâlâ eksik kalıntılar var … aşağıya

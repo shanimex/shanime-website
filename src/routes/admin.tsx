@@ -401,36 +401,40 @@ function AdminPage() {
           <div className="mt-4 space-y-2">
             {seriesShows.map((show) => {
               const index = shows.findIndex((item) => item.id === show.id);
-              if (expandedId === show.id) {
-                return (
-                  <ShowEditor
-                    key={show.id}
-                    show={show}
-                    first={index === 0}
-                    last={index === shows.length - 1}
-                    takenSlugs={shows
-                      .filter((item) => item.id !== show.id)
-                      .map((item) => item.slug)}
-                    schemaReady={schema.ready}
-                    onMove={(dir) => void moveShow(show, dir)}
-                    onClose={() => setExpandedId(null)}
-                    onToggleFeatured={() => void toggleFeatured(show)}
-                    onReload={handleReload}
-                  />
-                );
-              }
+              /**
+               * SATIR HER ZAMAN GÖRÜNÜR, DÜZENLEYİCİ ALTINA AÇILIR.
+               * KULLANICI İSTEĞİ (30.09.2026): "Düzenle basınca orası kaybolmasın,
+               * kalsın; aşağı doğru açılsın." Eskiden açıkken `ShowRow` yerine
+               * `ShowEditor` çiziliyordu → satır (kapak, ad, slug, rozetler) ekrandan
+               * kayboluyordu. Artık ikisi birlikte: üstte satır, altında düzenleyici.
+               */
+              const isOpen = expandedId === show.id;
               return (
-                <ShowRow
-                  trCount={trCoverage[show.id] ?? 0}
-                  key={show.id}
-                  show={show}
-                  counts={counts[show.id] ?? EMPTY_COUNTS}
-                  first={filtering || index === 0}
-                  last={filtering || index === shows.length - 1}
-                  onEdit={() => setExpandedId(show.id)}
-                  onMove={(dir) => void moveShow(show, dir)}
-                  onDelete={() => deleteShow(show)}
-                />
+                <div key={show.id} className="space-y-2">
+                  <ShowRow
+                    trCount={trCoverage[show.id] ?? 0}
+                    show={show}
+                    counts={counts[show.id] ?? EMPTY_COUNTS}
+                    first={filtering || index === 0}
+                    last={filtering || index === shows.length - 1}
+                    open={isOpen}
+                    onEdit={() => setExpandedId(isOpen ? null : show.id)}
+                    onMove={(dir) => void moveShow(show, dir)}
+                    onDelete={() => deleteShow(show)}
+                  />
+                  {isOpen ? (
+                    <ShowEditor
+                      show={show}
+                      takenSlugs={shows
+                        .filter((item) => item.id !== show.id)
+                        .map((item) => item.slug)}
+                      schemaReady={schema.ready}
+                      onClose={() => setExpandedId(null)}
+                      onToggleFeatured={() => void toggleFeatured(show)}
+                      onReload={handleReload}
+                    />
+                  ) : null}
+                </div>
               );
             })}
             {shows.length - totalMovies === 0 && !filtering && (
@@ -486,36 +490,35 @@ function AdminPage() {
           <div className="mt-4 space-y-2">
             {movieShows.map((show) => {
               const index = shows.findIndex((item) => item.id === show.id);
-              if (expandedId === show.id) {
-                return (
-                  <ShowEditor
-                    key={show.id}
-                    show={show}
-                    first={index === 0}
-                    last={index === shows.length - 1}
-                    takenSlugs={shows
-                      .filter((item) => item.id !== show.id)
-                      .map((item) => item.slug)}
-                    schemaReady={schema.ready}
-                    onMove={(dir) => void moveShow(show, dir)}
-                    onClose={() => setExpandedId(null)}
-                    onToggleFeatured={() => void toggleFeatured(show)}
-                    onReload={handleReload}
-                  />
-                );
-              }
+              // FİLMLERDE DE AYNI DAVRANIŞ (kullanıcı isteği: "serilerde de
+              // filmlerde de öyle olsun") — satır sabit, düzenleyici altına açılır.
+              const isOpen = expandedId === show.id;
               return (
-                <ShowRow
-                  trCount={trCoverage[show.id] ?? 0}
-                  key={show.id}
-                  show={show}
-                  counts={counts[show.id] ?? EMPTY_COUNTS}
-                  first={filtering || index === 0}
-                  last={filtering || index === shows.length - 1}
-                  onEdit={() => setExpandedId(show.id)}
-                  onMove={(dir) => void moveShow(show, dir)}
-                  onDelete={() => deleteShow(show)}
-                />
+                <div key={show.id} className="space-y-2">
+                  <ShowRow
+                    trCount={trCoverage[show.id] ?? 0}
+                    show={show}
+                    counts={counts[show.id] ?? EMPTY_COUNTS}
+                    first={filtering || index === 0}
+                    last={filtering || index === shows.length - 1}
+                    open={isOpen}
+                    onEdit={() => setExpandedId(isOpen ? null : show.id)}
+                    onMove={(dir) => void moveShow(show, dir)}
+                    onDelete={() => deleteShow(show)}
+                  />
+                  {isOpen ? (
+                    <ShowEditor
+                      show={show}
+                      takenSlugs={shows
+                        .filter((item) => item.id !== show.id)
+                        .map((item) => item.slug)}
+                      schemaReady={schema.ready}
+                      onClose={() => setExpandedId(null)}
+                      onToggleFeatured={() => void toggleFeatured(show)}
+                      onReload={handleReload}
+                    />
+                  ) : null}
+                </div>
               );
             })}
             {totalMovies === 0 && !filtering && (
@@ -555,8 +558,10 @@ function AdminPage() {
               işaretlenenler oynatıcının altında çıkar.
             </li>
             <li>
-              <b className="text-foreground">Kapaklar:</b> panel yüklemesi → Animecix bölüm kapağı →
-              sağlayıcı kapağı → ani.zip/TVDB görseli → seri posteri. Zincir boş bırakmaz.
+              <b className="text-foreground">Kapaklar (TVDB-TEK):</b> panelden elle yükleme →
+              ani.zip/TVDB bölüm görseli → TVDB'den üretilmiş yerel dosya. TVDB dışı kaynak
+              (animecix/sağlayıcı karesi/katalog kapağı/seri posteri) kullanılmaz; TVDB'de görsel
+              yoksa kart bölüm numarasıyla kalır.
             </li>
             <li>
               <b className="text-foreground">Vitrin:</b> yalnızca "Vitrin'de göster" işaretli
