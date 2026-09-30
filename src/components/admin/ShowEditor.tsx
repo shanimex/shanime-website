@@ -152,6 +152,12 @@ export function ShowEditor({
      * (kullanıcı bildirimi, 29.09.2026: "45576 → S1'in 2. part'ı, S2 değil".)
      */
     title: string;
+    /**
+     * Girilen kaydın BİÇİMİ (AniList: TV/MOVIE/OVA/SPECIAL/…) — OVA/SPECIAL/ONA
+     * kayıtları tekil işlem görür (bkz. `standalone`): zincire/ilişkilere
+     * düşmeden SADECE kendi kataloğu kullanılır.
+     */
+    format: string | null;
   } | null>(null);
   /** MAL arama sonuçları (kimlik · başlık · biçim · yıl) — tıklayınca kimlik dolar. */
   const [malHits, setMalHits] = useState<MalHit[]>([]);
@@ -342,10 +348,10 @@ export function ShowEditor({
   function openEpisodeManager() {
     setEpisodesOpen(true);
     // Kimlik belirtilmez: panel kendi seçili/ilk sezonunu açar.
-    setCatalogRequest({ malId: null, newSeason: false, part: false, title: "" });
+    setCatalogRequest({ malId: null, newSeason: false, part: false, title: "", format: null });
   }
 
-  function confirmMal(malId: number, malTitle: string) {
+  function confirmMal(malId: number, malTitle: string, malFormat?: string) {
     setMalInput(String(malId));
     setMalHits([]);
     setMalNotice(null);
@@ -382,7 +388,7 @@ export function ShowEditor({
      * geçirilir ve `newSeason` yalnızca ipucu olarak kullanılır.
      */
     // TEK SEFERLİK istek: panel açtıktan sonra tüketir (gerekçe `catalogRequest` notunda).
-    setCatalogRequest({ malId, newSeason, part, title: malTitle });
+    setCatalogRequest({ malId, newSeason, part, title: malTitle, format: malFormat ?? null });
     toast.success(
       newSeason
         ? `MAL ${malId} · ${malTitle || "(ad yok)"} — SIRADAKİ sezon için katalog açılıyor`
@@ -698,7 +704,7 @@ export function ShowEditor({
                 <li key={hit.malId}>
                   <button
                     type="button"
-                    onClick={() => confirmMal(hit.malId, hit.title)}
+                    onClick={() => confirmMal(hit.malId, hit.title, hit.format)}
                     className="flex w-full items-center gap-2 rounded-lg px-2 py-1 text-left text-xs transition-all hover:bg-secondary active:scale-[0.99]"
                   >
                     <span className="w-12 shrink-0 font-mono text-[10px] text-muted-foreground">

@@ -854,6 +854,11 @@ export type CatalogAttempt = {
   ok: boolean;
   /** HTTP durum kodu; `0` → ağ hatası (yanıt hiç gelmedi). */
   status: number;
+  /**
+   * Kayıt DÖNDÜ ama bölüm listesi BOŞ (200 + 0 bölüm, ör. OVA 36286).
+   * Panel bunu "kayıt var" sanıp başka sezonlara düşmemeli; ayrı mesaj alır.
+   */
+  empty?: boolean | undefined;
 };
 
 /**
@@ -902,6 +907,20 @@ export function catalogFailureMessage(attempts: CatalogAttempt[], seasonNumber: 
       `bulunmuyor; bölüm listesi katalogdan ÇEKİLEMEZ (başka sezonun bölümleri KARIŞTIRILMAZ). ` +
       `Çözüm: bölümleri aşağıdaki "Bölümler" bölümünden ELLE ekle (numara otomatik atanır). ` +
       `Katalog kaydı sonradan düzelirse "Katalogdan çek" ile tekrar deneyebilirsin.`
+    );
+  }
+
+  // (b2) KAYIT VAR AMA BOŞ: upstream 200 döndü, bölüm listesi YOK (ör. OVA
+  // kaydı). "Başka sezona ait bölüm bulunamadı" mesajı YANILTIR — doğrusu:
+  // bu kaydın upstream'de bölümü yok, elle eklenir.
+  const empties = attempts.filter((a) => a.ok && a.empty);
+  if (empties.length > 0 && transient.length === 0 && notFound.length === 0) {
+    const ids = empties.map((a) => a.malId).join(", ");
+    return (
+      `Katalog kaydı VAR ama bölüm listesi BOŞ (MAL: ${ids} → ani.zip 200 + 0 bölüm). ` +
+      `Bu kayıt upstream'de bölüm taşımıyor (tipik OVA/özel kayıt); katalogdan ` +
+      `ÇEKİLECEK bölüm yok, başka kaydın bölümleri KARIŞTIRILMAZ. ` +
+      `Çözüm: bölümleri aşağıdaki "Bölümler" bölümünden ELLE ekle.`
     );
   }
 

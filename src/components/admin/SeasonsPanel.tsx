@@ -324,6 +324,11 @@ export function SeasonsPanel({
      * "45576 → S1'in partı, S2 değil" uyarısı bununla üretilir.
      */
     title: string;
+    /**
+     * Girilen kaydın BİÇİMİ (AniList: TV/MOVIE/OVA/SPECIAL/…). OVA/SPECIAL/ONA
+     * tekil işlem görür (`standalone`): zincire düşmeden kendi kataloğu kullanılır.
+     */
+    format?: string | null | undefined;
   } | null;
   /** İstek karşılandıktan sonra çağrılır; üst bileşen isteği tüketir (tek seferlik). */
   onCatalogOpenHandled?: () => void;
@@ -392,6 +397,11 @@ export function SeasonsPanel({
    */
   const [pendingSeasonMalId, setPendingSeasonMalId] = useState<number | null>(null);
   /**
+   * GİRİLEN KAYDIN BİÇİMİ — OVA/SPECIAL/ONA tekil işlem görür.
+   * `partSeasonMalId` ile aynı yaşam döngüsü (istekle gelir, hedefle tüketilir).
+   */
+  const [entryFormat, setEntryFormat] = useState<string | null>(null);
+  /**
    * PART (KISIM) KAYDI — bu sezonun DEVAMI olan MAL kaydının kimliği.
    * `catalogMalId` hesabında EN ÖNE geçer: panel katalogu bu kimlikten çeker
    * (ör. S1 için 39535 yerine 45576) ama sezonun KENDİ kimliği değişmez.
@@ -449,11 +459,13 @@ export function SeasonsPanel({
         pending?: number | null;
         notice?: string | null;
         seasonMalId?: number | null;
+        format?: string | null;
       } = {},
     ) => {
       setPartSeasonMalId(opts.part ?? null);
       setPendingSeasonMalId(opts.pending ?? null);
       setTargetSeasonMalId(opts.seasonMalId ?? null);
+      setEntryFormat(opts.format ?? null);
       setCatalogNotice(opts.notice ?? null);
       if (catalogCloseTimer.current) clearTimeout(catalogCloseTimer.current);
       setCatalogClosing(false);
@@ -507,6 +519,8 @@ export function SeasonsPanel({
     // ── İSTEĞİN TÜRÜ NE? (sezon başına MAL kimliği — 29.09.2026) ───────────
     const pendingMalId = catalogOpenRequest.malId;
     const requestedTitle = catalogOpenRequest.title ?? "";
+    // Giriş biçimi hedefe taşınır (OVA/SPECIAL/ONA tekil işlem görür).
+    setEntryFormat(catalogOpenRequest.format ?? null);
     const isNewSeason = catalogOpenRequest.newSeason && pendingMalId !== null;
     /**
      * ═══════════════════════════════════════════════════════════════════════════
@@ -1094,6 +1108,13 @@ export function SeasonsPanel({
                         : null
                     }
                     partContinuation={partSeasonMalId !== null}
+                    /**
+                     * TEKİL KAYIT (OVA/SPECIAL/ONA) — kendi kataloğundan başka
+                     * yere düşmez (bkz. `standalone` prop notu).
+                     */
+                    standalone={["OVA", "SPECIAL", "ONA"].includes(
+                      (entryFormat ?? "").toUpperCase(),
+                    )}
                     /**
                      * PART numaralandırma çıpası — ÖNCE ZİNCİRDEN çözülen sezon
                      * kimliği, sonra DB satırı. Sıra önemli: Mushoku'da **S1 satırı

@@ -124,6 +124,15 @@ function reasonOf(err: unknown): string {
 const TR_SOURCE_ID = "anizm";
 const ANIMECIX_SOURCE_ID = "animecix";
 
+/**
+ * ANİME BİÇİMLERİ — ilişkili kayıt taramasında bunlar dışındakiler atlanır.
+ *
+ * Ölçüm (OVA 36286): ALTERNATIVE kenar MANGA kaydına (idMal 133167) düşüp
+ * ani.zip 404 üretiyordu. Manga/novel bir "sezon" olamaz; tarama yalnızca
+ * anime biçimlerine bakar.
+ */
+const ANIME_FORMATS = new Set(["TV", "TV_SHORT", "MOVIE", "SPECIAL", "OVA", "ONA", "MUSIC"]);
+
 /** Tüm sağlayıcı kalemleri — liste KOPYALANMAZ, tek kaynak `lib/embed-sources.ts`. */
 const ALL_SOURCES = SOURCE_GROUPS.flatMap((group) => group.items);
 
@@ -487,6 +496,7 @@ export function AnizipSyncPanel({
   ambiguousChoice = null,
   singlePart = false,
   partContinuation = false,
+  standalone = false,
   seasonOwnMalId = null,
   seasons = [],
   onSelectSeason,
@@ -579,6 +589,16 @@ export function AnizipSyncPanel({
    * sonuç TEK bölüme indirgenir.
    */
   singlePart?: boolean;
+  /**
+   * TEKİL KAYIT (OVA/SPECIAL/ONA) — zincir/ilişki araması YOK.
+   *
+   * Ölçüm (OVA 36286 "Memory Snow"): kendi kataloğu upstream'de BOŞ (200, 0
+   * bölüm) ve ilişkilerinde MANGA kaydı var. Normal akışta ya manga 404'ü
+   * yiyor ya da TV bölümleri "OVA'nın bölümleri" gibi dönüyordu. Tekil modda
+   * SADECE kendi kataloğu okunur: bölüm varsa aynen listelenir, yoksa DÜRÜST
+   * "katalogda bölüm yok" + elle ekleme formu açılır.
+   */
+  standalone?: boolean;
   /**
    * `true` = bu katalog kaydı sezonun DEVAMI (MAL'de "Part N").
    * Numaralar mevcut bölümlerin ardından sürer (11 varsa 12–23 olur) ve sezonun
@@ -1604,7 +1624,7 @@ export function AnizipSyncPanel({
       async function attempt(id: number): Promise<CatalogEpisode[] | null> {
         try {
           const catalog = await fetchCatalogEpisodes(id);
-          attempts.push({ malId: id, ok: true, status: 200 });
+          attempts.push({ malId: id, ok: true, status: 200, empty: catalog.length === 0 });
           return catalog;
         } catch (err) {
           attempts.push({
@@ -1658,6 +1678,19 @@ export function AnizipSyncPanel({
       if (partContinuation && ownMissing) return { ok: false, attempts };
 
       /**
+       * TEKİL KAYIT (OVA/SPECIAL/ONA) — SADECE KENDİ KATALOĞU.
+       *
+       * Kendi kataloğu BOŞSA (`[]`, ör. 36286) sonuç `ok: false` + denenen
+       * kimliklerdir → panel DÜRÜST "katalogda bölüm yok" mesajını gösterir ve
+       * ELLE ekleme formunu açar (yükleme `load()` içindeki `!lookup.ok` dalı).
+       * Bölüm varsa aynen listelenir; numaralar katalogdan geldiği gibi kalır.
+       */
+      if (standalone) {
+        if (!own || own.length === 0) return { ok: false, attempts };
+        return { ok: true, episodes: own, malId, specials: specialsOf(own) };
+      }
+
+      /**
        * FİLM (TEK PARÇA): YALNIZCA KENDİ KAYDI — ve sonuç TEK bölüm.
        *
        * Filmde ani.zip bölümü `sezon 0` altında verir, bu yüzden aşağıdaki `seek()`
@@ -1704,6 +1737,8 @@ export function AnizipSyncPanel({
       for (const record of records) {
         if (!isCurrent()) return { ok: false, attempts };
         if (record.malId === malId) continue;
+        // Anime olmayan kayıt (manga/novel) sezon OLAMAZ — atla (bkz. ANIME_FORMATS).
+        if (!ANIME_FORMATS.has((record.format ?? "").toUpperCase())) continue;
         const catalog = await attempt(record.malId);
         if (!catalog) continue; // tek kaydın hatası aramayı bitirmez (log'da kalır)
         // DEVAM (SEQUEL) kaydının kendi kataloğu genelde TEK sezonluktur (her sezon
@@ -1757,7 +1792,8 @@ export function AnizipSyncPanel({
     // (aşağıdaki `load` yalnızca çağırıyor, bayrağı kendisi kullanmıyor).
     // `partContinuation` da gerekli: kendi kayıt 404'üyken part devamında
     // ilişkili kayıtlara düşülmez (bkz. yukarıdaki PART DEVAMI guard'ı).
-    [seasonNumber, resolveOrdinal, singlePart, partContinuation],
+    // `standalone` de gerekli: OVA/SPECIAL/ONA kendi kataloğuyla sınırlanır.
+    [seasonNumber, resolveOrdinal, singlePart, partContinuation, standalone],
   );
 
   /**
@@ -2471,6 +2507,17 @@ export function AnizipSyncPanel({
        * o kalem "başarısız" olur; koşu devam eder. Her kalem ve altındaki kaynaklar
        * KAYDA geçer (`runLog`) ve panelde liste hâlinde gösterilir.
        */
+      /**
+       * BOĞULMA SİGORTASI — sağlayıcı çökerse koşu durur, duvara vurulmaz.
+       *
+       * Ölçüm: upstream ("backend temporarily overloaded") her bölümde patlayınca
+       * her kaynak 4 kez deneniyor (25 bölüm × 3 kaynak = yüze yakın istek) ve
+       * rapor aynı sebeple doluyor. Üst üste 8 GERÇEK arıza (`failed`, yani
+       * `ImportSkip` DEĞİL) görülürse kalan bölümler ağa çıkmadan atlanır —
+       * sarı "sağlayıcı yoğun" notuyla, kırmızı yığını olmadan. Başarı veya
+       * kesin "yok" cevabı sayacı sıfırlar (sağlayıcı yaşıyor demektir).
+       */
+      let transientStreak = 0;
       const run = await runSequentialImport<CatalogEpisode, number>({
         items: targets,
         labelOf: (ep) => `${ep.number}. Bölüm`,
@@ -2479,6 +2526,11 @@ export function AnizipSyncPanel({
         retries: DEFAULT_RETRIES,
         onProgress: (state) => setProgress({ done: state.done, total: state.total, fail: [] }),
         process: async (ep) => {
+          if (transientStreak >= 8) {
+            throw new ImportSkip(
+              "sağlayıcı yoğun görünüyor — kalan bölümler atlandı, sonra tekrar dene",
+            );
+          }
           const children: ImportLogChild[] = [];
           const rows: EpisodeSourceInput[] = [];
           let watchUrl = "";
@@ -2544,6 +2596,10 @@ export function AnizipSyncPanel({
             } catch (error) {
               // "Kaynakta yok" HATA DEĞİLDİR: ayrı durum + ayrı sayaç + ayrı renk.
               const status = error instanceof ImportSkip ? "skipped" : "failed";
+              // Boğulma sigortası sayacı: gerçek arızalar üst üste gelirse koşu
+              // durur; kesin "yok" cevabı sayacı sıfırlar.
+              if (status === "failed") transientStreak += 1;
+              else transientStreak = 0;
               const detail = reasonOf(error);
               children.push({
                 label: item.short,
@@ -2596,6 +2652,8 @@ export function AnizipSyncPanel({
           } else {
             added += 1;
           }
+          // Bölüm yazıldı → sağlayıcı yaşıyor, boğulma sayacı sıfırlanır.
+          transientStreak = 0;
           return { detail: `${rows.length} kaynak yazıldı`, value: ep.number, children };
         },
       });
