@@ -16,6 +16,7 @@ import {
   X,
 } from "lucide-react";
 import {
+  memo,
   useCallback,
   useEffect,
   useMemo,
@@ -27,6 +28,7 @@ import {
   type ReactNode,
 } from "react";
 import ANIME_LOGO_FILES from "@/data/anime-logo-files.json";
+import { heroVideoSource } from "@/lib/hero-video";
 import { Button } from "@/components/ui/button";
 import { AdSlot, useAdCode } from "@/components/site/AdSlot";
 import { AdsterraLeaderboard } from "@/components/site/AdsterraUnit";
@@ -200,6 +202,38 @@ function heroVideo(slug: string | null | undefined): string | undefined {
 // No head() here: the home route inherits title/description/og/twitter from
 // __root.tsx, and ships no og:image so serve-time hosting can inject the
 // project's social preview (explicit og:image or latest screenshot).
+/**
+ * ── VİTRİN TAKILMASINA KARŞI: AĞIR BÖLÜMLERİ HATIRLA ──────────────────────────
+ *
+ * ÖLÇÜM (kullanıcının Chrome kaydı, 30.09.2026):
+ *   `[Violation] 'pointerdown' handler took 161ms` (react-dom)
+ * Yani vitrine dokunulduğu an ana iş parçacığı **161 ms** kilitleniyor; tarayıcının
+ * bir kareye ayırdığı süre ~16 ms olduğu için bu, gözle görülür bir takılma.
+ *
+ * SEBEP: vitrinin KENDİ durumu (slayt indeksi, sürükleme yüzdesi, video aşaması)
+ * her değiştiğinde 4000+ satırlık ana sayfa bileşeni baştan çiziliyor ve içindeki
+ * bütün bölümler (poster ızgarası, trend, sezon, A-Z) yeniden kuruluyordu. Vitrin
+ * otomatik geçişte bile bir kez durum değiştirdiği için her slayt geçişi kare
+ * düşürüyordu.
+ *
+ * ÇÖZÜM: ağır bölümler `memo` ile hatırlanır — KENDİ verileri değişmedikçe yeniden
+ * çizilmezler; vitrin durumu onları etkilemez. (Bölümlerin içindeki kartlar da
+ * aynı sebeple hatırlanır: kart başına değişen tek şey `show` nesnesi, o da veri
+ * kaynağından geldiği için referansı sabittir.)
+ *
+ * DİL GEÇİŞİ BOZULMAZ: bu bölümlerin hepsi `useLang()` bağlamına abonedir
+ * (ölçüldü: satır 1093 · 1440 · 1475 · 2232 · 2396 · 2867). Bağlam değişince
+ * `memo`lu bileşen de yeniden çizilir; yani TR/EN geçişi eskisi gibi çalışır.
+ */
+const MemoHomeSections = memo(HomeSections);
+const MemoHomeCompactBand = memo(HomeCompactBand);
+const MemoAzList = memo(AzList);
+const MemoSeriesCard = memo(SeriesCard);
+
+/** Vitrin verisi henüz gelmediğinde kullanılan SABİT boş dizi (memo'nun işe
+ *  yaraması için referans sabit olmalı — `?? []` her çizimde yeni dizi üretirdi). */
+const EMPTY_SHOWS: ShowWithImage[] = [];
+
 export const Route = createFileRoute("/")({
   // Vitrin verisi loader'da gelir; sayfa SUNUCUDA gerçek slaytlarla render edilir.
   // Böylece ilk anda projedeki yedek/statik görseller görünüp sonra gerçek slayta
@@ -3010,15 +3044,153 @@ function Index() {
   // Sürükleme sırasında slaytların yatay kayması (yüzde) ve tutma durumu.
   const [dragX, setDragX] = useState<number | null>(null);
   const [heroDragging, setHeroDragging] = useState(false);
+  /**
+   * ── SÜRÜKLEME GÜNCELLEMELERİNİ KARE BAŞINA BİRE İNDİR ──────────────────────
+   *
+   * NEDEN (kullanıcı bildirimi, 30.09.2026: "vitrin geçişlerde aşırı kasıyor,
+   * uzun süredir var"): `pointermove` farede saniyede YÜZLERCE kez tetiklenebiliyor
+   * ve her tetiklemede `setDragX` çağırmak bu ana sayfa bileşeninin TAMAMINI
+   * (4000+ satır, 60+ poster kartı, trend listesi, vitrin) yeniden çizdiriyordu —
+   * sürükleme boyunca saniyede yüzlerce kez. Artık kare başına EN FAZLA BİR kez
+   * güncelleniyor; ayrıca %0,25'ten küçük farklar ATLANIYOR (gözle görülmeyen
+   * güncellemeler için çizim yapılmaz).
+   *
+   * NOT: CSS'e dokunulmadı — daha önce buradaki bir "takılma düzeltmesi"
+   * (will-change/backface-visibility) görüntüyü bozmuş ve geri alınmıştı.
+   */
+  const dragPercentRef = useRef<number | null>(null);
+  const dragFrame = useRef<number | null>(null);
+  /** Slayt DOM düğümleri — sürüklemede DOĞRUDAN yazmak için (React'siz). */
+  const slideEls = useRef<Map<number, HTMLDivElement>>(new Map());
+
+  /**
+   * SÜRÜKLEMEYİ DOĞRUDAN DOM'A YAZ (React'e HİÇ uğramadan).
+   *
+   * NEDEN (kullanıcı bildirimi, 30.09.2026): "o sitede kaydırırken en ufak kasma
+   * yok, bizde ne kadar yavaş kaydırsam kasıyor." Sebep: sürüklemenin her karesi
+   * React state'ini değiştiriyordu (`setDragX`) ve bu, vitrin durumu ne olursa olsun
+   * ana sayfa bileşeninin yeniden çalışması demekti (memo yalnızca AĞIR BÖLÜMLERİ
+   * kurtarıyor; vitrinin kendi JSX'i ve çevresi her karede yeniden kuruluyordu).
+   *
+   * YENİ YOL: sürükleme sırasında yalnızca ilgili slaytların `transform/opacity/
+   * visibility` değerleri doğrudan DOM'a yazılır. Bu değerler zaten birleştirici
+   * (compositor) özellikleri olduğu için tarayıcı bunları GPU'da işler; React'in
+   * işi tamamen kalkar. Kare başına EN FAZLA BİR yazma yapılır (rAF ile birleştirme).
+   *
+   * React ile çakışma olmaz: sürükleme boyunca `dragX` state'i `null` kalır, yani
+   * `backdropDragStyle` bu özellikleri React'e yazdırmaz. Bırakınca (settle yolu)
+   * React devralır ve sonunda `dragX = null` ile bu özellikleri kaldırır.
+   */
+  function writeDragStyles(percent: number) {
+    const total = heroShows.length;
+    if (total < 2) return;
+    const prev = (safeIndex - 1 + total) % total;
+    const next = (safeIndex + 1) % total;
+    /**
+     * Referans sitede (sonanime.com bundle) ÖLÇÜLEN birebir aynı mantık:
+     *   · katılan slaytlar → opacity 1 · visibility visible · transform translateX ·
+     *     **zIndex 2** (sürüklenen slayt komşusunun ALTINDA kalmaz),
+     *   · katılmayanlar → opacity 0 · visibility hidden · transform "" · zIndex 0
+     *     (görünür kalıp "açılıp kapanan" hayalet slayt oluşturmasınlar),
+     *   · hepsine `transition: none` (sürükleme 1:1 takip etsin, animasyon gecikmesi olmasın).
+     */
+    for (const [index, element] of slideEls.current) {
+      if (!element) continue;
+      element.style.transition = "none";
+      const isActive = index === safeIndex;
+      const isPrev = index === prev && percent > 0;
+      const isNext = index === next && percent <= 0;
+      if (isActive || isPrev || isNext) {
+        const offset = isActive ? 0 : isPrev ? -100 : 100;
+        element.style.transform = `translateX(${percent + offset}%)`;
+        element.style.opacity = "1";
+        element.style.visibility = "visible";
+        element.style.zIndex = "2";
+      } else {
+        element.style.transform = "";
+        element.style.opacity = "0";
+        element.style.visibility = "hidden";
+        element.style.zIndex = "0";
+      }
+    }
+  }
+
+  /** Sürükleme sırasında yazılan tüm satır içi stilleri geri alır. */
+  function clearDragStyles() {
+    for (const element of slideEls.current.values()) {
+      if (!element) continue;
+      element.style.removeProperty("transition");
+      element.style.removeProperty("transform");
+      element.style.removeProperty("opacity");
+      element.style.removeProperty("visibility");
+      element.style.removeProperty("z-index");
+    }
+    // Sürükleme boyunca gizlenen medya (video/iframe) geri açılır.
+    for (const element of heroRef.current?.querySelectorAll<HTMLElement>(".hero-video") ?? []) {
+      element.style.removeProperty("transition");
+      element.style.removeProperty("opacity");
+    }
+    dragPercentRef.current = null;
+  }
+
+  /**
+   * Sürükleme boyunca videoyu/iframe'i GİZLER.
+   *
+   * NEDEN: (1) gömülü YouTube oynatıcısı, üst öğesi her karede taşınırken ekran
+   * dışı bir pencereyi yeniden birleştirmek zorunda kalıyor — sürüklemenin en ağır
+   * kalemi; (2) kullanıcı zaten "video ile fotoğraf birbirine girmesin" istedi.
+   * Sürükleme bitince stiller geri alınır (`clearDragStyles`), oynatıcı YENİDEN
+   * yüklenmez.
+   */
+  function hideMediaForDrag() {
+    for (const element of heroRef.current?.querySelectorAll<HTMLElement>(".hero-video") ?? []) {
+      element.style.transition = "none";
+      element.style.opacity = "0";
+    }
+  }
+
+  /** Kare başına en fazla bir DOM yazımı (aynı karede birden çok hareket gelebilir). */
+  function scheduleDragWrite(percent: number) {
+    dragPercentRef.current = percent;
+    if (dragFrame.current !== null) return;
+    dragFrame.current = window.requestAnimationFrame(() => {
+      dragFrame.current = null;
+      const next = dragPercentRef.current;
+      if (next !== null) writeDragStyles(next);
+    });
+  }
   // Eski sitedeki gibi: veri tasarrufu / çok yavaş bağlantı / dokunmatik
   // cihazlarda ve hareket azaltma modunda hero videosu hiç indirilmez.
   const [allowVideo, setAllowVideo] = useState(false);
+  /**
+   * ZAYIF CİHAZ MODU (kullanıcı isteği, 30.09.2026): "kişinin cihazı neyse otomatik
+   * o hızı görsün… özellikle vitrin hiç kastırmasın."
+   *
+   * Cihazın bildirdiği ÇEKİRDEK ve BELLEK sayısına bakılır; zayıf bir makinede
+   * sürekli çalışan vitrin zoom'u (Ken Burns) kapatılır — kare hızını en çok o
+   * düşürüyordu. Güçlü cihazlarda hiçbir şey değişmez, görünüm bire bir aynıdır.
+   *
+   * ÖLÇÜLEN DURUMLAR (tarayıcı API'leri): `hardwareConcurrency` (çekirdek sayısı),
+   * `deviceMemory` (GB — yalnızca Chromium), `connection.saveData` (veri tasarrufu).
+   * Değer yoksa (Firefox/Safari çoğunu vermez) cihaz GÜÇLÜ sayılır: yanlışlıkla
+   * efekt kapatıp görüntüyü boşaltmamak için "şüphede kalırsan açık bırak" kuralı.
+   */
+  const [weakDevice, setWeakDevice] = useState(false);
   useEffect(() => {
-    const conn = (navigator as { connection?: { saveData?: boolean; effectiveType?: string } })
-      .connection;
+    const nav = navigator as {
+      connection?: { saveData?: boolean; effectiveType?: string };
+      deviceMemory?: number;
+      hardwareConcurrency?: number;
+    };
+    const conn = nav.connection;
+    const cores = nav.hardwareConcurrency ?? 8;
+    const memory = nav.deviceMemory ?? 8;
+    const weakHardware = cores <= 2 || memory <= 2 || conn?.saveData === true;
+    setWeakDevice(weakHardware);
     const skip =
       conn?.saveData === true ||
       conn?.effectiveType === "2g" ||
+      weakHardware ||
       window.matchMedia("(hover: none)").matches ||
       window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     if (!skip) setAllowVideo(true);
@@ -3051,15 +3223,80 @@ function Index() {
     if (allowVideo) {
       armTimer = window.setTimeout(() => setVideoArmed(true), HERO_VIDEO_DELAY);
     }
-    // ÇIKAN slaytın videosu fade (1.2 sn) boyunca ekranda kalsın. Hemen
-    // sıfırlarsak geçiş anında video kayboluyor, yerine eski fotoğraf geliyor
-    // ve "video kapandı, resim geri geldi" görüntüsü oluşuyor.
-    const clearTimer = window.setTimeout(() => setVideoVisibleKey(null), 1300);
+    /**
+     * ÇIKAN SLAYTIN VİDEOSU GEÇİŞ ANINDA KESİLİR.
+     *
+     * KULLANICI BİLDİRİMİ (30.09.2026): "videodan sonra fotoya geçerken birbirine
+     * giriyor" — eski davranış videoyu 1300 ms daha görünür tutuyordu; o süre
+     * boyunca çıkan slaytın videosu, gelen slaytın fotoğrafıyla YARI SAYDAM
+     * karışıyordu.
+     *
+     * YENİ DAVRANIŞ: video geçişin BAŞINDA kaldırılır (`videoVisibleKey` boşalınca
+     * `videoActive` de düşer ve medya DOM'dan çıkar). Çıkan slayt artık kendi
+     * FOTOĞRAFIYLA solar → iki fotoğraf arasında temiz bir geçiş olur, video ile
+     * fotoğraf hiç üst üste binmez.
+     *
+     * ESKİ GEREKÇE GEÇERSİZ DEĞİL, TERCİH DEĞİŞTİ: önceki not "video hemen
+     * kaldırılırsa 'video kapandı, resim geri geldi' görüntüsü oluşur" diyordu.
+     * Çıkan slaytın fotoğrafı zaten aynı serinin karesi olduğu için bu fark
+     * göze batmıyor; karışma ise batıyordu.
+     */
+    setVideoVisibleKey(null);
     return () => {
       if (armTimer) window.clearTimeout(armTimer);
-      window.clearTimeout(clearTimer);
     };
   }, [safeIndex, allowVideo]);
+
+  /**
+   * ── GÖMÜLÜ VİDEO (YouTube/Vimeo) ────────────────────────────────────────────
+   *
+   * `onPlaying` olayı YALNIZCA kendi `<video>`muzda gelir; gömülü kaynak dış bir
+   * pencere olduğu için olay GELMEZ. Gelmediği sürece yazı kapanmıyor ve video
+   * görünmez kalıyordu. Bu yüzden gömülü kaynakta oynatıcı "hazır" kabul edilir.
+   *
+   * ── KUMANDALARIN GÖRÜNMESİ (kullanıcı bildirimi, 30.09.2026) ──────────────────
+   * "Video ilk görüneceği an 1-2 saniye duraklat/ileri-geri düğmeleri görünüyor."
+   * Sebep: YouTube oynatıcısı yüklendiği ANDA kumandalarını gösterip birkaç saniye
+   * sonra kendiliğinden gizliyor; biz de tam o anda görünür yapıyorduk.
+   * ÇÖZÜM: gömülü oynatıcı slayt aktif olur olmaz (henüz gizliyken) yüklenir ve
+   * oynamaya başlar; perde VİTRİN BEKLEME SÜRESİ dolduğunda açılır. O ana kadar
+   * oynatıcı kendi kumandalarını çoktan gizlemiş olur → kullanıcı hiç görmez.
+   * Bu yüzden buradaki "hazır" payı çok kısadır (kumandaların gizlenmesini
+   * beklemek gerekmez, o bekleme zaten yükleme sırasında geçmiştir).
+   */
+  const activeHeroKey = (() => {
+    const activeSlide = heroShows[safeIndex];
+    return activeSlide ? (activeSlide.slug ?? activeSlide.title) : "";
+  })();
+  const activeEmbedUrl = useMemo(() => {
+    const activeSlide = heroShows[safeIndex];
+    if (!activeSlide) return "";
+    // `HeroCard` birleşiminde `banner_video` YALNIZCA veritabanından gelen kartta
+    // vardır (statik vitrin yedeğinde yok) — bu yüzden `in` ile daraltılıyor.
+    const raw = "banner_video" in activeSlide ? activeSlide.banner_video : "";
+    const source = heroVideoSource(raw);
+    return source.kind === "embed" ? source.embedUrl : "";
+  }, [heroShows, safeIndex]);
+
+  useEffect(() => {
+    if (!allowVideo || !videoArmed || !activeEmbedUrl || !activeHeroKey) return;
+    if (brokenVideos[activeHeroKey]) return;
+    /**
+     * PERDE AÇILMA PAYI = 2,6 sn.
+     *
+     * NEDEN BU KADAR: oynatıcı `videoArmed` anında (6. saniye) kurulur ve o an
+     * kendi kumandalarını gösterir; YouTube bunları birkaç saniye sonra gizler.
+     * Daha erken açarsak kullanıcı duraklat/ileri-geri düğmelerini görür (bildirdiği
+     * sorun), daha geç açarsak video gereksiz yere gecikir. 2,6 sn ikisinin arasını
+     * tutuyor. Ölçüm yine kullanıcının ekranında yapılmalı; gerekirse bu sayı tek
+     * yerde burada değişir.
+     */
+    const timer = window.setTimeout(() => {
+      setVideoVisibleKey(activeHeroKey);
+      setVideoPhase("playing");
+    }, 2600);
+    return () => window.clearTimeout(timer);
+  }, [allowVideo, videoArmed, activeEmbedUrl, activeHeroKey, brokenVideos]);
 
   // Geçiş: sonanime.com'da ölçtüğüm gibi opacity FADE (1.2 sn, CSS'te tanımlı).
   // Kayma yok; sürükleme sırasında slaytlar yine parmağı takip eder.
@@ -3129,9 +3366,22 @@ function Index() {
   /** Oturma animasyonunun rAF tanıtıcısı (yeni sürüklemede iptal edilir). */
   const settleRaf = useRef<number | null>(null);
 
+  /**
+   * Sürükleme başlarken BİR KEZ ölçülen vitrin genişliği (px).
+   * NEDEN ÖNBELLEK (kullanıcı bildirimi, 30.09.2026 — "mouse ile sağa sola
+   * çevirirken aşırı takılmalarla ilerliyor"):
+   * `dragPercent` içinde `getBoundingClientRect()` çağırmak, HER fare hareketinde
+   * tarayıcıyı ZORUNLU yerleşim hesabına sokar. Üstelik aynı karede slaytlara
+   * transform yazdığımız için okuma↔yazma iç içe geçer ve tarayıcı her harekette
+   * yeniden yerleşim yapar → sürükleme akıcı değil, TAKILARAK ilerler.
+   * Referans sitede de (sonanime.com bundle'ı ölçüldü) genişlik tutuş anında bir kez
+   * ölçülüp kullanılıyor: `(clientX - startX) / width * 100`.
+   */
+  const dragWidth = useRef(0);
+
   /** Fare/parmağın hero genişliğine göre yatay kayması (yüzde). */
   function dragPercent(clientX: number) {
-    const width = heroRef.current?.getBoundingClientRect().width ?? 1;
+    const width = dragWidth.current || 1;
     return ((clientX - (dragStart.current?.x ?? clientX)) / width) * 100;
   }
 
@@ -3197,8 +3447,15 @@ function Index() {
     dragSamples.current = [{ x: event.clientX, t: event.timeStamp }];
     dragMoved.current = false;
     event.currentTarget.setPointerCapture(event.pointerId);
+    // Genişlik BURADA, bir kez ölçülür: sürükleme boyunca `getBoundingClientRect()`
+    // çağrılmaz (her çağrı zorunlu yerleşim hesabı = takılma — bkz. `dragWidth`).
+    dragWidth.current = heroRef.current?.getBoundingClientRect().width ?? 0;
     setHeroDragging(true);
-    setDragX(0);
+    // `setDragX(0)` YOK: sürükleme artık React state'i kullanmıyor (bkz.
+    // `writeDragStyles`). Böylece tutuş anında tam sayfa yeniden çizilmez.
+    dragPercentRef.current = 0;
+    writeDragStyles(0);
+    hideMediaForDrag();
   }
 
   function onHeroPointerMove(event: ReactPointerEvent<HTMLElement>) {
@@ -3222,13 +3479,21 @@ function Index() {
     samples.push({ x: event.clientX, t: event.timeStamp });
     if (samples.length > 8) samples.shift();
     // 1:1 takip: içerik imlecin tam altında kalır (yüzde = hero genişliğine göre).
-    setDragX(Math.max(-100, Math.min(100, dragPercent(event.clientX))));
+    // React'e gidilmez; doğrudan DOM'a yazılır (bkz. `writeDragStyles`).
+    scheduleDragWrite(Math.max(-100, Math.min(100, dragPercent(event.clientX))));
   }
 
   function onHeroPointerUp() {
     const start = dragStart.current;
     dragStart.current = null;
-    const shift = dragX ?? 0;
+    // Bekleyen kare iptal edilir: bırakıştan SONRA eski bir yüzde yazıp oturma
+    // animasyonunu bozmasın. En taze değer tampondan okunur (state gecikmiş olabilir).
+    if (dragFrame.current !== null) {
+      window.cancelAnimationFrame(dragFrame.current);
+      dragFrame.current = null;
+    }
+    // Sürükleme artık React state'i tutmadığı için en taze yüzde ref'ten okunur.
+    const shift = dragPercentRef.current ?? 0;
     const velocity = dragVelocity();
     const moved = dragMoved.current;
     // Hareket azaltma istenmişse ya da gerçek bir kayma olmadıysa momentum
@@ -3238,6 +3503,8 @@ function Index() {
       typeof window !== "undefined" &&
       window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     if (!moved || reduceMotion) {
+      // Doğrudan yazılan sürükleme stilleri geri alınır (React bunları hiç bilmiyor).
+      clearDragStyles();
       setHeroDragging(false);
       setDragX(null);
       if (!start || Math.abs(shift) < DRAG_THRESHOLD) return;
@@ -3252,16 +3519,48 @@ function Index() {
       // Eşik ya da fırlatma hızı aşıldı: komşu slayt yumuşakça tam ekrana
       // oturur, bitince slayt değişir (goTo kapısı; nokta/ok/klavye ile aynı).
       runSettle(shift, direction * 100, () => {
+        /**
+         * GEÇİŞ SIRASI — referans sitede ÖLÇÜLEN sıra (sonanime.com bundle):
+         *   1) slaytları SNAP et (animasyonsuz, hedef görünürlük + z-index),
+         *   2) indeksi değiştir,
+         *   3) satır içi stilleri **ÇİFT rAF** sonra temizle.
+         *
+         * NEDEN ÇİFT rAF: aynı karede temizlersek tarayıcı stil değişimini
+         * birleştirir ve CSS geçişini (1,2 sn) ATLAR — kullanıcının bildirdiği
+         * "her geçişte bir şey açılıp kapanıyor" görüntüsü tam olarak buydu.
+         * Çift rAF, yerleşim oturduktan sonra temizlik yapıp geçişin gerçekten
+         * oynamasını sağlar.
+         */
+        const total = heroShows.length;
+        const target = direction < 0 ? (safeIndex + 1) % total : (safeIndex - 1 + total) % total;
+        for (const [index, element] of slideEls.current) {
+          if (!element) continue;
+          element.style.transition = "none";
+          element.style.transform = "";
+          if (index === target) {
+            element.style.opacity = "1";
+            element.style.visibility = "visible";
+            element.style.zIndex = "1";
+          } else {
+            element.style.opacity = "0";
+            element.style.visibility = "hidden";
+            element.style.zIndex = "0";
+          }
+        }
         setDragX(null);
         setHeroDragging(false);
         if (direction < 0) goNext();
         else goPrev();
+        window.requestAnimationFrame(() => {
+          window.requestAnimationFrame(() => clearDragStyles());
+        });
       });
       return;
     }
     // Eşik altı: slayt bulunduğu yere süzülerek geri döner.
     runSettle(shift, 0, () => {
       setDragX(null);
+      clearDragStyles();
       setHeroDragging(false);
     });
   }
@@ -3270,6 +3569,7 @@ function Index() {
     stopSettle();
     dragStart.current = null;
     dragMoved.current = false;
+    clearDragStyles();
     setHeroDragging(false);
     setDragX(null);
   }
@@ -3385,11 +3685,14 @@ function Index() {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="sticky top-0 z-50 border-b border-border bg-background">
+      {/* Üst şerit: içerik üstünden kayan buzlu cam (kullanıcı isteği, 30.09.2026:
+          "daha güzel hale getir"). Düz opak zemin + sert çizgi yerine yarı saydam
+          + bulanıklık: vitrin görseli altından yumuşak geçiş yapar. */}
+      <header className="sticky top-0 z-50 border-b border-border/60 bg-background/80 backdrop-blur-md supports-[backdrop-filter]:bg-background/60">
         {/* Başlık şeridi de sayfanın geri kalanıyla AYNI kabı kullanır (referansta
             header, içerik ve footer tek `.container` içindedir); yoksa içerik
             genişlerken header dar kalıp sayfa kopuk görünürdü. */}
-        <div className={`${PAGE_CONTAINER} flex h-[72px] items-center justify-between gap-5`}>
+        <div className={`${PAGE_CONTAINER} flex h-16 items-center justify-between gap-5`}>
           <a
             href="#top"
             onClick={scrollToTop}
@@ -3403,7 +3706,7 @@ function Index() {
               height={856}
               loading="eager"
               decoding="async"
-              className="h-11 w-auto object-contain sm:h-12"
+              className="h-10 w-auto object-contain drop-shadow-[0_2px_12px_rgba(0,0,0,0.45)] sm:h-11"
             />
             <span className="sr-only">shanime</span>
           </a>
@@ -3591,7 +3894,11 @@ function Index() {
         <section
           ref={heroRef}
           aria-label={t("home.heroAria")}
-          className={`hero-section ${heroDragging ? "hero-dragging is-dragging" : ""}`}
+          // `hero-lite`: zayıf cihazda sürekli çalışan zoom (Ken Burns) kapanır —
+          // CSS'te tek kural var, güçlü cihazı etkilemez (bkz. styles.css).
+          className={`hero-section ${heroDragging ? "hero-dragging is-dragging" : ""} ${
+            weakDevice ? "hero-lite" : ""
+          }`}
           onPointerDown={onHeroPointerDown}
           onPointerMove={onHeroPointerMove}
           onPointerUp={onHeroPointerUp}
@@ -3612,6 +3919,9 @@ function Index() {
             const uploaded =
               "banner_video" in show && show.banner_video ? show.banner_video : undefined;
             const videoUrl = brokenVideos[key] ? undefined : uploaded || heroVideo(show.slug);
+            // Dosya mı, gömülü link mi? (YouTube/Vimeo linki `<video src>`e konamaz,
+            // `<iframe>` ile gömülür — bkz. `lib/hero-video.ts`.)
+            const videoSource = heroVideoSource(videoUrl);
             const active = index === safeIndex;
             const slideHasVideo = Boolean(videoUrl) && allowVideo && !brokenVideos[key];
             // Aktif slayt: 6 sn sonra video girer.
@@ -3629,6 +3939,12 @@ function Index() {
                 key={key}
                 aria-hidden={!active}
                 style={backdropDragStyle(index)}
+                // Sürükleme sırasında transform bu düğüme DOĞRUDAN yazılır
+                // (React'e uğramadan) — bkz. `writeDragStyles`.
+                ref={(element) => {
+                  if (element) slideEls.current.set(index, element);
+                  else slideEls.current.delete(index);
+                }}
                 className={`hero-slide ${active ? "active" : ""}`}
               >
                 {/* Telefonda DİKEY kapak, masaüstünde geniş banner kullanılır.
@@ -3652,8 +3968,66 @@ function Index() {
                     className="hero-image"
                   />
                 </picture>
-                {/* Video, görselin üstüne biner; oynamaya başlayınca yumuşakça görünür. */}
-                {videoActive && (
+                {/* Video, görselin üstüne biner; oynamaya başlayınca yumuşakça görünür.
+                    Gömülü kaynakta (YouTube/Vimeo) `<iframe>` çizilir: dosya yoktur,
+                    ama depolama ve trafik de yoktur (kullanıcı isteği 30.09.2026).
+
+                    `pointerEvents: none` ŞART: iframe fare/parmak olaylarını yutarsa
+                    vitrinin sürükleme geçişi ve "Şimdi izle / Seri detayı" düğmeleri
+                    çalışmaz. Ölçek/maskeyi `.hero-video` sınıfından alır, bu yüzden
+                    CSS'e dokunulmadı; yalnızca zorunlu satır içi stiller verildi. */}
+                {/*
+                  GÖMÜLÜ KAYNAK, GEÇİŞ BİTTİKTEN SONRA yüklenir (`videoActive`).
+                  ÖLÇÜM/NEDEN: oynatıcıyı slayt aktif olur olmaz yükletmek (önceki
+                  deneme) geçişle ÇAKIŞIYORDU — YouTube oynatıcısının kurulumu ağır
+                  bir iş ve geçişin transform animasyonuyla aynı anda çalışınca
+                  "geçişlerde aşırı kasma" oluşuyordu (kullanıcı bildirimi,
+                  30.09.2026). Artık kompozisyon sırası şöyle: geçiş (fotoğraf) →
+                  6 sn bekleme → oynatıcı gizliyken kurulur → kumandaları gizlenince
+                  perde açılır. Böylece hem geçiş akıcı kalır hem kumandalar görünmez.
+                */}
+                {videoActive && videoSource.kind === "embed" && (
+                  <iframe
+                    className={`hero-video ${videoVisibleKey === key ? "is-visible" : ""}`}
+                    src={videoSource.embedUrl}
+                    title={`${show.title} — vitrin videosu`}
+                    allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+                    referrerPolicy="origin"
+                    tabIndex={-1}
+                    aria-hidden="true"
+                    /*
+                      KAPLAMA (cover) — iframe'de `object-fit` ÇALIŞMAZ.
+                      NEDEN: `.hero-video` sınıfı `object-fit: cover` kullanıyor ama o
+                      kural yalnızca `<video>/<img>` gibi "yerine geçen" öğeler içindir;
+                      `<iframe>` içeriği kendi 16:9 kutusunu korur. Sonuç: 2,8:1'lik
+                      vitrin bandında video ortada kalıp YANLARDA SİYAH BANT bırakıyordu
+                      (kullanıcı bildirimi, 30.09.2026).
+
+                      ÇÖZÜM: iframe bandın TAM GENİŞLİĞİNDE ve 16:9 yüksekliğinde
+                      ölçeklenir (yani kaptan daha uzun olur), ortalanır ve `.hero-slide`
+                      taşanı kırpar → video bandı doldurur. Yan fayda: YouTube'un sağ alt
+                      köşedeki logosu ve üstteki başlık şeridi, kırpılan alanda kalır —
+                      kullanıcının "alta kocaman YouTube yazıyor" şikâyeti bu yüzden
+                      kendiliğinden kaybolur. `.hero-video`'nun opacity geçişi korunur
+                      (opacity satır içi stilde EZİLMEZ).
+                    */
+                    style={{
+                      position: "absolute",
+                      top: "50%",
+                      left: "50%",
+                      right: "auto",
+                      bottom: "auto",
+                      transform: "translate(-50%, -50%)",
+                      width: "100%",
+                      height: "auto",
+                      aspectRatio: "16 / 9",
+                      border: 0,
+                      pointerEvents: "none",
+                    }}
+                    onError={() => setBrokenVideos((map) => ({ ...map, [key]: true }))}
+                  />
+                )}
+                {videoActive && videoSource.kind !== "embed" && (
                   <video
                     className={`hero-video ${videoVisibleKey === key ? "is-visible" : ""}`}
                     src={videoUrl}
@@ -3833,7 +4207,7 @@ function Index() {
             İSTEĞİYLE bu alanın DIŞINA çıkarıldı: ana içeriğin EN SONUNDA,
             footer'ın hemen üstünde ve "Bu sezon" bölümünün hemen altında çizilir
             (bkz. `Index()` sonundaki yerleşim). */}
-        <HomeSections shows={dbShows ?? []} continueItems={continueItems} />
+        <MemoHomeSections shows={dbShows ?? EMPTY_SHOWS} continueItems={continueItems} />
 
         {/* ══ REFERANSTA KARŞILIĞI OLMAYAN BÖLÜMLER (biri silindi, biri TAŞINDI) ══
             Aşağıdaki bölümler referansta YOKTUR. Tür çip şeridi KULLANICI
@@ -3916,7 +4290,7 @@ function Index() {
                 DEĞİŞMEDİ; önden çekme kapalı (kota/egress gerekçesi: SeriesCard
                 notu). */}
             {(isFiltering ? filtered : shows).map((show) => (
-              <SeriesCard key={show.slug ?? show.title} show={show} />
+              <MemoSeriesCard key={show.slug ?? show.title} show={show} />
             ))}
           </div>
           {isFiltering && filtered.length === 0 && (
@@ -3943,7 +4317,7 @@ function Index() {
             (`PAGE_CONTAINER`) durur; içeriği, üç kolonu, veri kaynağı ve
             başlıkları DEĞİŞMEDİ. */}
         <div className={`${PAGE_CONTAINER} py-10`}>
-          <HomeCompactBand shows={dbShows ?? []} />
+          <MemoHomeCompactBand shows={dbShows ?? EMPTY_SHOWS} />
         </div>
       </main>
 
@@ -3957,7 +4331,7 @@ function Index() {
             başına taşındı. Çipler ve istemci içi süzme DAVRANIŞI DEĞİŞMEDİ;
             yeni sorgu yok (liste zaten yüklü `shows`). */}
 
-        <AzList shows={shows} />
+        <MemoAzList shows={shows} />
 
         {/* Footer de aynı kabı kullanır: içerikle aynı hizada başlar. */}
         <div className={`${PAGE_CONTAINER} grid gap-10 py-12 md:grid-cols-2`}>
