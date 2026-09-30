@@ -576,27 +576,32 @@ export function ShowEditor({
                 </span>
               </ImageDrop>
             </div>
+            <div>
+              <span className="mb-1 block text-[11px] font-bold text-muted-foreground">
+                Vitrin Videosu
+              </span>
+              <ImageDrop
+                label="Vitrin videosu"
+                accept="video/mp4"
+                onFile={(file) => void handleVideo(file)}
+                disabled={disabled}
+                className="group relative flex h-28 w-32 shrink-0 flex-col items-center justify-center gap-1 rounded-xl border border-dashed border-border bg-card px-3 text-center sm:w-40"
+              >
+                <Video size={20} className="text-primary" />
+                <span className="text-[11px] font-bold text-foreground">
+                  {show.banner_video_path
+                    ? heroVideoSource(show.banner_video_path).kind === "embed"
+                      ? "Link kayıtlı"
+                      : "Video yüklü"
+                    : "Vitrin videosu"}
+                </span>
+                <span className="text-[10px] leading-4 text-muted-foreground">
+                  mp4 · en fazla 100 MB
+                </span>
+              </ImageDrop>
+            </div>
           </div>
           <div className="mt-2.5 flex flex-wrap items-stretch gap-3">
-            <ImageDrop
-              label="Vitrin videosu"
-              accept="video/mp4"
-              onFile={(file) => void handleVideo(file)}
-              disabled={disabled}
-              className="group relative flex h-28 w-32 shrink-0 flex-col items-center justify-center gap-1 rounded-xl border border-dashed border-border bg-card px-3 text-center sm:w-40"
-            >
-              <Video size={20} className="text-primary" />
-              <span className="text-[11px] font-bold text-foreground">
-                {show.banner_video_path
-                  ? heroVideoSource(show.banner_video_path).kind === "embed"
-                    ? "Link kayıtlı"
-                    : "Video yüklü"
-                  : "Vitrin videosu"}
-              </span>
-              <span className="text-[10px] leading-4 text-muted-foreground">
-                mp4 · en fazla 100 MB
-              </span>
-            </ImageDrop>
             {/*
             VİTRİN VİDEOSU — LİNK (YouTube/Vimeo).
             Kullanıcı isteği (30.09.2026): "embed ile… depolama artmaz, Cloudflare'e
