@@ -29,15 +29,19 @@ import { SOURCE_GROUPS } from "@/lib/embed-sources";
 import { fetchSourcesForEpisodes, isDirective, type EpisodeSource } from "@/lib/episode-sources";
 import { prerollVastUrls } from "@/lib/mybid";
 import {
-  episodeCoverFromWatchUrl,
   localCoverPath,
   showDetailQueryOptions,
   showSlug,
   type Episode,
   type SeasonWithEpisodes,
 } from "@/lib/content";
-import { resolvePosterForEpisode } from "@/lib/episode-covers";
-import { anizipCover, tmdbIdForMal } from "@/lib/anizip-covers";
+import {
+  anizipCover,
+  anizipCoverForSeason,
+  anizipCoverFromChain,
+  resolveSeasonMalId,
+  tmdbIdForMal,
+} from "@/lib/anizip-covers";
 import { fetchSkipTimes, formatSkipTime } from "@/lib/skip-times";
 import { ANIZM_PLAYER_RE, puffySlugFor, puffySlugForSeason } from "@/lib/puffy";
 import { plural, useDocumentTitle, useLang, t as translate, type I18nKey } from "@/lib/i18n";
@@ -429,44 +433,29 @@ function WatchPage() {
     null;
   /**
    * ═══════════════════════════════════════════════════════════════════════════
-   * 0. (ÖZEL) BÖLÜM — ep 1'e DÜŞME YOK (kullanıcı bildirimi, 29.09.2026).
+   * 0. (ÖZEL) BÖLÜM — "DB SATIRI + KAYNAK" VARSA LİSTEDE (kullanıcı, 30.09.2026).
    *
-   * ── ÖLÇÜLEN HATA ────────────────────────────────────────────────────────────
-   * `/anime/mushoku-tensei/season/2/episode/0` sessizce **ep 1 içeriğine**
-   * düşüyordu: `b === 0` iken `find(number === 0)` veritabanı listesinde hiçbir
-   * satır bulamıyor, koddaki `?? episodes[0]` yedeği ilk bölümü açıyordu.
+   * ── DEĞİŞEN KURAL ───────────────────────────────────────────────────────────
+   * İlk sürüm (29.09.2026) `0. Bölüm`ü KATALOGDAN sentetik üretiyordu; veritabanı
+   * satırı olmasa bile gösteriliyordu. Kullanıcı şikâyeti (30.09.2026): "Re:Zero
+   * eklerken hiçbir 0. bölümü seçmedim ama oynatıcı sayfasında bir sürü çıkıyor,
+   * kaynakları da yok." Artık özel bölüm VERİTABANINDAN gelir: `0` numaralı satır,
+   * kaynağı (`episode_sources`) varsa `activeSeason.episodes` İÇİNDEDİR (bkz.
+   * lib/content.ts → loadShowDetail) ve normal bölüm gibi listelenir/oynatılır.
+   * Katalogdan SENTETİK satır ÜRETİLMEZ.
    *
-   * ── DOĞRU DAVRANIŞ ──────────────────────────────────────────────────────────
-   * `b === 0` ise özel bölüm KATALOGDAN gelir (`season.specials`, bkz.
-   * lib/season-specials.ts) ve KENDİ bilgisi gösterilir. Yedek `episodes[0]`
-   * dalı yalnızca 0 DIŞINDAKİ geçersiz numaralar için kalır.
+   * ── ep 1'e DÜŞME YOK ────────────────────────────────────────────────────────
+   * `b === 0` ve listede KAYNAKLI bir `0` satırı YOKSA ep 1 içeriğine DÜŞÜLMEZ;
+   * oynatıcı yerine açıkça "bu bölüm için kaynak yok" durumu gösterilir
+   * (`isSpecial`). Yedek `episodes[0]` dalı yalnızca 0 DIŞINDAKİ numaralar için.
    */
-  const seasonSpecials = activeSeason?.specials ?? [];
-  const specialTarget = b === 0 ? (seasonSpecials[0] ?? null) : null;
-  const isSpecial = b === 0 && specialTarget !== null;
-  /** Özel bölümün sentetik kaydı — veritabanı satırı YOK, burada üretilir. */
-  const specialEpisode: Episode | null =
-    isSpecial && activeSeason && specialTarget
-      ? {
-          id: specialTarget.id,
-          show_id: activeSeason.show_id,
-          season: activeSeason.number,
-          number: 0,
-          title: specialTarget.title,
-          summary: "",
-          duration: "",
-          // Kaynak YOK: oynatıcı adresi uydurulmaz (aşağıdaki `episodeRequest`
-          // bu yüzden özel bölümde üretilmez).
-          watch_url: "",
-          thumbnail: specialTarget.image,
-        }
-      : null;
   const currentEpisode: Episode | null =
-    specialEpisode ??
     activeSeason?.episodes.find((episode) => episode.number === b) ??
-    // 0 = özel bölüm: fallback YAPILMAZ (ep 1'e düşmesin). Özel bölüm bilgisi
-    // katalogda yoksa sayfa açıkça "bu bölüm için kaynak yok" durumunu gösterir.
+    // 0 = özel bölüm: yedek YAPILMAZ (ep 1'e düşmesin). Özel bölümün DB satırı
+    // (veya kaynağı) yoksa `currentEpisode` null kalır → "kaynak yok" ekranı.
     (b === 0 ? null : (activeSeason?.episodes[0] ?? null));
+  /** Özel bölüm isteği (0) ama listelenecek/oynatılacak KAYNAKLI satır YOK. */
+  const isSpecial = b === 0 && currentEpisode === null;
 
   /**
    * BÖLÜM ADI — içerik çevirisi (kullanıcı, 28.09.2026: "bütün her şeyi TR
@@ -556,7 +545,9 @@ function WatchPage() {
   const megaplayEmbedQuery = useQuery({
     queryKey: [
       "megaplay-embed",
-      detail?.show.mal_id ?? null,
+      // Etkin MAL kimliği (sezon yoksa seri): kimlik değişince (panelde sezon
+      // kimliği düzeltilince) eski URL önbellekten gelmesin.
+      (activeSeason?.mal_id ?? detail?.show.mal_id) || null,
       currentEpisode?.season ?? null,
       currentEpisode?.number ?? null,
       megaplayLanguage,
@@ -571,7 +562,7 @@ function WatchPage() {
     queryFn: async () => {
       const query = new URLSearchParams({
         provider: "megaplay",
-        mal: String(detail?.show.mal_id ?? ""),
+        mal: String(activeSeason?.mal_id ?? detail?.show.mal_id ?? ""),
         episode: String(currentEpisode?.number ?? ""),
         lang: megaplayLanguage,
       });
@@ -883,7 +874,11 @@ function WatchPage() {
   const episodeRequest =
     currentEpisode && !isSpecial
       ? {
-          malId: show.mal_id ?? null,
+          // SEZONUN kimliği ÖNCE: megaplay'de sezon parametresi YOKTUR, kimliğin
+          // kendisi sezonu kodlar (ölçüm: S2E1'e seri kimliğiyle gidilince S1E1
+          // açılıyordu). Sezon kimliği yoksa seri kimliğine düşülür (tek
+          // kayıtlı sezonlarda aynı şeydir).
+          malId: activeSeason?.mal_id ?? show.mal_id ?? null,
           // TMDB kimliği: vidsrc.to şablonu bunu ister (MAL kimliği işe yaramaz).
           // Eşleme `src/data/mal-tmdb.json` içinde derleme zamanında gömülü.
           tmdbId: tmdbIdForMal(show.mal_id),
@@ -2323,78 +2318,21 @@ function EpisodeSidebar({
           <ul className="space-y-0.5">
             {/*
               ═══════════════════════════════════════════════════════════════════
-              ÖZEL BÖLÜMLER (0. Bölüm) — LİSTENİN EN ÜSTÜNDE (kullanıcı isteği,
-              29.09.2026, ikinci tur): "İzleme sayfasının bölüm listesi katalogdaki
-              özel bölümleri de içersin ve en üstte '0. Bölüm — Guardian Fitz'
-              olarak görünsün."
+              ÖZEL BÖLÜMLER (0. Bölüm) ARTIK AŞAĞIDAKİ BÖLÜM LİSTESİNİN İÇİNDE.
 
-              Kaynak ani.zip kataloğudur (`season: 0`) ve veritabanında satırı
-              OLMAYABİLİR; bu yüzden özel bölümler sezon verisiyle gelir (bkz.
-              lib/season-specials.ts, 6 saat önbellekli). Numaraları `0`dır ve
-              1..N aralığının DIŞINDA durur → part offset/numaralandırma KAYMAZ.
+              İlk sürüm (29.09.2026) burada KATALOGDAN sentetik "0. Bölüm"
+              satırları çiziyordu; veritabanı satırı olmasa bile. Kullanıcı
+              bildirimi (30.09.2026): "Re:Zero eklerken hiçbir 0. bölümü
+              seçmedim ama oynatıcı sayfasında bir sürü var, kaynakları da yok."
 
-              ÇİFT KAYIT KORUMASI: panel bazı özel bölümleri veritabanına da yazar
-              (oynatılabilir `0` satırı). Aynı başlık hem katalogda hem DB'de
-              varsa katalog kopyası GİZLENİR — DB satırı oynatılabilir olandır,
-              liste iki kez göstermez.
+              YENİ KURAL: bir "0. Bölüm" YALNIZCA (a) veritabanında o sezona ait
+              `number = 0` satırı VARSA ve (b) o satırın en az bir kaynağı VARSA
+              görünür. Bu satır `activeSeason.episodes` içinde gelir (bkz.
+              lib/content.ts → loadShowDetail), numarası `0`dır ve en başta
+              sıralanır → aşağıdaki liste onu "0. Bölüm" etiketiyle gösterir.
+              Kaynağı olmayan/katalogdan gelen sentetik satır ÜRETİLMEZ.
               ═══════════════════════════════════════════════════════════════════
             */}
-            {(activeSeason.specials ?? [])
-              .filter((special) => {
-                const name = (special.title ?? "").trim().toLocaleLowerCase("tr");
-                if (!name) return true;
-                return !activeSeason.episodes.some(
-                  (episode) =>
-                    episode.number === 0 &&
-                    (episode.title ?? "").trim().toLocaleLowerCase("tr") === name,
-                );
-              })
-              .map((special) => {
-                const active = special.id === currentEpisodeId;
-                const specialRow: Episode = {
-                  id: special.id,
-                  show_id: activeSeason.show_id,
-                  season: activeSeason.number,
-                  number: 0,
-                  title: special.title,
-                  summary: "",
-                  duration: "",
-                  watch_url: "",
-                  thumbnail: special.image,
-                };
-                return (
-                  <li key={special.id} ref={active ? activeRef : undefined}>
-                    <Link
-                      to="/anime/$slug/season/$season/episode/$episode"
-                      params={{ slug, season: String(activeSeason.number), episode: "0" }}
-                      preload={false}
-                      aria-current={active ? "page" : undefined}
-                      className={`flex items-center gap-2.5 rounded-lg p-1.5 transition-colors ${
-                        active ? "bg-accent/15" : "hover:bg-secondary focus-visible:bg-secondary"
-                      }`}
-                    >
-                      <SidebarCover
-                        slug={slug}
-                        episode={specialRow}
-                        seriesPoster={seriesPoster}
-                        malId={malId}
-                      />
-                      <span className="min-w-0 flex-1">
-                        <span
-                          className={`block text-xs font-bold ${active ? "text-accent" : "text-foreground"}`}
-                        >
-                          {t("series.episodeLabel", { number: 0 })}
-                        </span>
-                        {special.title ? (
-                          <span className="block truncate text-[11px] text-muted-foreground">
-                            {special.title}
-                          </span>
-                        ) : null}
-                      </span>
-                    </Link>
-                  </li>
-                );
-              })}
             {activeSeason.episodes.map((episode, index) => {
               const active = episode.id === currentEpisodeId;
               // Çeviri gelmezse (ya da dil İngilizce ise) ORİJİNAL ad gösterilir.
@@ -2426,12 +2364,7 @@ function EpisodeSidebar({
                       active ? "bg-accent/15" : "hover:bg-secondary focus-visible:bg-secondary"
                     }`}
                   >
-                    <SidebarCover
-                      slug={slug}
-                      episode={episode}
-                      seriesPoster={seriesPoster}
-                      malId={malId}
-                    />
+                    <SidebarCover slug={slug} episode={episode} malId={malId} />
                     <span className="min-w-0 flex-1">
                       <span
                         className={`block text-xs font-bold ${active ? "text-accent" : "text-foreground"}`}
@@ -2460,21 +2393,18 @@ function EpisodeSidebar({
 }
 
 /**
- * Paneldeki küçük kapak: oynatıcının karesi, yoksa düz zemin + numara.
- * `onLoad`'a güvenilmez; görsel önbellekten gelirse durum `complete` ile
- * doğrulanır (bkz. EpisodeCard).
+ * Paneldeki küçük kapak. Kapak YALNIZCA TVDB'den gelir; hiçbiri yoksa düz
+ * zemin + numara gösterilir. `onLoad`'a güvenilmez; görsel önbellekten gelirse
+ * durum `complete` ile doğrulanır.
  */
 function SidebarCover({
   slug,
   episode,
-  seriesPoster,
   malId,
 }: {
   slug: string;
   episode: Episode;
-  /** Zincirin son adımı — bkz. EpisodeCard'daki `seriesPoster` açıklaması. */
-  seriesPoster?: string | undefined;
-  /** Bölüme ait gerçek görsel (ani.zip) — bkz. `src/lib/anizip-covers.ts`. */
+  /** Bölüme ait gerçek görsel (ani.zip/TVDB) — bkz. `src/lib/anizip-covers.ts`. */
   malId?: number | null | undefined;
 }) {
   return (
@@ -2482,23 +2412,30 @@ function SidebarCover({
       <EpisodeCover
         number={episode.number}
         numberClassName="text-[11px] font-bold text-muted-foreground"
-        // ÖNCELİK: (a) panel → (b) animecix bölüm kapağı → (c) sağlayıcı →
-        // (d) ani.zip/TVDB → (e) manifest'te VARSA yerel → (f) seri posteri.
+        // ── TVDB-TEK KAYNAK: (a) panelden yüklenen kapak → (b) SEZONUN kendi MAL
+        // kaydı → (c) SERİ MAL kaydı → (d) zincirdeki kardeş kayıt → (e) TVDB'den
+        // üretilmiş yerel dosya. Sağlayıcı kareleri/animecix/katalog kapağı/seri
+        // posteri KULLANILMAZ.
         candidates={[
           episode.thumbnail ?? "",
-          // animecix'ten BÖLÜME ÖZEL kapak (sunucuda çözülür).
-          episode.animecixC ?? "",
-          // Sağlayıcı kapağı bölüm nesnesiyle gelir (sunucuda çözülür).
-          episode.poster ?? "",
+          // Sezonun KENDİ MAL kaydı (MAL'de her sezon ayrı bir animedir).
+          anizipCoverForSeason(
+            resolveSeasonMalId(malId, episode.season, null),
+            episode.season,
+            episode.number,
+          ),
           // Bölüme ait GERÇEK görsel (ani.zip/TVDB, derleme zamanında gömülü).
           anizipCover(malId, episode.season, episode.number),
-          episodeCoverFromWatchUrl(episode.watch_url),
+          // Bölünmüş sezonlar (ör. re-zero S2 = 39587 + 42203) için kardeş kayıt.
+          anizipCoverFromChain(
+            malId,
+            episode.season,
+            episode.number,
+            resolveSeasonMalId(malId, episode.season, null),
+          ),
+          // TVDB görselinden üretilmiş yerel dosya (manifest'te varsa).
           localCoverPath(slug, episode.season, episode.number),
-          // Son çare: seri posteri (sağlayıcı kapağı üretilemeyen bölümler için).
-          seriesPoster ?? "",
         ]}
-        // Kayıtlı adres bayatlamışsa (sağlayıcı CDN'i dönüyor) güncelini çeker.
-        resolveFallback={() => resolvePosterForEpisode(episode.watch_url)}
       />
       <span
         aria-hidden
