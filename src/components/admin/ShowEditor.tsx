@@ -235,48 +235,13 @@ export function ShowEditor({
   }
 
   /**
-   * VİTRİN VİDEOSUNU **LİNK** OLARAK KAYDET (YouTube/Vimeo).
+   * VİTRİN VİDEOSU LİNKİ — ANA Kaydet ile yazılır (ayrı düğme YOK).
    *
-   * NEDEN (kullanıcı isteği, 30.09.2026): "embed sayesinde Cloudflare'e gitmez,
-   * depolama artmaz" — doğru. Gömülü videoda dosya bizim depomuza hiç girmez.
-   * Ayrıca mp4 yolu 8 MB ile sınırlıydı; gerçek bir video sığmıyordu.
-   *
-   * KURAL: yalnızca TANINAN video sitesi linki kabul edilir. Rastgele bir adres
-   * yazılırsa `<iframe>`e konamayacağı için uyarılır (dosya yolu için soldaki
-   * kutu kullanılır).
+   * Kullanıcı isteği (30.09.2026): link bloğundaki Kaydet kalktı, link ana
+   * Kaydet'e basınca yazılır. Mantık `save()` içindedir; kurallar burada durur:
+   * yalnızca tanınan video sitesi (embed) kabul edilir, linke geçilince eski
+   * DEPO DOSYASI silinir (yer kaplamasın), boş link videoyu kaldırır.
    */
-  async function handleVideoLink() {
-    const raw = videoLink.trim();
-    const source = heroVideoSource(raw);
-    if (raw && source.kind !== "embed") {
-      toast.error(
-        "Bu adres YouTube/Vimeo linki değil. Link yapıştır ya da soldaki kutuya mp4 dosyası yükle.",
-      );
-      return;
-    }
-    setBusy(true);
-    try {
-      const previous = show.banner_video_path ?? "";
-      const { error } = await db.from("shows").update({ banner_video_path: raw }).eq("id", show.id);
-      if (error) throw error;
-      // Linke geçildiyse ESKİ DOSYA depodan silinir (yer kaplamasın) — ama yalnızca
-      // bizim depomuzdaki bir dosyaysa; linkse silme çağrısı yapılmaz.
-      if (previous && previous !== raw && heroVideoSource(previous).kind === "file") {
-        await deleteImage(previous);
-      }
-      onReload(
-        raw
-          ? `"${show.title}" vitrin video linki kaydedildi.`
-          : `"${show.title}" vitrin videosu kaldırıldı.`,
-      );
-    } catch (error) {
-      toast.error(
-        "Video linki kaydedilemedi: " + (error instanceof Error ? error.message : String(error)),
-      );
-    } finally {
-      setBusy(false);
-    }
-  }
 
   /**
    * MAL ARAMASI — **İSİM ya da MAL KİMLİĞİ** ile.
@@ -441,6 +406,15 @@ export function ShowEditor({
       toast.error("Başlık boş olamaz.");
       return;
     }
+    // Video linki ÖNCE doğrulanır (DB'ye dokunmadan): bozuk link varsa hiçbir
+    // şey yazılmaz, kullanıcı tek mesajla döner.
+    const videoRaw = videoLink.trim();
+    if (videoRaw && heroVideoSource(videoRaw).kind !== "embed") {
+      toast.error(
+        "Bu adres YouTube/Vimeo linki değil. Link yapıştır ya da soldaki kutuya mp4 dosyası yükle.",
+      );
+      return;
+    }
     setSaving(true);
     const nextSlug = uniqueSlug(slugify(slugInput.trim() || title), takenSlugs);
     // MAL kimliği: yalnızca geçerli bir pozitif tam sayı yazılır, boşsa null.
@@ -484,9 +458,30 @@ export function ShowEditor({
     }
 
     setSlugInput(nextSlug);
+    // Video linki ANA Kaydet ile yazılır (link bloğunun ayrı düğmesi YOK —
+    // kullanıcı isteği, 30.09.2026). Değişmediyse istek ATILMAZ.
+    let videoNote = "";
+    if (videoRaw !== (show.banner_video_path ?? "")) {
+      const previous = show.banner_video_path ?? "";
+      const { error: videoError } = await db
+        .from("shows")
+        .update({ banner_video_path: videoRaw })
+        .eq("id", show.id);
+      if (videoError) {
+        toast.error("Video linki kaydedilemedi: " + videoError.message);
+      } else {
+        // Linke geçildiyse ESKİ DOSYA depodan silinir (yer kaplamasın) — ama
+        // yalnızca bizim depomuzdaki bir dosyaysa; linkse silme çağrılmaz.
+        if (previous && heroVideoSource(previous).kind === "file") {
+          await deleteImage(previous);
+        }
+        videoNote = videoRaw ? " Vitrin videosu linki güncellendi." : " Vitrin videosu kaldırıldı.";
+      }
+    }
     onReload(
       `"${title.trim()}" güncellendi. Adres: /anime/${nextSlug}` +
-        (kindFailed ? " (tür yazılamadı — yukarıya bak)" : ""),
+        (kindFailed ? " (tür yazılamadı — yukarıya bak)" : "") +
+        videoNote,
     );
   }
 
@@ -498,6 +493,26 @@ export function ShowEditor({
    */
   const parsedMal = Number.parseInt(malInput.trim(), 10);
   const unsavedMalId = Number.isFinite(parsedMal) && parsedMal > 0 ? parsedMal : null;
+
+  /**
+   * KİRLİ TAKİBİ — Kaydet düğmesinin rengi buradan gelir.
+   *
+   * Kullanıcı isteği (30.09.2026): kaydedilecek değişiklik YOKSA düğme soluk,
+   * VARSA açık/kırmızı dursun. Karşılaştırma KAYITLI değere göre (kutudaki
+   * değer show'dan farklıysa kirli). Zorla kaydetmek serbest — düğme hiç
+   * kapanmaz, yalnızca tonu değişir.
+   */
+  const showKind = show.kind === "movie" ? "movie" : "series";
+  const isDirty =
+    title.trim() !== (show.title ?? "") ||
+    subtitle.trim() !== (show.subtitle ?? "") ||
+    description.trim() !== (show.description ?? "") ||
+    year.trim() !== (show.year ?? "") ||
+    genre.trim() !== (show.genre ?? "") ||
+    slugInput.trim() !== (show.slug ?? "") ||
+    unsavedMalId !== (show.mal_id ?? null) ||
+    kind !== showKind ||
+    videoLink.trim() !== (show.banner_video_path ?? "");
 
   // DERLİ TOPLU / SIKI YERLEŞİM (kullanıcı isteği, 30.09.2026): dış boşluk
   // p-4 → p-3.5, kolonlar arası gap-4 → gap-3. Renkler tonlu.
@@ -517,7 +532,7 @@ export function ShowEditor({
                 label="Dikey kapak"
                 onFile={(file) => void handleCover(file)}
                 disabled={disabled}
-                className="group relative h-28 w-20 shrink-0 overflow-hidden rounded-xl border border-border bg-card"
+                className="group relative h-32 w-24 shrink-0 overflow-hidden rounded-xl border border-border bg-card"
               >
                 <img
                   src={show.image}
@@ -537,7 +552,7 @@ export function ShowEditor({
                 label="Vitrin banner'ı (16:9)"
                 onFile={(file) => void handleBanner(file)}
                 disabled={disabled}
-                className="group relative h-28 w-36 shrink-0 overflow-hidden rounded-xl border border-dashed border-border bg-card sm:w-44"
+                className="group relative h-32 w-40 shrink-0 overflow-hidden rounded-xl border border-dashed border-border bg-card sm:w-52"
               >
                 {bannerUrl ? (
                   <img
@@ -568,7 +583,7 @@ export function ShowEditor({
                 accept="video/mp4"
                 onFile={(file) => void handleVideo(file)}
                 disabled={disabled}
-                className="group relative flex h-28 w-32 shrink-0 flex-col items-center justify-center gap-1 rounded-xl border border-dashed border-border bg-card px-3 text-center sm:w-40"
+                className="group relative flex h-32 w-36 shrink-0 flex-col items-center justify-center gap-1 rounded-xl bg-card px-3 text-center sm:w-44"
               >
                 <Video size={20} className="text-primary" />
                 <span className="text-[11px] font-bold text-foreground">
@@ -584,7 +599,7 @@ export function ShowEditor({
               </ImageDrop>
             </div>
           </div>
-          <div className="mt-2.5 flex flex-wrap items-stretch gap-3">
+          <div className="mt-2 flex flex-wrap items-stretch gap-3">
             {/*
             VİTRİN VİDEOSU — LİNK (YouTube/Vimeo).
             Kullanıcı isteği (30.09.2026): "embed ile… depolama artmaz, Cloudflare'e
@@ -592,45 +607,31 @@ export function ShowEditor({
             sınırı da yoktur. Link yapıştırıp kaydetmek yeterli; boş bırakıp
             kaydetmek videoyu KALDIRIR ve varsa eski dosyayı depodan siler.
           */}
-            {/* LİNK BLOĞU — "havada duran" input/buton çifti bitti (kullanıcı isteği: "düzelt
-          toparla"). Artık kesikli çerçeveli, üstünde küçük etiketi olan TEK blok: ne işe yaradığı
-          etiketten okunur, gözü boşlukta bırakmaz. Renkler tonlu (nötr kenarlık + soluk etiket),
-          buton da kısa: "Kaydet". */}
+            {/* LİNK BLOĞU — düğmesiz: link ANA Kaydet ile yazılır (kullanıcı
+                isteği, 30.09.2026). Ayrı Kaydet vardı, kaldırıldı; akış tek
+                düğmede toplandı. */}
             <div className="min-w-[15rem] flex-1 rounded-xl border border-dashed border-border p-2.5">
               <span className="mb-1.5 block text-[10px] font-extrabold uppercase tracking-wider text-muted-foreground">
-                Vitrin videosu — link
+                Vitrin videosu — link (ana Kaydet ile yazılır)
               </span>
-              <div className="flex flex-wrap items-center gap-2">
-                <input
-                  // `min-w-[15rem]`: dar kolonda input KIRPILIYORDU ("https://cdn.shanime.xy…"
-                  // diye kesiliyordu — kullanıcı ekran görüntüsü 30.09.2026). Artık en az
-                  // 15rem yer ister, sığmazsa satır altına kayar; içerik hiç kesilmez.
-                  className={cn(inputCls, "min-w-[15rem] flex-1")}
-                  value={videoLink}
-                  onChange={(event) => setVideoLink(event.target.value)}
-                  placeholder="YouTube linki — ör. https://youtu.be/…"
-                  aria-label="Vitrin video linki"
-                  disabled={disabled}
-                />
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="rounded-full"
-                  onClick={() => void handleVideoLink()}
-                  disabled={disabled || busy}
-                  title="Linki vitrin videosu olarak kaydet (boş bırakırsan video kaldırılır)"
-                >
-                  {busy ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}{" "}
-                  Kaydet
-                </Button>
-              </div>
+              <input
+                // `min-w-[15rem]`: dar kolonda input KIRPILIYORDU ("https://cdn.shanime.xy…"
+                // diye kesiliyordu — kullanıcı ekran görüntüsü 30.09.2026). Artık en az
+                // 15rem yer ister, sığmazsa satır altına kayar; içerik hiç kesilmez.
+                className={cn(inputCls, "min-w-[15rem] w-full")}
+                value={videoLink}
+                onChange={(event) => setVideoLink(event.target.value)}
+                placeholder="YouTube linki — ör. https://youtu.be/…"
+                aria-label="Vitrin video linki"
+                disabled={disabled}
+              />
             </div>
             {/* AÇIKLAMA — video linkinin ALTINDA, çizgili ayrı blok (sol çerçevenin
                 parçası; alt boşluğu doldurur). `w-full`: üstteki satıra sığışıp
                 yana kaymasın diye kendi satırına indirilir. */}
-            <div className="mt-2.5 w-full border-t border-border pt-2.5">
+            <div className="mt-2 w-full border-t border-border pt-2">
               <textarea
-                className="min-h-24 w-full rounded-xl border border-border bg-card p-3 text-sm text-foreground outline-none transition-colors focus:border-primary"
+                className="min-h-40 w-full rounded-xl border border-border bg-card p-3 text-sm text-foreground outline-none transition-colors focus:border-primary"
                 value={description}
                 onChange={(event) => setDescription(event.target.value)}
                 placeholder="Detay sayfası açıklaması"
@@ -830,12 +831,15 @@ export function ShowEditor({
             </ul>
           ) : null}
 
-          <div className="mt-3 flex flex-wrap items-center gap-2">
+          {/* EYLEM SATIRI — tek sıra: Vitrin → Bölüm Yöneticisi → Kaydet (en sağda).
+              Dar ekranda taşarsa alt satıra kayar (kullanıcı isteği, 30.09.2026:
+              "zikzak" dizilimi bitti). */}
+          <div className="mt-3 flex flex-wrap items-center gap-1.5 sm:flex-nowrap sm:gap-2">
             {/* Vitrin = ana sayfadaki büyük slider. Tıklayınca anında kaydedilir. */}
             <Button
               size="sm"
               variant={show.is_featured ? "toggleOn" : "outline"}
-              className="rounded-full"
+              className="h-8 rounded-full px-3 text-xs"
               onClick={onToggleFeatured}
               disabled={disabled}
               aria-pressed={show.is_featured}
@@ -847,7 +851,7 @@ export function ShowEditor({
             <Button
               size="sm"
               variant="outline"
-              className="rounded-full"
+              className="h-8 rounded-full px-3 text-xs"
               onClick={openEpisodeManager}
               aria-haspopup="dialog"
             >
@@ -875,14 +879,15 @@ export function ShowEditor({
                   paneli AÇAR. */}
               <ListVideo size={14} /> {kind === "movie" ? "Film kaynağı" : "Bölüm Yöneticisi"}
             </Button>
-            {/* Kaydet EN SAĞDA (kullanıcı isteği, 30.09.2026). Sıralama okları
-                editörden KALDIRILDI — satırdaki oklar dururken burada biri üstte
-                biri altta çiziliyordu; taşıma yalnızca satırdan yapılır. */}
+            {/* Kaydet EN SAĞDA (kullanıcı isteği, 30.09.2026). Tonu kirli takibinden:
+                değişiklik varsa canlı kırmızı, yoksa soluk (yine basılabilir). */}
             <Button
               size="sm"
-              className="ml-auto rounded-full"
+              variant={isDirty ? "default" : "outline"}
+              className="ml-auto h-8 rounded-full px-3 text-xs"
               onClick={() => void save()}
               disabled={disabled}
+              title={isDirty ? "Değişiklikleri kaydet" : "Kaydedilecek değişiklik yok"}
             >
               {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />} Kaydet
             </Button>
