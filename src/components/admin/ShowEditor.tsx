@@ -520,7 +520,7 @@ export function ShowEditor({
   // p-4 → p-3.5, kolonlar arası gap-4 → gap-3. Renkler tonlu.
   return (
     <div className="rounded-2xl border border-border bg-secondary/40 p-3.5">
-      <div className="flex flex-col gap-3 sm:flex-row">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
         {/* SOL KOLON — TEK ÇERÇEVE, İKİ SATIR (kapak → banner / video → link).
             flex-wrap: telefonda kutu genişlikleri ekrana sığmadığında kutular
             kırpılmak yerine alt satıra iner. */}
