@@ -248,6 +248,17 @@ export async function signImagePaths(paths: string[]): Promise<Map<string, strin
   return result;
 }
 
+/**
+ * BOŞ KAPAK YEDEĞİ — satır içi koyu karo (harici istek yok).
+ *
+ * NEDEN: `image_path` ölü bir yolu gösterirse imzalama boş döner ve `<img
+ * src="">` çizilir; React uyarır, tarayıcı tüm sayfayı BAŞTAN indirir
+ * (konsolda onlarca uyarı + gereksiz trafik). Bu yedekle veri katmanı asla
+ * boş kapak üretmez; gerçek kapak gelince (R2/panel) zaten değişir.
+ */
+export const FALLBACK_COVER =
+  "data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='600' height='856'%3E%3Crect width='600' height='856' fill='%2317171c'/%3E%3C/svg%3E";
+
 /** Seri satırı + gömülü sayımlar (`show_episodes(count)`, `show_seasons(count)`). */
 type ShowRow = Show & {
   show_episodes?: { count: number }[];
@@ -285,7 +296,7 @@ export async function fetchShows(): Promise<ShowWithImage[]> {
     const { show_episodes, show_seasons, ...show } = row;
     return {
       ...show,
-      image: urls.get(show.image_path) ?? "",
+      image: urls.get(show.image_path) ?? FALLBACK_COVER,
       banner_image: urls.get(show.banner_image_path ?? "") ?? "",
       banner_video: urls.get(show.banner_video_path ?? "") ?? "",
       episode_count: show_episodes?.[0]?.count ?? 0,
@@ -657,7 +668,7 @@ async function loadShowDetail(slug: string): Promise<ShowDetail | null> {
   return {
     show: {
       ...show,
-      image: urls.get(show.image_path) ?? "",
+      image: urls.get(show.image_path) ?? FALLBACK_COVER,
       banner_image: urls.get(show.banner_image_path ?? "") ?? "",
       banner_video: urls.get(show.banner_video_path ?? "") ?? "",
       episode_count: episodes.length,
