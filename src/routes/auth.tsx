@@ -45,7 +45,19 @@ function AuthPage() {
         password,
       });
       if (signInError) {
-        setError("Giriş yapılamadı. E-posta veya şifre hatalı olabilir.");
+        // Servis çökmüşken (kota kısıtı vb.) "şifre hatalı" yazmak
+        // kullanıcıyı yanlış yöne gönderiyordu — ayırt edilir.
+        const status = signInError.status ?? 0;
+        const down =
+          status === 402 ||
+          status === 403 ||
+          status >= 500 ||
+          /fetch|network|failed|unavailable/i.test(signInError.message ?? "");
+        setError(
+          down
+            ? "Supabase'e ulaşılamıyor (kota kısıtı olabilir) — şifren yanlış olmayabilir."
+            : "Giriş yapılamadı. E-posta veya şifre hatalı olabilir.",
+        );
         setLoading(false);
         return;
       }
