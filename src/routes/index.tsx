@@ -1126,6 +1126,23 @@ function Index() {
           <h1 className="sr-only">{t("home.heroSrTitle")}</h1>
           {heroShows.map((show, index) => {
             const key = show.slug ?? show.title;
+            // PENCERE (01.10.2026, küçük adım): yalnızca aktif + komşular (+
+            // fade'de videosu takılı kalan çıkan) DOM'da durur. Uzak slaytın
+            // resmi indirilmez; sürükleme yalnızca bu üçüne dokunduğu için his
+            // değişmez. Noktalar (`hero-dot`) hepsini gösterir, oraya dokunulmadı.
+            if (heroShows.length > 3) {
+              const total = heroShows.length;
+              const prevIndex = (safeIndex - 1 + total) % total;
+              const nextIndex = (safeIndex + 1) % total;
+              if (
+                index !== safeIndex &&
+                index !== prevIndex &&
+                index !== nextIndex &&
+                videoVisibleKey !== key
+              ) {
+                return null;
+              }
+            }
             // Dikey kapak hero'da kırpılıyor: önce geniş header, dosya yoksa kapak.
             // Öncelik: admin'den yüklenen vitrin banner'ı → statik header → kapak.
             const backdrop = brokenBackdrops[key]
