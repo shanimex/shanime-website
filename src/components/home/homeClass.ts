@@ -44,3 +44,27 @@ export const HEAD_GAP_ROW = "mb-[15px]";
 export const HEAD_GAP_BAND = "mb-2.5";
 /** Bölümler arası boşluk: referans `section { margin-bottom: 40px }`. */
 export const SECTION_GAP = "mb-10";
+
+/**
+ * BANT SATIRI ÖLÇÜLERİ — anikototv.to/home'un ALT BANDI (referans ölçüleri;
+ * renkler bizim temaya bağlıdır: satır `bg-card`, hover `bg-secondary`,
+ * rozet `bg-primary`, soluk meta `muted-foreground`).
+ */
+export const BAND_ROW =
+  "group flex items-center gap-2.5 rounded-[5px] bg-card p-2.5 transition-colors hover:bg-secondary";
+export const BAND_ROW_POSTER = "h-[65px] w-[50px] shrink-0 rounded-[3px] object-cover";
+export const BAND_ROW_TITLE =
+  "mb-1.5 line-clamp-2 text-[16.2px] font-medium leading-[18.9px] text-foreground transition-colors group-hover:text-primary";
+export const BAND_ROW_META =
+  "flex items-center text-[13.5px] leading-[20.25px] text-muted-foreground";
+/** Meta öğeleri arasındaki referans ayracı: `/` , 5 px sol / 8 px sağ, %10 opak. */
+export const BAND_META_SEP = "ml-[5px] mr-2 select-none text-foreground/10";
+export const BAND_BADGE =
+  "relative inline-flex h-[17.415px] items-center rounded-[1.5px] px-[3px] pl-1 text-[12.15px] font-semibold leading-[17.415px] text-primary-foreground/80";
+/** Rozetin EĞİK zemini — referansta `skewX(345deg)`. */
+export const BAND_BADGE_BG =
+  "absolute inset-0 [transform:skewX(-15deg)] rounded-[1.5px] bg-primary";
+/** Satırlar arası boşluk: referans `.item { margin-bottom: 15px }` (çizgi yok). */
+export const BAND_ROWS_GAP = "space-y-[15px]";
+/** Üç kolon 1200 px ve üzerinde yan yana, altında alt alta. */
+export const BAND_GRID = "grid gap-5 min-[1200px]:grid-cols-3";
