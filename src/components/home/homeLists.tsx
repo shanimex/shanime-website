@@ -189,6 +189,93 @@ function seriesMetaParts(show: ShowWithImage): string[] {
 }
 
 /**
+ * Ana kolondaki TÜM poster ızgaralarının ("devam et" ve "Son Bölümler") ortak
+ * kartı. Sınıflar ana ızgaradaki kartla birebir aynıdır: 2:3 poster,
+ * `group-hover:scale-105`, altta kalın başlık + küçük meta satırı. Tek fark:
+ * alt satırın metni çağıran tarafından verilir ("S1B5 · bölüm adı" ya da
+ * "S1B5'ten devam et").
+ */
+export function PosterCard({
+  slug,
+  season,
+  episode,
+  title,
+  image,
+  meta,
+  metaClassName,
+  className,
+}: {
+  /**
+   * Hedef serinin slug'ı. Boşsa kart BAĞLANTISIZ çizilir (veritabanı kaydı
+   * olmayan yedek içerikte gidilecek bir sayfa yoktur).
+   */
+  slug?: string | undefined;
+  /**
+   * Kartın açacağı sezon. İzleme adresi YOL olarak kurulur
+   * (`/anime/<slug>/season/<n>/episode/<n>`); değer verilmezse 1 yazılır.
+   */
+  season?: number | undefined;
+  /** Kartın açacağı bölüm; yol adresi budur. */
+  episode?: number | undefined;
+  title: string;
+  image: string;
+  meta?: string | undefined;
+  metaClassName?: string | undefined;
+  className?: string | undefined;
+}) {
+  const { t } = useLang();
+  // Kart sınıfı iki dalda da AYNI tutulur: değişen tek şey gezinme öğesidir.
+  const cardClassName = `group card-hover relative block overflow-hidden rounded-2xl bg-card shadow-2xl ${
+    className ?? ""
+  }`;
+  const body = (
+    <>
+      {/* Poster oranı referanstan ölçüldü: 1:1.4. */}
+      <div className="aspect-[5/7] overflow-hidden bg-muted">
+        <img
+          src={image}
+          alt={t("home.coverAlt", { title })}
+          width={768}
+          height={1152}
+          loading="lazy"
+          className="size-full object-cover transition-transform duration-500 ease-out group-hover:scale-105"
+        />
+      </div>
+      {/* Yazı bloğu ölçüsü referanstan: 12 px boşluk, başlık 16.2 px / 500. */}
+      <div className="px-3 pt-3 pb-2.5">
+        <h3 className="truncate text-[16px] font-medium leading-5 text-foreground">{title}</h3>
+        {meta ? (
+          <p
+            className={
+              metaClassName ??
+              "mt-1 line-clamp-2 text-[13.5px] leading-[18px] text-muted-foreground"
+            }
+          >
+            {meta}
+          </p>
+        ) : null}
+      </div>
+    </>
+  );
+  // Hedef yoksa (yedek içerik) bugünkü davranış korunur: `href`siz `<a>`.
+  if (!slug) {
+    return <a className={cardClassName}>{body}</a>;
+  }
+  // İSTEMCİ İÇİ GEZİNME (`Link`) — ÖNDEN ÇEKME (preload) BİLEREK KAPALI
+  // (hover başına hedef rotanın yükleyicisi yanmasın diye).
+  return (
+    <Link
+      to="/anime/$slug/season/$season/episode/$episode"
+      params={{ slug, season: String(season ?? 1), episode: String(episode ?? 1) }}
+      preload={false}
+      className={cardClassName}
+    >
+      {body}
+    </Link>
+  );
+}
+
+/**
  * Kenar çubuğu satırının meta şeridi: YIL · BÖLÜM · SEZON · İLK TÜR.
  *
  * Referans "★ puan · biçim · bölümler" ritmini taşır. Bizde puan/süre YOK;

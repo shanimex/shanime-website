@@ -30,7 +30,12 @@ import {
 } from "react";
 import { ShowLogo } from "@/components/home/heroStatic";
 import { AzList, SeriesCard } from "@/components/home/azList";
-import { DiscoveryRowHeader, HomeCompactBand, RankedRow } from "@/components/home/homeLists";
+import {
+  DiscoveryRowHeader,
+  HomeCompactBand,
+  PosterCard,
+  RankedRow,
+} from "@/components/home/homeLists";
 import { DiscoveryRow, ScheduleSection, UpcomingSection } from "@/components/home/anilist";
 import { ContinueRow } from "@/components/home/continueWatching";
 import {
@@ -382,107 +387,6 @@ const ALL_GENRES = "Tümü";
  */
 
 /** Bant ölçüleri homeClass.ts içindedir (tek kaynak). */
-
-/**
- * Ana kolondaki TÜM poster ızgaralarının ("devam et" ve "Son Bölümler") ortak
- * kartı. Sınıflar ana sayfanın ana ızgarasındaki kartla birebir aynıdır:
- * `card-hover rounded-2xl bg-card shadow-2xl`, 2:3 poster, `group-hover:scale-105`,
- * altta kalın başlık + küçük meta satırı. Tek fark: alt satırın metni çağıran
- * tarafından verilir ("S1B5 · bölüm adı" ya da "S1B5'ten devam et").
- */
-function PosterCard({
-  slug,
-  season,
-  episode,
-  title,
-  image,
-  meta,
-  metaClassName,
-  className,
-}: {
-  /**
-   * Hedef serinin slug'ı. Boşsa kart BAĞLANTISIZ çizilir (veritabanı kaydı
-   * olmayan yedek içerikte gidilecek bir sayfa yoktur).
-   */
-  slug?: string | undefined;
-  /**
-   * Kartın açacağı sezon. İzleme adresi artık YOL olarak kurulur
-   * (`/anime/<slug>/season/<n>/episode/<n>`); değer verilmezse 1 yazılır ve izleme
-   * sayfası kendi "ilk oynatılabilir sezon" mantığına düşer (eskiden parametresiz
-   * izleme adresiyle açıldığında olan davranışın AYNISI).
-   */
-  season?: number | undefined;
-  /** Kartın açacağı bölüm; yol adresi budur (bkz. `season` notu). */
-  episode?: number | undefined;
-  title: string;
-  image: string;
-  meta?: string | undefined;
-  metaClassName?: string | undefined;
-  className?: string | undefined;
-}) {
-  const { t } = useLang();
-  // Kart sınıfı iki dalda da AYNI tutulur: değişen tek şey gezinme öğesidir.
-  const cardClassName = `group card-hover relative block overflow-hidden rounded-2xl bg-card shadow-2xl ${
-    className ?? ""
-  }`;
-  const body = (
-    <>
-      {/* Poster oranı referanstan ölçüldü: `.ani.poster>a { padding-bottom: 140% }`
-          → 1:1.4 (masaüstünde 178×249 px). Eski 2:3 oranı kartı gereğinden uzun
-          gösteriyordu. */}
-      <div className="aspect-[5/7] overflow-hidden bg-muted">
-        <img
-          src={image}
-          alt={t("home.coverAlt", { title })}
-          width={768}
-          height={1152}
-          loading="lazy"
-          className="size-full object-cover transition-transform duration-500 ease-out group-hover:scale-105"
-        />
-      </div>
-      {/* Yazı bloğu ölçüsü referanstan: kapağın altında 12 px boşluk, başlık
-          16.2 px / 500, altında 10 px. Kart yükseklikleri böylece referanstaki
-          gibi tek tip kalır. */}
-      <div className="px-3 pt-3 pb-2.5">
-        <h3 className="truncate text-[16px] font-medium leading-5 text-foreground">{title}</h3>
-        {meta ? (
-          <p
-            className={
-              metaClassName ??
-              "mt-1 line-clamp-2 text-[13.5px] leading-[18px] text-muted-foreground"
-            }
-          >
-            {meta}
-          </p>
-        ) : null}
-      </div>
-    </>
-  );
-  // Hedef yoksa (yedek içerik) bugünkü davranış birebir korunur: `href`siz `<a>`.
-  if (!slug) {
-    return <a className={cardClassName}>{body}</a>;
-  }
-  // İSTEMCİ İÇİ GEZİNME (`Link`) — ve ÖNDEN ÇEKME (preload) BİLEREK KAPALI.
-  // NEDEN: bu kartlar yoğun raflarda/ızgarda yan yana durur ve fareyle üzerinden
-  // geçmek tıklama anlamına GELMEZ. `Link`in önden çekmesi her hover'da hedef
-  // rotanın yükleyicisini çalıştırır; izleme hedefinin bugün rota
-  // yükleyicisi YOK (veri istemcide React Query ile gelir), yani bugün ölçülebilir
-  // bir kazanç sağlamaz — ama yükleyici eklendiği gün hover başına boşa okuma
-  // (kota/egress) doğar. Bu yüzden ana sayfadaki TÜM kartlarda önden çekme açıkça
-  // kapatılır; gezinme yine istemci içi ve anındadır, yalnızca hover ön çekmesi
-  // atlanır. (Tıklamada `/anime/$slug` hedefi verisini `showDetailQueryOptions`
-  // önbelleğinden okur; ek okuma olmaz.)
-  return (
-    <Link
-      to="/anime/$slug/season/$season/episode/$episode"
-      params={{ slug, season: String(season ?? 1), episode: String(episode ?? 1) }}
-      preload={false}
-      className={cardClassName}
-    >
-      {body}
-    </Link>
-  );
-}
 
 /**
  * Hero ALTINDAKİ tüm keşif alanı: iki kolonlu sayfa düzeni (solda geniş ana
