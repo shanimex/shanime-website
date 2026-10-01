@@ -1179,14 +1179,12 @@ function Index() {
                 }}
                 className={`hero-slide ${active ? "active" : ""}`}
               >
-                {/* Telefonda DİKEY kapak, masaüstünde geniş banner kullanılır.
-                    16:9 banner portre kutuya sığdırılınca görüntünün yalnızca
-                    ~%39'u görünüyor ve karakter kadrajın dışında kalıyordu
-                    (kullanıcı geri bildirimi: "vitrindeki resmin sadece yarısı
-                    görünüyor"). 2:3 dikey kapağın neredeyse tamamı görünür.
-                    <picture> sayesinde tarayıcı yalnızca eşleşen kaynağı indirir. */}
+                {/* Telefonda da geniş banner kullanılır (Netflix usulü: tek görsel,
+                    telefon ortasını kırpar). Dikey kapak 600px olduğu için
+                    telefonda bulanık görünüyordu; banner 1280px+ ve keskin.
+                    Banner yoksa `backdrop` zaten kapağa düşer, boş kalmaz. */}
                 <picture className="hero-picture">
-                  <source media="(max-width: 767px)" srcSet={show.image} />
+                  <source media="(max-width: 767px)" srcSet={backdrop} />
                   <img
                     src={backdrop}
                     alt={active ? t("home.slideScene", { title: show.title }) : ""}
