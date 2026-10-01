@@ -29,7 +29,7 @@ import {
   type ReactNode,
 } from "react";
 import { ShowLogo } from "@/components/home/heroStatic";
-import { AzList, SeriesCard } from "@/components/home/azList";
+import { SeasonGrid, SiteFooter } from "@/components/home/azList";
 import {
   DiscoveryRowHeader,
   HomeCompactBand,
@@ -156,8 +156,6 @@ function scrollToTop(event?: { preventDefault: () => void }) {
  */
 const MemoHomeSections = memo(HomeSections);
 const MemoHomeCompactBand = memo(HomeCompactBand);
-const MemoAzList = memo(AzList);
-const MemoSeriesCard = memo(SeriesCard);
 
 /** Vitrin verisi henüz gelmediğinde kullanılan SABİT boş dizi (memo'nun işe
  *  yaraması için referans sabit olmalı — `?? []` her çizimde yeni dizi üretirdi). */
@@ -1471,65 +1469,15 @@ function Index() {
              başka bir blok KONMADI. Panelle birlikte yalnızca ONA ÖZEL üç sözlük
              anahtarı da sözlükten düşürülmüştü. */}
 
-        {/* "Bu sezon" bölümü + #series ızgarası. KULLANICI İSTEĞİ: bölüm, üç
-             kolonlu bandın HEMEN ÜSTÜNE taşındı. Başlık DÜZELTİLDİ: bir önceki
-             oturumda başlık referansın "Upcoming Anime" ifadesine çevrilmişti,
-             fakat o ad artık ANA KOLONDAKİ GERÇEK upcoming bölümüne ait
-             (bkz. `UpcomingSection`, blueprint §2.6, AniList verisiyle dolduruldu).
-             Sayfada iki aynı başlık kalmasın ve header/footer'daki "Bu sezon"
-             bağlantıları (`#season`) hedefledikleri bölümle uyuşsun diye başlık
-             kendi adına döndü: `common.thisSeason` → TR "Bu sezon" / EN
-             "This season". Başlık, eyebrow ("Yeni seçkiler"), kartlar, `#series`
-             ızgarası ve "Tümünü gör" bağlantısı DIŞINDA hiçbir şey DEĞİŞMEDİ;
-             veri kaynağı da aynıdır. Kap, başlık ölçeği ve bölüm boşlukları hero
-             altındaki bölümlerle AYNI (kap 1800 px / 10 px, başlık 27 px / 600,
-             bölümler arası 40 px). */}
-        <section id="season" className={`${PAGE_CONTAINER} py-10`}>
-          <div className={`flex items-end justify-between ${HEAD_GAP_ROW}`}>
-            <div>
-              <p className="text-[15px] font-semibold text-primary">{t("home.seasonTag")}</p>
-              <h2 className={`mt-1 ${HEAD_ROW}`}>{t("common.thisSeason")}</h2>
-            </div>
-            <a
-              href="#series"
-              className="group link-hover ui-hover flex items-center gap-2 text-[15px] font-semibold"
-            >
-              {t("common.seeAll")}{" "}
-              <ArrowRight size={17} className="transition-transform group-hover:translate-x-1" />
-            </a>
-          </div>
-          {/* Kartlar ana keşif ızgarasıyla AYNI KART ÖLÇÜSÜNÜ kullanır (20 px
-              boşluk, referans kartı: 1552 px'te 174 px). Bu bölüm kabın TAM
-              genişliğinde (1552'de 1532 px) durduğu için sabit 6 sütun kartı
-              238.66 px'e çıkarıyordu — referanstan ~%37 büyük poster. Bu yüzden
-              burada kart genişliği sınırlı düzen kullanılır; sütun sayısı
-              sığdığı kadar artar (1552'de 8 sütun × 174 px). */}
-          <div id="series" className={DISCOVERY_GRID_CAPPED}>
-            {/* Kart artık ORTAK bileşen (`SeriesCard`): A-Z bölümü de aynı kartı
-                çizdiği için işaretlemeyi burada satır içi tutmak zamanla sapmaya
-                yol açardı. Süzme davranışı (arama/tür) ve `#series` kimliği
-                DEĞİŞMEDİ; önden çekme kapalı (kota/egress gerekçesi: SeriesCard
-                notu). */}
-            {(isFiltering ? filtered : shows).map((show) => (
-              <MemoSeriesCard key={show.slug ?? show.title} show={show} />
-            ))}
-          </div>
-          {isFiltering && filtered.length === 0 && (
-            <div className="py-16 text-center">
-              <p className="text-muted-foreground">{t("home.noFilterMatch")}</p>
-              <button
-                type="button"
-                onClick={() => {
-                  setQuery("");
-                  setGenre(ALL_GENRES);
-                }}
-                className="ui-hover mt-4 rounded-full border border-border px-5 py-2 text-sm font-bold text-foreground hover:border-accent hover:text-accent"
-              >
-                {t("home.clearFilter")}
-              </button>
-            </div>
-          )}
-        </section>
+        <SeasonGrid
+          shows={shows}
+          filtered={filtered}
+          isFiltering={isFiltering}
+          onClearFilter={() => {
+            setQuery("");
+            setGenre(ALL_GENRES);
+          }}
+        />
 
         {/* ── ÜÇ KOLONLU KOMPAKT BANT — ANA İÇERİĞİN EN SONUNDA ────────────────
             KULLANICI İSTEĞİ: bant "en altta" durmalı; bu yüzden ana kolonun
@@ -1542,61 +1490,7 @@ function Index() {
         </div>
       </main>
 
-      <footer className="border-t border-border bg-secondary text-foreground">
-        {/* ── REFERANS 4: A-Z LİSTESİ — FOOTER'IN İLK BLOĞU ────────────────────
-            Blueprint §4: referansta A-Z listesi ANA KOLONDA DEĞİL, footer'ın
-            içindedir (`FOOTER > DIV.container > DIV.azlist`); başlığı
-            "A-Z List", alt açıklaması "Searching anime order by alphabet name A
-            to Z." ve altında `All # 0-9 A B C … Z` (toplam 29 çip) harf çip
-            satırı bulunur. Bu yüzden bölüm main'in içinden ÇIKARILIP footer'ın
-            başına taşındı. Çipler ve istemci içi süzme DAVRANIŞI DEĞİŞMEDİ;
-            yeni sorgu yok (liste zaten yüklü `shows`). */}
-
-        <MemoAzList shows={shows} />
-
-        {/* Footer de aynı kabı kullanır: içerikle aynı hizada başlar. */}
-        <div className={`${PAGE_CONTAINER} grid gap-10 py-12 md:grid-cols-2`}>
-          <div>
-            <p className="font-display text-2xl">
-              <img
-                src={BRAND_LOGO_SRC}
-                alt={t("common.logoAlt")}
-                width={BRAND_LOGO_WIDTH}
-                height={BRAND_LOGO_HEIGHT}
-                loading="lazy"
-                decoding="async"
-                className="h-12 w-auto object-contain"
-              />
-              <span className="sr-only">shanime</span>
-            </p>
-            <p className="mt-4 max-w-xs text-sm leading-6 text-muted-foreground">
-              {t("footer.tagline")}
-            </p>
-          </div>
-          <div>
-            <p className="text-sm font-extrabold">{t("footer.explore")}</p>
-            <div className="mt-4 flex flex-col gap-1 text-sm text-muted-foreground">
-              {/* py-2: dokunmatikte en az ~36 px yükseklik (eskiden 20 px idi). */}
-              <a href="#season" className="link-hover w-fit py-2">
-                {t("common.thisSeason")}
-              </a>
-              <a href="#series" className="link-hover w-fit py-2">
-                {t("footer.allSeries")}
-              </a>
-              {/* HEDEF YENİDEN YÖNLENDİRİLDİ: GENRES çip şeridi (ve onunla gelen
-                  `id="genres"`) KULLANICI İSTEĞİYLE SİLİNDİĞİ için bu bağlantı
-                  ölü kalmasın diye `#genres` yerine `#series` (seri ızgarası)
-                  hedefine bağlandı. Etiket ("Türler"/"Genres") DEĞİŞMEDİ. */}
-              <a href="#series" className="link-hover w-fit py-2">
-                {t("footer.genres")}
-              </a>
-            </div>
-          </div>
-        </div>
-        <div className="border-t border-border px-5 py-5 text-center text-xs text-muted-foreground">
-          {t("footer.copyright")}
-        </div>
-      </footer>
+      <SiteFooter shows={shows} />
     </div>
   );
 }

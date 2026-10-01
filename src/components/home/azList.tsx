@@ -4,12 +4,14 @@
  * Harf çipleri kendi devresinde çalışır (`filter` durumu bu dosyadadır);
  * arama/tür süzmesiyle bağı yoktur. İşaretleme ve ölçüler birebir aynıdır.
  */
-import { useMemo, useState } from "react";
+import { memo, useMemo, useState } from "react";
 import { Link } from "@tanstack/react-router";
+import { ArrowRight } from "lucide-react";
 
 import type { HeroCard } from "@/lib/home-static";
 import { showSlug } from "@/lib/content";
 import { useLang } from "@/lib/i18n";
+import { BRAND_LOGO_HEIGHT, BRAND_LOGO_SRC, BRAND_LOGO_WIDTH } from "@/lib/brand";
 import {
   DISCOVERY_GRID_CAPPED,
   HEAD_GAP_ROW,
@@ -177,10 +179,122 @@ export function AzList({ shows }: { shows: HeroCard[] }) {
       ) : (
         <div className={`mt-6 ${DISCOVERY_GRID_CAPPED}`}>
           {filteredShows.map((show) => (
-            <SeriesCard key={show.slug ?? show.title} show={show} />
+            <MemoSeriesCard key={show.slug ?? show.title} show={show} />
           ))}
         </div>
       )}
     </section>
   );
 }
+
+const MemoSeriesCard = memo(SeriesCard);
+
+/**
+ * "Bu sezon" bölümü + #series ızgarası. Başlık, kartlar, `#series` kimliği ve
+ * süzme davranışı (arama/tür) DEĞİŞMEDİ. Kap, başlık ölçeği ve bölüm boşlukları
+ * hero altındaki bölümlerle AYNI.
+ */
+export function SeasonGrid({
+  shows,
+  filtered,
+  isFiltering,
+  onClearFilter,
+}: {
+  shows: HeroCard[];
+  filtered: HeroCard[];
+  isFiltering: boolean;
+  onClearFilter: () => void;
+}) {
+  const { t } = useLang();
+  return (
+    <section id="season" className={`${PAGE_CONTAINER} py-10`}>
+      <div className={`flex items-end justify-between ${HEAD_GAP_ROW}`}>
+        <div>
+          <p className="text-[15px] font-semibold text-primary">{t("home.seasonTag")}</p>
+          <h2 className={`mt-1 ${HEAD_ROW}`}>{t("common.thisSeason")}</h2>
+        </div>
+        <a
+          href="#series"
+          className="group link-hover ui-hover flex items-center gap-2 text-[15px] font-semibold"
+        >
+          {t("common.seeAll")}{" "}
+          <ArrowRight size={17} className="transition-transform group-hover:translate-x-1" />
+        </a>
+      </div>
+      {/* Kart genişliği sınırlı düzen: tam kap genişliğinde sabit 6 sütun kartı
+          gereğinden büyük çıkarıyordu; sütun sayısı sığdığı kadar artar. */}
+      <div id="series" className={DISCOVERY_GRID_CAPPED}>
+        {(isFiltering ? filtered : shows).map((show) => (
+          <MemoSeriesCard key={show.slug ?? show.title} show={show} />
+        ))}
+      </div>
+      {isFiltering && filtered.length === 0 && (
+        <div className="py-16 text-center">
+          <p className="text-muted-foreground">{t("home.noFilterMatch")}</p>
+          <button
+            type="button"
+            onClick={onClearFilter}
+            className="ui-hover mt-4 rounded-full border border-border px-5 py-2 text-sm font-bold text-foreground hover:border-accent hover:text-accent"
+          >
+            {t("home.clearFilter")}
+          </button>
+        </div>
+      )}
+    </section>
+  );
+}
+
+/**
+ * Alt alan: A-Z listesi (footer'ın ilk bloğu) + logo/etiket + bağlantılar +
+ * telif satırı. Çipler ve süzme DAVRANIŞI DEĞİŞMEDİ.
+ */
+export function SiteFooter({ shows }: { shows: HeroCard[] }) {
+  const { t } = useLang();
+  return (
+    <footer className="border-t border-border bg-secondary text-foreground">
+      <MemoAzList shows={shows} />
+
+      {/* Footer de aynı kabı kullanır: içerikle aynı hizada başlar. */}
+      <div className={`${PAGE_CONTAINER} grid gap-10 py-12 md:grid-cols-2`}>
+        <div>
+          <p className="font-display text-2xl">
+            <img
+              src={BRAND_LOGO_SRC}
+              alt={t("common.logoAlt")}
+              width={BRAND_LOGO_WIDTH}
+              height={BRAND_LOGO_HEIGHT}
+              loading="lazy"
+              decoding="async"
+              className="h-12 w-auto object-contain"
+            />
+            <span className="sr-only">shanime</span>
+          </p>
+          <p className="mt-4 max-w-xs text-sm leading-6 text-muted-foreground">
+            {t("footer.tagline")}
+          </p>
+        </div>
+        <div>
+          <p className="text-sm font-extrabold">{t("footer.explore")}</p>
+          <div className="mt-4 flex flex-col gap-1 text-sm text-muted-foreground">
+            {/* py-2: dokunmatikte en az ~36 px yükseklik. */}
+            <a href="#season" className="link-hover w-fit py-2">
+              {t("common.thisSeason")}
+            </a>
+            <a href="#series" className="link-hover w-fit py-2">
+              {t("footer.allSeries")}
+            </a>
+            {/* GENRES çip şeridi silindiği için `#genres` yerine `#series`. */}
+            <a href="#series" className="link-hover w-fit py-2">
+              {t("footer.genres")}
+            </a>
+          </div>
+        </div>
+      </div>
+      <div className="border-t border-border px-5 py-5 text-center text-xs text-muted-foreground">
+        {t("footer.copyright")}
+      </div>
+    </footer>
+  );
+}
+
+const MemoAzList = memo(AzList);
