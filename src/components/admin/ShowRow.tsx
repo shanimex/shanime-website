@@ -1,4 +1,4 @@
-import { ArrowDown, ArrowUp, Loader2, Pencil, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, Loader2, Pencil, Star, Trash2, X } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { showSlug, type ShowWithImage } from "@/lib/content";
@@ -15,6 +15,7 @@ export function ShowRow({
   trCount,
   first,
   last,
+  open,
   onEdit,
   onMove,
   onDelete,
@@ -30,6 +31,14 @@ export function ShowRow({
   trCount: number;
   first: boolean;
   last: boolean;
+  /**
+   * Satırın altındaki düzenleme alanı AÇIK MI?
+   *
+   * KULLANICI İSTEĞİ (30.09.2026): "Düzenle basınca orası kaybolmasın, kalsın;
+   * aşağı doğru açılsın; Düzenle yazısı Kapat düğmesine dönsün animasyonla."
+   * Bu yüzden satır artık her zaman görünür kalır ve düğme ikisi arasında geçiş yapar.
+   */
+  open: boolean;
   onEdit: () => void;
   onMove: (dir: -1 | 1) => void;
   onDelete: () => Promise<void>;
@@ -61,12 +70,22 @@ export function ShowRow({
         <p className="truncate text-sm font-extrabold text-foreground">
           {show.title}
           {show.is_featured && (
-            <span
-              className="ml-1.5 align-middle text-[11px] text-primary"
-              title="Ana sayfa vitrininde (büyük slider) gösteriliyor"
-            >
-              ★
-            </span>
+            /*
+              METİN KARAKTERİ (`★`) YERİNE SVG İKON (kullanıcı isteği, 30.09.2026:
+              "ikon tercih et, SVG ikon kaliteli şık olan; emoji kesinlikle kullanma").
+              Metin karakteri yazı tipine göre bozuk/kalitesiz çizilebiliyordu; ikon
+              her tarayıcıda aynı ve `currentColor` ile ton rengini alıyor.
+            */
+            <Star
+              size={11}
+              // DOLGULU yıldız: lucide varsayılanı yalnızca çerçeve çiziyordu ve
+              // "içi boş yıldız kötü görünüyor" (kullanıcı bildirimi 30.09.2026).
+              // `fill` mevcut ton rengini alır, ek renk gelmez.
+              fill="currentColor"
+              strokeWidth={1}
+              className="ml-1.5 inline-block shrink-0 align-[-1px] text-primary"
+              aria-label="Vitrinde"
+            />
           )}
         </p>
         <p className="truncate font-mono text-[11px] text-muted-foreground">
@@ -86,8 +105,37 @@ export function ShowRow({
           sikistirmaz. Ikon butonlari mobilde 40x40 (parmakla basmak icin),
           masaustunde 36x36 kalir. */}
       <div className="ml-auto flex items-center gap-1">
-        <Button size="sm" className="shrink-0 rounded-full" onClick={onEdit}>
-          <Pencil size={13} /> Düzenle
+        {/*
+          DÜZENLE ↔ KAPAT: tek düğme, iki durum.
+          İkon ve yazı ANİMASYONLA değişir (ölçek/opaklık geçişi) — kullanıcı
+          isteği: "Düzenle yazısı Kapat düğmesine dönsün animasyonla." Ayrı bir
+          "Kapat" düğmesi YOK; düzenleme alanı bu düğmeyle kapanır.
+        */}
+        <Button
+          size="sm"
+          variant={open ? "outline" : "default"}
+          className="shrink-0 rounded-full"
+          onClick={onEdit}
+          aria-expanded={open}
+          title={open ? "Düzenlemeyi kapat" : "Bu seriyi düzenle"}
+        >
+          <span className="relative grid h-3.5 w-3.5 place-items-center">
+            <Pencil
+              size={13}
+              className={`col-start-1 row-start-1 transition-all duration-200 ${
+                open ? "scale-50 opacity-0" : "scale-100 opacity-100"
+              }`}
+            />
+            <X
+              size={13}
+              className={`col-start-1 row-start-1 transition-all duration-200 ${
+                open ? "scale-100 opacity-100" : "scale-50 opacity-0"
+              }`}
+            />
+          </span>
+          <span className="ml-1 inline-block min-w-[3.6rem] text-left">
+            {open ? "Kapat" : "Düzenle"}
+          </span>
         </Button>
         <Button
           size="sm"

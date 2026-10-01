@@ -75,6 +75,9 @@ import { cachedRead } from "@/lib/server-cache";
  * doğrulanır — yani "bulundu" demek "bölümü gerçekten var" demektir.
  */
 
+/** Üst kaynak isteği için üst sınır süre (ms) — askıda kalan istek olmasın. */
+const UPSTREAM_TIMEOUT_MS = 12_000;
+
 const PUFFY = "https://puffytr.com";
 const REFERER = `${PUFFY}/`;
 const UA =
@@ -93,7 +96,19 @@ async function get(
     Accept: "text/html,application/json,*/*",
   };
   if (options.referer) headers["Referer"] = options.referer;
-  const res = await fetch(url, { method, headers, redirect: "manual" });
+  /**
+   * ÜST SINIR SÜRE (zorunlu). NEDEN: kaynak sunucu bir isteği askıda bırakırsa
+   * bizim isteğimiz de süresiz açık kalıyordu; panelde "hiç bitmeyen yükleme" ve
+   * iptal edilen isteklerden doğan gürültü (dev'de `read ECONNRESET` katmanı) böyle
+   * oluşuyordu. 12 sn, gerçek bir yanıt için bolca yeter; aşılırsa hata AÇIKÇA
+   * raporlanır ve akış durmaz (çağıran aday adayı sırayla denemeye devam eder).
+   */
+  const res = await fetch(url, {
+    method,
+    headers,
+    redirect: "manual",
+    signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
+  });
   const location = res.headers.get("location") ?? "";
   const redirected = [301, 302, 303, 307, 308].includes(res.status) && location !== "";
   if ((options.follow ?? 0) > 0 && redirected) {
@@ -170,9 +185,29 @@ async function fetchNetworkIndex(): Promise<NetworkEntry[]> {
   return out;
 }
 
-/** Ağ dizini — 24 saat önbellekli (hata önbelleğe yazılmaz, bkz. server-cache). */
+/**
+ * Ağ dizini — 24 saat önbellekli (hata önbelleğe yazılmaz, bkz. server-cache).
+ *
+ * ── NEDEN AYRICA ISITICI İÇİ MEMO (ölçüm 30.09.2026) ─────────────────────────
+ * `cachedRead` GELİŞTİRME modunda bilerek tamamen atlanır (panelden yapılan
+ * değişiklik anında görünsün diye). Bu kural BİZİM veritabanımız için doğru; ama bu
+ * dizin DIŞ bir kaynaktan geliyor ve 2 MB. Sonuç: panelde başka bir sezon açıldığında
+ * dev sunucusu dizini YENİDEN indiriyordu — ölçüm: tek çağrı 4,3 sn. Uzun süren bu
+ * istekler tarayıcı tarafından iptal edilince dev sunucusunda `read ECONNRESET`
+ * hatası (kırmızı hata katmanı) çıkıyordu — kullanıcının bildirdiği ekran. Tazelik
+ * kaygısı OLMAYAN bu dış veri artık ortamdan bağımsız olarak ısıtıcı içinde kısa süre
+ * hatırlanır: davranış değişmez, aynı dizin tekrar tekrar indirilmez.
+ */
+const INDEX_MEMO_MS = 30 * 60 * 1000;
+let indexMemo: { value: NetworkEntry[]; expiresAt: number } | null = null;
+
 async function readNetworkIndex(): Promise<NetworkEntry[]> {
-  return cachedRead("puffy:network-index", INDEX_TTL_SECONDS, fetchNetworkIndex);
+  const now = Date.now();
+  if (indexMemo && indexMemo.expiresAt > now) return indexMemo.value;
+  const value = await cachedRead("puffy:network-index", INDEX_TTL_SECONDS, fetchNetworkIndex);
+  // Hata hâlinde buraya gelinmez (cachedRead reddeder) → bozuk sonuç hatırlanmaz.
+  indexMemo = { value, expiresAt: now + INDEX_MEMO_MS };
+  return value;
 }
 
 /**
@@ -435,10 +470,34 @@ export const Route = createFileRoute("/api/anizm")({
           };
 
           // ---- 1) KALIP ADRESLER (ölçülmüş yazımlar) --------------------------
-          // Mevcut davranış birebir korunur: tek adres verildiğinde tek deneme.
+          // Mevcut davranış korunur: İLK aday doğrudan denenir (tutarsa tek istekle
+          // biter — 1. sezonların çoğu böyle).
+          //
+          // ── ÖN FİLTRE (ölçüm 30.09.2026) ─────────────────────────────────────
+          // İlk aday tutmazsa kalan kalıp adayları neredeyse hep YOKTUR ve her biri
+          // ~0,4 sn sürer: ölçüm — 6 boşa deneme = 2,4 sn, oysa adresleri içeren
+          // dizinin tamamı yalnızca 0,42 sn. Kullanıcı şikâyeti (uzun süren istek
+          // iptal edilince dev'de `read ECONNRESET`) tam olarak bu boşa denemelerden
+          // çıkıyordu. Bu yüzden: ilk denemeden SONRA dizin bir kez okunur ve
+          // DİZİNDE OLMAYAN adaylar hiç denenmez (sebep `reasons`a yazılır — sessizce
+          // atlanmaz). Dizin okunamazsa filtre kurulmaz, davranış bugünküyle aynıdır.
+          let knownSlugs: Set<string> | null = null;
           for (const candidate of ladder) {
+            if (knownSlugs && !knownSlugs.has(candidate)) {
+              reasons.push(`atlandı (ağ dizininde yok): ${candidate}`);
+              continue;
+            }
             const hit = await attemptCandidate(candidate, "adres kalıbı");
             if (hit) return hit;
+            if (!knownSlugs) {
+              try {
+                knownSlugs = new Set((await readNetworkIndex()).map((entry) => entry.slug));
+              } catch {
+                // Dizin alınamadı → süzme yok, eski davranış (tüm adaylar denenir).
+                knownSlugs = null;
+                break;
+              }
+            }
           }
 
           // ---- 2) AĞ DİZİNİ (kalıp tutmadıysa) -------------------------------

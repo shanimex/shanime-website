@@ -1,4 +1,4 @@
-﻿// /anime/<dizi-adı>/season/<n>/episode/<n> — İzleme sayfası: oynatıcı, kaynak kutuları,
+// /anime/<dizi-adı>/season/<n>/episode/<n> — İzleme sayfası: oynatıcı, kaynak kutuları,
 // kaldığın yerden devam.
 //
 // SEZON/BÖLÜM YOL PARAMETRESİDİR (`$season`, `$episode`) — eskiden `?sezon=<n>&b=<n>`
@@ -7,7 +7,8 @@
 // Eski izleme adresleri, `izle.$slug.tsx` içindeki yönlendirme rotası ile buraya gelir.
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { Home, Loader2, Play } from "lucide-react";
+// İkonlar: referans (lunarx) alt şeridindeki ikon şeridiyle aynı sıra ve anlam.
+import { Flag, Info, Loader2, MessageSquare, Play, SlidersHorizontal, Tv } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { AdSlot, useAdCode } from "@/components/site/AdSlot";
@@ -15,7 +16,6 @@ import { AdsterraLeaderboard, AdsterraNative } from "@/components/site/AdsterraU
 import { EpisodeCover } from "@/components/site/EpisodeCover";
 import { FaSolid, type FaSolidName } from "@/components/site/FaSolid";
 import { FluidPlayer, type FluidSubtitle } from "@/components/site/FluidPlayer";
-import { LanguageToggle } from "@/components/site/LanguageToggle";
 import { PrerollGate } from "@/components/site/PrerollGate";
 import {
   ACTIVE_EMBED_PROVIDER,
@@ -43,7 +43,12 @@ import {
   tmdbIdForMal,
 } from "@/lib/anizip-covers";
 import { fetchSkipTimes, formatSkipTime } from "@/lib/skip-times";
-import { ANIZM_PLAYER_RE, puffySlugFor, puffySlugForSeason } from "@/lib/puffy";
+import {
+  ANIZM_PLAYER_RE,
+  puffySlugFor,
+  puffySlugForSeason,
+  sourceEpisodeMinimum,
+} from "@/lib/puffy";
 import { plural, useDocumentTitle, useLang, t as translate, type I18nKey } from "@/lib/i18n";
 import { useTranslatedTexts } from "@/lib/content-translate";
 import { cn } from "@/lib/utils";
@@ -513,12 +518,6 @@ function WatchPage() {
    * `return`lerin ÜSTÜNDE durmak zorundadır (React kuralı) ve yalnızca gerekli
    * olduğunda (`enabled`) çalışır — her bölüm açılışına ek istek binmez.
    */
-  const megaplayRows = currentEpisode
-    ? (episodeSources?.get(currentEpisode.id) ?? []).filter(
-        (row) => isDirective(row.url) && row.url.slice(1).trim() === "megaplay",
-      )
-    : [];
-  const megaplayLanguage = megaplayRows.some((row) => row.language === "dub") ? "dub" : "sub";
   /**
    * O anki sezonun PART kayıtları (`show_seasons.parts`).
    *
@@ -527,8 +526,230 @@ function WatchPage() {
    * MegaPlay bölümü part'ın KENDİ kimliği + part içi göreli numarayla verir; mutlak
    * numarayla sorgulanırsa 2. part `Error` döndürür ve kaynak listeden düşer. Eşleme
    * `/api/embed`'e `parts` olarak geçirilir (rota boşsa AniList'ten türetir).
+   *
+   * ⚠️ Bu blok ARTIK DAHA YUKARIDA: PART farkındalıklı kaynak çözümlemesi (`sourceMin`)
+   * ve anizm/tauvideo çalışma-anı sorguları bu değere bağlı; hepsi erken `return`lerin
+   * ÜSTÜNDE (React kanca kuralı) durmak zorunda.
    */
   const seasonParts = Array.isArray(activeSeason?.parts) ? (activeSeason?.parts ?? []) : [];
+
+  /**
+   * ═══════════════════════════════════════════════════════════════════════════
+   * KAYNAK KATALOĞU ÇÖZÜMLEMESİ (01.10.2026) — "yanlış bölüm" hatasını bitirir.
+   *
+   * SORUN (kullanıcı, 01.10.2026): `/anime/re-zero/season/4/episode/19` → Anizm ESKİ
+   * bir bölüm oynatıyor, TauVideo hiç çıkmıyor. Ölçüm (salt-okuma, canlı veritabanı):
+   *   · re-zero S4B19 `watch_url` = `anizmplayer.com/video/a26c9661…` ama bu hash
+   *     KATALOGDA S1B19'a ait (`31240-s1b19`) → yani ESKİ bölüm.
+   *   · re-zero S2B14–B25 adresleri S1B1–B12'ye işaret ediyor (PART kayması).
+   *   · S4B17–B19 için `episode_sources` satırı ya eksik ya yok; oysa animecix
+   *     kataloğunda S4B19 VAR (canlı ölçüm, `episode=19` → kayıt döndü).
+   *
+   * KURAL (proje kuralı: "uydurma yok" + "yanlış bölüm oynatmak, hiç oynatmamaktan
+   * kötüdür"): bir kaynak adresi, kaynağın KENDİ kataloğundan çözülen adresle
+   * doğrulanmadan GÖSTERİLMEZ.
+   *
+   * Anizm adresi bölüme özel bir hash taşır; iki güvenilir kaynak var:
+   *   1) derleme zamanı tablosu (`src/data/anizm-hashes.json`) — doğrulanmış kayıtlar,
+   *   2) sunucu rotası `/api/anizm` — kataloğun KENDİ numaralandırmasını kullanır ve
+   *      PART farkındalıklıdır (`sourceMin`, bkz. `lib/puffy.ts`).
+   * İkisi de yoksa Anizm satırı hiç gösterilmez. Kayıttaki eski/yanlış Anizm adresi
+   * (`watch_url`) ASLA doğrudan oynatılmaz.
+   */
+  const episodeSourceRows: EpisodeSource[] = currentEpisode
+    ? (episodeSources?.get(currentEpisode.id) ?? [])
+    : [];
+  const bakedAnizmUrl = currentEpisode
+    ? anizmPlayerUrl(detail?.show.mal_id ?? null, currentEpisode.season, currentEpisode.number)
+    : null;
+  const seasonNumbers = (activeSeason?.episodes ?? []).map((item) => item.number);
+  const seasonMin = seasonNumbers.length > 0 ? Math.min(...seasonNumbers) : 1;
+  /** Kaynağa sorulacak numaranın tabanı — bölüm bir PART'a düşüyorsa part'ın start'ı. */
+  const sourceMin = currentEpisode
+    ? sourceEpisodeMinimum(currentEpisode.number, seasonMin, seasonParts)
+    : seasonMin;
+  const anizmRowPresent = episodeSourceRows.some(
+    (row) => row.provider === "anizm" || ANIZM_PLAYER_RE.test(row.url),
+  );
+  const storedAnizmUrl = ANIZM_PLAYER_RE.test(currentEpisode?.watch_url ?? "")
+    ? (currentEpisode?.watch_url ?? "")
+    : "";
+  const needsAnizmLookup =
+    !isSpecial &&
+    Boolean(currentEpisode) &&
+    !bakedAnizmUrl &&
+    (anizmRowPresent || Boolean(storedAnizmUrl));
+  /**
+   * Sunucu rotasından Anizm adresi — yalnızca KATALOĞUN kendi numaralandırmasıyla
+   * (ve part farkındalıklı `min` ile) çözülen adres kabul edilir.
+   */
+  const anizmLookupQuery = useQuery({
+    queryKey: [
+      "anizm-source",
+      detail?.show.slug ?? null,
+      currentEpisode?.season ?? null,
+      currentEpisode?.number ?? null,
+      sourceMin,
+    ],
+    enabled: needsAnizmLookup && typeof window !== "undefined",
+    queryFn: async () => {
+      if (!detail) return null;
+      const base = puffySlugFor(showSlug(detail.show));
+      const params = new URLSearchParams({
+        puffy: puffySlugForSeason(base, currentEpisode?.season ?? 1),
+        base,
+        season: String(currentEpisode?.season ?? 1),
+        number: String(currentEpisode?.number ?? 0),
+        min: String(sourceMin),
+        show: detail?.show.slug ?? "",
+        title: detail?.show.title ?? "",
+        mal: detail?.show.mal_id ? String(detail.show.mal_id) : "",
+      });
+      const response = await fetch(`/api/anizm?${params.toString()}`);
+      if (!response.ok) return null;
+      const payload = (await response.json()) as { ok?: boolean; url?: string; slug?: string };
+      if (typeof payload.url !== "string" || !ANIZM_PLAYER_RE.test(payload.url)) return null;
+      /**
+       * ⚠️ ADRES AİLESİ GÜVENCESİ (01.10.2026): çözümün BAŞKA bir diziyi bulma riski
+       * gerçek (ölçüm: `solo-leveling` → sunucu, ağ dizininde ad eşleşmesiyle
+       * `25-jigen-no-ririsa`yı bulup YANLIŞ dizinin adresini döndürüyordu). Çözülen
+       * adres bizim puffytr tabanımızla BAŞLAMIYORSA (başka dizi) adres GÖSTERİLMEZ —
+       * yanlış bölüm/dizi oynatmak, hiç oynatmamaktan kötüdür.
+       */
+      const resolved = typeof payload.slug === "string" ? payload.slug : "";
+      if (!(resolved === base || resolved.startsWith(`${base}-`))) return null;
+      return payload.url;
+    },
+  });
+
+  /**
+   * ANİZM — YALNIZCA kaynağın kendi kataloğundan doğrulanmış adres. `null` = bu bölüm
+   * için güvenilir Anizm adresi YOK (eski/yanlış adres gösterilmez).
+   */
+  const verifiedAnizmUrl = bakedAnizmUrl ?? anizmLookupQuery.data ?? null;
+
+  /**
+   * Güvenilir DOĞRUDAN adres. `watch_url` bir Anizm adresiyse yalnızca katalog
+   * çözümüyle AYNI olduğunda kabul edilir; aksi hâlde boş sayılır ve oynatıcı
+   * varsayılan sağlayıcıya (MegaPlay) düşer — eski bölüm asla oynatılmaz.
+   */
+  const rawWatchUrl = (currentEpisode?.watch_url ?? "").trim();
+  const trustedWatchUrl = ANIZM_PLAYER_RE.test(rawWatchUrl)
+    ? verifiedAnizmUrl && rawWatchUrl === verifiedAnizmUrl
+      ? rawWatchUrl
+      : ""
+    : rawWatchUrl;
+
+  /** `watch_url` doğrudan TauVideo oynatıcısı mı (panel satırı olmasa da geçerli). */
+  const tauUrl = /tau-video\.xyz/i.test(currentEpisode?.watch_url ?? "")
+    ? (currentEpisode?.watch_url ?? null)
+    : null;
+
+  /**
+   * TauVideo (animecix) — panelin yazdığı satır YOKSA kaynağın kendi kataloğundan
+   * ÇALIŞMA ANINDA çözülür.
+   *
+   * NEDEN: `episode_sources` satırı eksik bırakılmış bölümlerde (ölçüm 01.10.2026:
+   * re-zero S4B17–B19) kaynak listede hiç görünmüyordu; oysa animecix kataloğunda
+   * bölüm VAR (`/api/animecix?titleId=7325&season=4&episode=19` → kayıt döndü).
+   * Sorgu, kaynağın KENDİ (sezon, bölüm) numaralandırmasıyla yapılır — panelin
+   * yazarken kullandığı değerlerin AYNISI (bkz. AnizipSyncPanel → animecixParams).
+   */
+  const animecixTitleId = detail?.show.animecix_id ?? null;
+  const tauRowPresent = episodeSourceRows.some(
+    (row) => row.provider === "animecix" || /tau-video\.xyz/i.test(row.url),
+  );
+  const needsTauLookup =
+    !isSpecial && Boolean(currentEpisode) && Boolean(animecixTitleId) && !tauRowPresent && !tauUrl;
+  const tauLookupQuery = useQuery({
+    queryKey: [
+      "tauvideo-source",
+      animecixTitleId ?? null,
+      currentEpisode?.season ?? null,
+      currentEpisode?.number ?? null,
+    ],
+    enabled: needsTauLookup && typeof window !== "undefined",
+    queryFn: async () => {
+      const params = new URLSearchParams({
+        titleId: String(animecixTitleId),
+        season: String(currentEpisode?.season ?? 1),
+        episode: String(currentEpisode?.number ?? 0),
+      });
+      const response = await fetch(`/api/animecix?${params.toString()}`);
+      if (!response.ok) return null;
+      const payload = (await response.json()) as { ok?: boolean; best?: string };
+      return typeof payload.best === "string" &&
+        /^https:\/\/tau-video\.xyz\/embed\/[0-9a-f]{16,}(?:\?vid=\d+)?$/i.test(payload.best)
+        ? payload.best
+        : null;
+    },
+  });
+  const autoTauUrl = needsTauLookup ? (tauLookupQuery.data ?? null) : null;
+
+  /**
+   * ÇALIŞMA ANINDA çözülen kaynaklar SENTETİK satır olarak listeye katılır; böylece
+   * panelde satırı olmayan ya da eksik bırakılmış bölümde kaynak yine görünür ve
+   * seçim/aktiflik mekanizması (çipler) TEK kod yolundan çalışır.
+   *
+   * ⚠️ KAPSAM SINIRI (panel kararına saygı): Anizm ve MegaPlay satırları YALNIZCA
+   * panelde HİÇ satır yoksa sentezlenir; panel bir kaynağı bilinçli olarak yazmadıysa
+   * o kaynak geri getirilmez. TauVideo ise yalnızca hiçbir satır ona işaret etmiyorsa
+   * eklenir (eksik kaynağı tamamlamak için — hiçbir seçimi geçersiz kılmaz).
+   */
+  const syntheticRows: EpisodeSource[] =
+    currentEpisode && !isSpecial
+      ? [
+          // Sıra ÖNEMLİ: Türkçe kutuda ilk satır otomatik seçilir; panelin
+          // PICK_ORDER'ıyla aynı olsun diye Anizm önce, TauVideo sonra gelir.
+          ...(episodeSourceRows.length === 0 && verifiedAnizmUrl
+            ? [
+                {
+                  id: `auto-anizm-${currentEpisode.id}`,
+                  episode_id: currentEpisode.id,
+                  provider: "anizm",
+                  language: "tr",
+                  label: readableProviderName("anizm"),
+                  url: verifiedAnizmUrl,
+                  sort_order: 90,
+                },
+              ]
+            : []),
+          ...(autoTauUrl
+            ? [
+                {
+                  id: `auto-tauvideo-${currentEpisode.id}`,
+                  episode_id: currentEpisode.id,
+                  provider: "animecix",
+                  language: "tr",
+                  label: readableProviderName("tauvideo"),
+                  url: autoTauUrl,
+                  sort_order: 91,
+                },
+              ]
+            : []),
+          ...(episodeSourceRows.length === 0
+            ? [
+                {
+                  id: `auto-megaplay-${currentEpisode.id}`,
+                  episode_id: currentEpisode.id,
+                  provider: "megaplay",
+                  language: "en",
+                  label: readableProviderName("megaplay"),
+                  url: "@megaplay",
+                  sort_order: 92,
+                },
+              ]
+            : []),
+        ]
+      : [];
+
+  /** Panel satırları + çalışma anında çözülen sentetik satırlar (TEK liste). */
+  const episodeRows: EpisodeSource[] = [...episodeSourceRows, ...syntheticRows];
+
+  const megaplayRows = episodeRows.filter(
+    (row) => isDirective(row.url) && row.url.slice(1).trim() === "megaplay",
+  );
+  const megaplayLanguage = megaplayRows.some((row) => row.language === "dub") ? "dub" : "sub";
   /**
    * MegaPlay'e ihtiyaç var mı: ya direktif satırı var ya da bölümün adresi yok.
    *
@@ -861,6 +1082,50 @@ function WatchPage() {
 
   const { show } = detail;
 
+  /** Künye çipleri için ortak sınıf — referans izleme sayfasının üst bilgisi. */
+  const metaChipClass =
+    "rounded-md border border-border bg-card px-2 py-0.5 text-[11px] font-semibold text-muted-foreground";
+
+  /**
+   * Tür listesi. `shows.genre` TEK bir metin alanıdır ("Action, Adventure" gibi);
+   * çipe bölünür ve en fazla 4 tanesi çizilir ki üst bilgi taşmasın.
+   */
+  const genreChips = (show.genre ?? "")
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .slice(0, 4);
+
+  /**
+   * SEZONLAR şeridi için komşu sezonlar (referans: izleme sayfasındaki `SEASONS`).
+   *
+   * KULLANICI İSTEĞİ (01.10.2026): "sezon şeyleri de var onu da ekleyelim".
+   * Kaynak: `detail.seasons` — panelde bölümü olan sezonlar. Komşu YOKSA
+   * (ilk sezonun öncesi / son sezonun sonrası) o kart HİÇ çizilmez.
+   */
+  const activeSeasonIndex = playableSeasons.findIndex(
+    (season) => season.number === (activeSeason?.number ?? 0),
+  );
+  const previousSeason =
+    activeSeasonIndex > 0 ? (playableSeasons[activeSeasonIndex - 1] ?? null) : null;
+  const upcomingSeason =
+    activeSeasonIndex >= 0 && activeSeasonIndex < playableSeasons.length - 1
+      ? (playableSeasons[activeSeasonIndex + 1] ?? null)
+      : null;
+
+  /**
+   * Sezon kartının kapağı. Bölüm kapağı zincirinin 1. bölüm karşılığı; hiçbir
+   * kaynakta kapak yoksa seri posterine düşer (uydurma görsel üretilmez).
+   */
+  const seasonCover = (seasonNumber: number) =>
+    anizipCoverForSeason(
+      resolveSeasonMalId(show.mal_id ?? null, seasonNumber, null),
+      seasonNumber,
+      1,
+    ) ||
+    localCoverPath(showSlug(show), seasonNumber, 1) ||
+    show.image;
+
   // Bölümün oynatılacak adresi: ÖNCE kayıttaki `watch_url`, BOŞSA aktif embed
   // sağlayıcısından (megaplay) MAL kimliğiyle üretilir.
   //
@@ -895,15 +1160,10 @@ function WatchPage() {
   // Bu bölüm için anizm/puffy kaynağı var mı? Türkçe altyazı videoya GÖMÜLÜ,
   // 1080p, pre-roll'süz, pop-up'suz (ölçüm: docs/SAGLAYICI-VE-KAPAK-ARASTIRMASI.md §23).
   //
-  // Adres derleme zamanında gömülü tablodan gelir (`src/data/anizm-hashes.json`,
-  // `scripts/resolve-anizm-hashes.mjs` ile üretilir); kaydı olmayan bölümde null
-  // döner ve aşağıdaki kaynak düğmesi hiç görünmez — varsayılan davranış değişmez.
-  const anizmUrl = currentEpisode
-    ? (anizmPlayerUrl(show.mal_id ?? null, currentEpisode.season, currentEpisode.number) ??
-      // Panelden Türkçe kaynak yazılan bölümlerde adres doğrudan anizmplayer'dır;
-      // derleme zamanındaki tabloda kaydı olmasa bile Türkçe kaynak çalışır.
-      (ANIZM_PLAYER_RE.test(currentEpisode.watch_url ?? "") ? currentEpisode.watch_url : null))
-    : null;
+  // ⚠️ `anizmUrl` ARTIK `verifiedAnizmUrl`tir: derleme zamanı tablosu VEYA sunucu
+  // rotasından (`/api/anizm`) doğrulanmış adres. Kayıttaki eski/yanlış Anizm adresi
+  // (`watch_url`) buraya ASLA girmez — bkz. yukarıdaki "KAYNAK KATALOĞU ÇÖZÜMLEMESİ".
+  const anizmUrl = verifiedAnizmUrl;
 
   /**
    * "Türkçe kaynağı ara" ile sunucudan getirilen adres.
@@ -917,28 +1177,12 @@ function WatchPage() {
   const turkishUrl = anizmUrl ?? lookupUrl;
 
   /**
-   * TauVideo kaynağı (animecix'in kullandığı oynatıcı).
-   *
-   * NEDEN: panelden Türkçe kaynak olarak TauVideo adresi yazıldığında bu bölümün
-   * `watch_url`'i tau-video.xyz olur. İzleyici tarafında "Türkçe" satırında
-   * kaynak olarak görünmesi gerekir (kullanıcı isteği: seçtiğimiz kaynaklar
-   * oynatıcının altında kaynak olarak çıksın — anikoto düzeni).
+   * PANELDEN SEÇİLEN ÇOKLU KAYNAKLAR (`episode_sources`) + ÇALIŞMA ANINDA çözülen
+   * sentetik satırlar (auto TauVideo / auto Anizm / auto MegaPlay) → oynatıcı
+   * altındaki çipler. Yalnızca OYNATILAN bölümün satırları süzülür; sentetik satırlar
+   * yukarıda (erken `return`lerin üstünde) hazırlanmıştır.
    */
-  const tauUrl = /tau-video\.xyz/i.test(currentEpisode?.watch_url ?? "")
-    ? currentEpisode?.watch_url
-    : null;
-
-  /**
-   * PANELDEN SEÇİLEN ÇOKLU KAYNAKLAR (`episode_sources`) → oynatıcı altındaki çipler.
-   *
-   * Kullanıcı isteği (27.09.2026): "panelde hangi kaynakları seçersem oynatıcının
-   * ALTINDA çıksın, aynı Anizm gibi; birden fazla seçebileyim." Satırlar sezonun
-   * tamamı için tek sorguda geldi (yukarıdaki sorgu); burada yalnızca OYNATILAN
-   * bölümün satırları süzülür.
-   */
-  const sourceRows: EpisodeSource[] = currentEpisode
-    ? (episodeSources?.get(currentEpisode.id) ?? [])
-    : [];
+  const sourceRows: EpisodeSource[] = episodeRows;
 
   /**
    * Çipin tıklanınca oynatacağı adres.
@@ -959,21 +1203,17 @@ function WatchPage() {
       return { row, url: verifiedMegaplayUrl };
     }
     /**
-     * ⚠️ ANIZM SATIRI — DERLEME ZAMANI TABLOSU OTORİTEDİR.
+     * ⚠️ ANIZM SATIRI — ADRES YALNIZCA KATALOG ÇÖZÜMÜYLE DOĞRULANMIŞSA GÖSTERİLİR.
      *
-     * NEDEN: Anizm/puffy bölümü HER COUR İÇİNDE 1'den numaralandırır (Mushoku S1:
-     * Part 1 sayfası 1–11, Part 2 sayfası `…-2nd-season` 1–12). Veritabanındaki
-     * `episode_sources.url` bir kez YANLIŞ cour sayfasına çözülmüş olabilir
-     * (regresyon 29.09.2026: mutlak 12–22, 1. cour'un 1–11. bölümlerine düşmüştü →
-     * "12'den sonra 1. sezona sarıyor" belirtisi). `anizmPlayerUrl` (derleme
-     * zamanında doğrulanmış tablo, `src/data/anizm-hashes.json`) doğru bölümü
-     * veriyorsa satır bununla ezilir; tabloda kayıt yoksa eski davranış korunur.
+     * NEDEN: Anizm adresi bölüme özel bir hash taşır ve kayıttaki adres bir kez
+     * YANLIŞ çözülmüş olabilir (canlı ölçüm 01.10.2026: re-zero S2B14 → S1B1,
+     * S4B19 → S1B19). Eski davranış `row.url`e (yanlış olabilir) düşüyordu; artık
+     * `anizmUrl` (= `verifiedAnizmUrl`, derleme tablosu VEYA sunucu rotasının katalog
+     * çözümü) kullanılır. Kayıt yoksa/çözülemezse `url` null kalır ve satır listeden
+     * DÜŞER (`visibleChips`) — eski bölüm oynatılmaz.
      */
     if (ANIZM_PLAYER_RE.test(row.url)) {
-      return {
-        row,
-        url: anizmUrl ?? (episodeRequest ? resolveEpisodeEmbed(row.url, episodeRequest) : null),
-      };
+      return { row, url: anizmUrl };
     }
     return { row, url: episodeRequest ? resolveEpisodeEmbed(row.url, episodeRequest) : null };
   });
@@ -993,17 +1233,20 @@ function WatchPage() {
     (chip) => Boolean(chip.url) && !isDirective(chip.row.url),
   );
 
-  /** Bugünkü (satırlar eklenmeden önceki) oynatma adresi — karşılaştırma tabanı. */
+  /**
+   * Bugünkü (satırlar eklenmeden önceki) oynatma adresi — karşılaştırma tabanı.
+   *
+   * ⚠️ `currentEpisode.watch_url` DEĞİL `trustedWatchUrl`: kayıttaki Anizm adresi
+   * katalog çözümüyle doğrulanmamışsa (eski/yanlış bölüm) boş sayılır ve oynatıcı
+   * varsayılan sağlayıcıya düşer — yanlış bölüm asla oynatılmaz.
+   */
   const todayFallbackEmbed =
-    currentEpisode && episodeRequest
-      ? resolveEpisodeEmbed(currentEpisode.watch_url, episodeRequest)
-      : null;
+    currentEpisode && episodeRequest ? resolveEpisodeEmbed(trustedWatchUrl, episodeRequest) : null;
   /**
    * Doğrulama kapısı: `watch_url` BOŞSA bugünkü çözümleme megaplay ŞABLONUNDAN
    * üretilir (`.../stream/mal/...`) — yani "çözülen adres". Böyle bir adres
    * oynatıcıyı getirmiyorsa (bkz. `megaplayEmbedQuery`) gösterilmez; sıradaki
-   * kaynak/satır oynar. Veritabanına ELLE yazılmış adresler (Anizm/TauVideo)
-   * doğrulanmaz — dokunulmaz.
+   * kaynak/satır oynar. Doğrulanmış bölüm adresleri (Anizm/TauVideo) dokunulmaz.
    */
   const fallbackEmbed = isMegaplayStreamUrl(todayFallbackEmbed)
     ? verifiedMegaplayUrl
@@ -1106,15 +1349,14 @@ function WatchPage() {
    * YABANCI kutusuna düşer: tanınmayan bir dil kodu satırı görünmez kılmaz
    * (görünmeyen satır, izleyicinin bulamadığı kaynak demektir).
    *
-   * ⚠️ SÜZGEÇ: DİREKTİFİ ÇÖZÜLEMEYEN (adres üretilemeyen) satır listeye HİÇ GİRMEZ.
-   * NEDEN: böyle bir satır seçilirse oynatıcı boş adrese düşüyordu; kullanıcının
-   * tıklayıp 404/"video yok" ekranına düşebildiği bir düğme hiç gösterilmesin.
-   * Adresi ÇÖZÜLEBİLEN direktifler (ör. `@megaplay`) listede KALIR — yalnızca
-   * otomatik seçilmez (bkz. `autoSelectableChips`).
+   * ⚠️ SÜZGEÇ: ADRESİ ÇÖZÜLEMEYEN HİÇBİR satır listeye GİRMEZ (direktif olsun ya da
+   * olmasın). NEDEN: (a) çözülemeyen direktif seçilirse oynatıcı boş adrese düşer,
+   * (b) doğrulanmamış Anizm adresi (eski/yanlış bölüm) gösterilmemelidir. Kullanıcının
+   * tıklayıp 404/"video yok" ekranına düşebildiği ya da YANLIŞ bölüm oynatan bir
+   * düğme hiç gösterilmesin. Adresi ÇÖZÜLEBİLEN direktifler (ör. `@megaplay`) listede
+   * KALIR — yalnızca otomatik seçilmez (bkz. `autoSelectableChips`).
    */
-  const visibleChips = sourceChips.filter(
-    (chip) => !isDirective(chip.row.url) || Boolean(chip.url),
-  );
+  const visibleChips = sourceChips.filter((chip) => Boolean(chip.url));
 
   const rowEntries: SourceBoxEntry[] = visibleChips.map((chip) => ({
     key: chip.row.id,
@@ -1122,7 +1364,13 @@ function WatchPage() {
     label: sourceChipLabel(chip.row),
     title: isDirective(chip.row.url)
       ? t("watch.directiveTitle", { provider: readableProviderName(chip.row.provider) })
-      : chip.row.url,
+      : // ÇÖZÜLEN adres gösterilir — kayıttaki (`row.url`) değil. Kayıt BAYAT
+        // olabilir (S4 B19'da S1 B19'un adresi duruyordu) ve zaten oynatmada da
+        // kullanılmıyor. Kullanıcı geri bildirimi (01.10.2026): "Anizm çipinin
+        // ipucu eski bölümün adresini gösteriyor."
+        // `?? ""` yalnızca tip daralması içindir: `visibleChips` adresi olmayan
+        // satırları zaten eler, yani burada her zaman doğrulanmış adres durur.
+        (chip.url ?? ""),
     // Adresi çözülemeyen DİREKTİF satırı zaten `visibleChips` ile listeden
     // çıkarıldı; buradaki `disabled` emniyet kemeridir (beklenmedik bir durumda
     // oynatıcıyı boş adrese çevirmektense çip pasif kalsın — bkz. `pickedChip`).
@@ -1227,6 +1475,99 @@ function WatchPage() {
     group,
     entries: sourceBoxEntries.filter((entry) => entry.language === group.id),
   })).filter((box) => box.entries.length > 0);
+
+  /**
+   * TEK KAYNAK LİSTESİ — kullanıcı isteği (01.10.2026):
+   * "kaynak olarak 3 kaynağı da ekle sourcenin içine".
+   *
+   * Eskiden kaynaklar DİL GRUPLARINA bölünmüş ayrı kutularda çiziliyordu
+   * (Türkçe / Altyazı). Artık tek bir "Kaynak" satırı var ve bütün kaynaklar
+   * (Anizm · TauVideo · MegaPlay) onun İÇİNDE listelenir — referans izleme
+   * sayfasındaki tek `Source` kontrolüyle aynı düzen.
+   *
+   * Sıra korunur: `sourceBoxes` grupları hangi sırayla üretiyorsa düzleştirme
+   * de o sırayı verir, yani "seçili/varsayılan" kaynak yine en başta durur.
+   */
+  const allSourceEntries = sourceBoxes.flatMap((box) => box.entries);
+
+  /** Kaynak menüsünde görünen SEÇİLİ kaynak adı (hiçbiri seçili değilse ilk kaynak). */
+  const activeSourceLabel =
+    (allSourceEntries.find((entry) => entry.active) ?? allSourceEntries[0])?.label ?? "";
+
+  /**
+   * AUDIO (ses/altyazı) — referans şeridindeki `Audio SUB ▾` karşılığı.
+   *
+   * DÜRÜST SINIR: bizde ses ve kaynak AYRI EKSEN DEĞİL; her kaynak satırı kendi
+   * diliyle gelir (`row.language` = "sub" | "dub"). Yani dil değiştirmek aynı
+   * sağlayıcının diğer satırına geçmek demektir. Bu yüzden menü yalnızca
+   * GERÇEKTEN VAR OLAN dil satırlarını listeler; tek seçenek varsa menü hiç
+   * açılmaz, düz etiket olarak çizilir (boş açılır liste gösterilmez).
+   */
+  const activeLanguage =
+    (allSourceEntries.find((entry) => entry.active) ?? allSourceEntries[0])?.language ?? "tr";
+  const languageOptions = (["tr", "en"] as const)
+    .map((lang) => ({ lang, entry: allSourceEntries.find((entry) => entry.language === lang) }))
+    .filter((option): option is { lang: "tr" | "en"; entry: SourceBoxEntry } =>
+      Boolean(option.entry),
+    );
+  const activeAudioLabel = t(activeLanguage === "en" ? "watch.audioEn" : "watch.audioTr");
+
+  /**
+   * BİLDİR — bölüm bilgisini panoya kopyalar.
+   *
+   * ESKİ ŞERİTTE VARDI ve şerit yenilenirken BENİM silmemle kaybolmuştu; geri
+   * getirildi. Metin gerçek verilerden kurulur (başlık + sezon/bölüm + adres).
+   */
+  // NOT: bu satırlar bir `early return`in ALTINDA — bu yüzden DÜZ fonksiyon.
+  // `useCallback`/`useState` kullanılsaydı hook sırası değişir ve React kuralları
+  // kırılırdı.
+  /**
+   * BİLDİR — referans (lunarx) gibi bir PENCERE açar.
+   *
+   * KULLANICI GERİ BİLDİRİMİ (01.10.2026): ekran kaydında Bildir düğmesi
+   * "Report Anime Issue" diyaloğunu açıyor. Bizde yalnızca panoya kopyalıyordu.
+   *
+   * Yerel `<dialog>` kullanılır: Escape ile kapanır, arka planı karartır, odak
+   * tuzağı hazır gelir — React durumu gerekmez (bu yüzden hook sırası bozulmaz).
+   */
+  /**
+   * Aynı anda YALNIZCA BİR menü açık kalır.
+   *
+   * KULLANICI GERİ BİLDİRİMİ (01.10.2026): ekran görüntüsünde Kaynak ve Ses
+   * menüleri aynı anda açıkken birbirlerinin ÜSTÜNE biniyordu. Bir menü
+   * açıldığında kardeşleri kapatılır; böylece üst üste binme fiziksel olarak
+   * imkânsız hâle gelir.
+   *
+   * Kapanış da animasyonludur: `.watch-drop` sınıfı `display` geçişini
+   * `allow-discrete` ile canlandırır (bkz. `styles.css`).
+   */
+  const handleDetailsToggle = (event: React.SyntheticEvent<HTMLDetailsElement>) => {
+    const self = event.currentTarget;
+    if (!self.open) return;
+    const parent = self.parentElement;
+    if (!parent) return;
+    parent.querySelectorAll<HTMLDetailsElement>("details[open]").forEach((other) => {
+      if (other !== self) other.open = false;
+    });
+  };
+
+  const handleReport = () => {
+    const dialog = document.getElementById("watch-report-dialog");
+    if (dialog instanceof HTMLDialogElement) dialog.showModal();
+  };
+
+  /**
+   * TAM EKRAN — gerçek Fullscreen API (referans şeridindeki tam ekran ikonu).
+   * Zaten tam ekrandaysa çıkar; hata yutulur (tarayıcı izin vermeyebilir).
+   */
+  const handleFullscreen = () => {
+    if (typeof document === "undefined") return;
+    if (document.fullscreenElement) {
+      void document.exitFullscreen().catch(() => undefined);
+    } else {
+      void document.documentElement.requestFullscreen().catch(() => undefined);
+    }
+  };
 
   const watching = Boolean(episodeEmbed) && gateDone;
 
@@ -1459,45 +1800,8 @@ function WatchPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="sticky top-0 z-50 border-b border-border bg-background">
-        <div className="mx-auto flex h-[72px] w-full max-w-[1440px] items-center gap-4 px-4 lg:px-8">
-          {/* Yatay dolgu YOK: logonun sol kenarı oynatıcının sol kenarıyla tam
-              hizalansın (px-1 iken 3-4 px sağda kalıyordu). */}
-          <Link to="/" className="flex items-center gap-2 rounded-full py-1">
-            <img
-              src="/shanime-logo.png?v=6"
-              alt={t("common.logoAlt")}
-              width={1060}
-              height={856}
-              loading="eager"
-              decoding="async"
-              className="h-11 w-auto object-contain sm:h-12"
-            />
-            <span className="sr-only">{t("common.homeAria")}</span>
-          </Link>
-          {/* Seri adı detay sayfasına götürür. Sağdaki ayrı "Detay" bağlantısı
-              kaldırıldı: aynı işi görüyordu ve üst şeridi kalabalıklaştırıyordu. */}
-          <Link
-            to="/anime/$slug"
-            params={{ slug: showSlug(show) }}
-            // flex-1 YOK: bu bağlantı eskiden satırın ortasına kadar uzanan boş
-            // alanı da tıklanabilir yapıyordu — metnin çok sağında bile imleç
-            // "tıklanabilir" görünüyordu. Artık tıklama alanı metnin kendisi.
-            className="min-w-0 max-w-[60%] truncate text-sm font-bold text-muted-foreground transition-colors hover:text-accent"
-          >
-            {show.title}
-            {activeSeason && multipleSeasons ? ` · ${seasonLabel(activeSeason)}` : ""}
-          </Link>
-          {/* Dil değiştirici: her sayfada görünür (bu şerit sayfanın başlığıdır). */}
-          <LanguageToggle className="ml-auto" />
-          <Link
-            to="/"
-            className="flex shrink-0 items-center gap-1.5 text-sm font-bold text-muted-foreground transition-colors hover:text-accent"
-          >
-            <Home size={16} /> {t("common.home")}
-          </Link>
-        </div>
-      </header>
+      {/* ESKI SAYFA-ICI BASLIK SERIDI KALDIRILDI (01.10.2026): "header her yerde ayni olsun". */}
+      {/* Serit artik TEK yerde: `SiteHeader` -> `__root.tsx`. */}
 
       {/* Genişlik, üst şeritle AYNI kapsayıcıyı kullanır: oynatıcının sol kenarı
           logoyla, panelin sağ kenarı "Anasayfa" ile aynı hizada durur. */}
@@ -1508,6 +1812,75 @@ function WatchPage() {
             ? ` ${t("watch.srEpisodeWatch", { number: currentEpisode.number })}`
             : ` ${t("watch.srWatch")}`}
         </h1>
+
+        {/* SERİ ÜST BİLGİSİ — referans izleme sayfasının (lunarx) düzeni.
+            KULLANICI İSTEĞİ (01.10.2026): "oynatıcı üstüne bu sitedeki gibi
+            bölüm kapağı ... olsun".
+
+            Kapak solda; sağında geri bağlantısı, seri adı, sezon/bölüm satırı ve
+            künye çipleri. TÜM VERİ GERÇEKTİR (`fetchShowDetail` `select("*")`
+            yapar) — elimizde OLMAYAN alan (puan/yıldız vb.) HİÇ ÇİZİLMEZ.
+            Bağlantılar `Link`: gezinme sayfa yenilemeden olur. */}
+        <div className="mb-5 flex items-start gap-4">
+          <Link
+            to="/anime/$slug"
+            params={{ slug: showSlug(show) }}
+            tabIndex={-1}
+            aria-hidden="true"
+            className="shrink-0"
+          >
+            <img
+              src={show.image}
+              alt=""
+              width={72}
+              height={102}
+              loading="eager"
+              decoding="async"
+              className="h-[102px] w-[72px] rounded-lg object-cover"
+            />
+          </Link>
+          <div className="min-w-0 flex-1">
+            <Link
+              to="/anime/$slug"
+              params={{ slug: showSlug(show) }}
+              className="inline-flex items-center gap-1 text-xs font-semibold text-muted-foreground transition-colors hover:text-accent"
+            >
+              <span aria-hidden="true">‹</span>
+              {t("watch.backToSeries")}
+            </Link>
+            {/* show.title VERİTABANI içeriğidir → bilerek ÇEVRİLMEZ. */}
+            <h2 className="mt-1 truncate text-xl font-bold text-foreground sm:text-2xl">
+              {show.title}
+            </h2>
+            {/* Sezon/bölüm satırı YALNIZCA bölüm varsa çizilir; aksi hâlde
+                "0. Sezon 0. Bölüm" gibi anlamsız bir metin doğardı. */}
+            {currentEpisode ? (
+              <p className="mt-1 text-sm text-muted-foreground">
+                <span className="text-foreground/90">
+                  {t("common.seasonEpisode", {
+                    season: currentEpisode.season,
+                    n: currentEpisode.number,
+                  })}
+                </span>
+                {currentEpisode.title ? <span> · {currentEpisode.title}</span> : null}
+              </p>
+            ) : null}
+            <div className="mt-2 flex flex-wrap items-center gap-1.5">
+              {show.kind ? <span className={metaChipClass}>{show.kind}</span> : null}
+              {show.year ? <span className={metaChipClass}>{show.year}</span> : null}
+              {show.episode_count > 0 ? (
+                <span className={metaChipClass}>
+                  {t("watch.episodeCountChip", { count: show.episode_count })}
+                </span>
+              ) : null}
+              {genreChips.map((genre) => (
+                <span key={genre} className={metaChipClass}>
+                  {genre}
+                </span>
+              ))}
+            </div>
+          </div>
+        </div>
         {watchTop.isFetched && watchTop.code ? (
           <AdSlot slot="ad_watch_top" className="mb-5 flex justify-center" />
         ) : (
@@ -1558,259 +1931,315 @@ function WatchPage() {
           )}
         </div>
 
-        {/* OYNATICI KONTROL ŞERİDİ + ARDINDAN GELEN BİLGİ/SUNUCU SATIRI.
-            Yapı referanstan (anikoto/hianime) CANLI ÖLÇÜMLE alındı:
-              · şerit yüksekliği 38px · yazı 13.5px/400 · öğe 12.825px/400 ·
-                öğe iç boşluğu 0 5px
-              · öğeler DÜZ yazı + ikon (yuvarlak kutu, kenarlık, arka plan YOK)
-              · açık/kapalı SADECE ikonla belli olur (boş kare ↔ onaylı kare)
-              · şerit ile altındaki satır arasında BOŞLUK YOK; yuvarlaklık yalnızca
-                bloğun EN ALTINDA — böylece ikisi tek parça gibi durur
-            Bizdeki bilinçli farklar (kullanıcı isteği):
-              · sağda yalnızca "Bildir" (Add to list / Watch Together istenmedi)
-              · renkler referansın mavi-grisi yerine BİZİM tema (accent + muted) */}
+        {/* OYNATICI ALT ŞERİDİ — referans (lunarx) düzeni.
+            KULLANICI İSTEĞİ (01.10.2026): "oynatıcının altındaki şeyleri tamamen
+            kaldır, onunki ile aynı yap ... oynatıcının altına koyacaksın, birleşik
+            olmayacak".
+
+            ESKİDEN İKİ AYRI BLOK VARDI:
+              (1) `Genişlet · Otomatik oynatma · Otomatik atlama · Önceki ·
+                  Sonraki · Bildir` şeridi
+              (2) ayrı bir "BİLGİ + SUNUCU" kutusu (dil gruplarına bölünmüş
+                  kaynak kutuları)
+            İKİSİ DE KALDIRILDI. Yerine TEK satır geldi: solda Kaynak menüsü,
+            sağda ikon aksiyonları — ayrı kutu değil, oynatıcının altında tek
+            şerit.
+
+            KAYNAK MENÜSÜ NEDEN `<details>`: açma/kapama için ek React durumu
+            gerekmez, tarayıcı yerel olarak yönetir, klavyeyle de çalışır ve
+            dışarı tıklama sorunu doğmaz. İçinde ÜÇ kaynağın TAMAMI listelenir
+            (Anizm · TauVideo · MegaPlay); hiçbiri kaldırılmadı.
+            Oynatıcı mantığı AYNEN korunur: `entry.select` / `entry.active` /
+            `entry.disabled` / `entry.pending`. */}
+        {/* OYNATICI ALT ŞERİDİ — referans düzeni.
+            KULLANICI GERİ BİLDİRİMİ (01.10.2026): "sadece şunun aynısını
+            yapacaksın ... videoya yapıştırmışsın".
+
+            ÖNEMLİ: şerit videoya YAPIŞIK DEĞİLDİR. Referansta oynatıcının
+            ALTINDA, ayrı ve YUVARLAK KÖŞELİ bir çubuktur — oynatıcı ile arasında
+            boşluk vardır ve kendi çerçevesi/zemini vardır. (Daha önce "yapışık
+            olmalı" diye düşünüp boşluğu ve köşeleri kaldırmıştım; bu YANLIŞTI,
+            geri alındı.)
+
+            GENİŞLİK: çubuk ana içerik kolonunun genişliğindedir; SAĞA TAŞMAZ
+            (kullanıcı: "hâlâ bizim o yer sağa kadar uzuyor"). */}
         <div
           className={cn(
-            // Yükseklik referanstan: satır yüksekliği 2.8rem = 37.8px ≈ 38px (kök 13.5px).
-            // Telefonda öğeler alt satıra indiği için yükseklik orada sabit değil.
-            "flex items-center justify-between gap-x-2 rounded-b-2xl border-x border-b border-border bg-card px-2.5 py-1.5 text-[11.4px] font-normal text-muted-foreground sm:h-[38px] sm:py-0 sm:text-[12.825px]",
+            "mt-3 flex flex-wrap items-center justify-between gap-x-6 gap-y-3 rounded-xl border border-border bg-card px-4 py-3",
+            // GENİŞLİK OYNATICIYLA AYNI OLSUN.
+            //
+            // `pr` DEĞİL `mr` — ÖLÇÜMLE ÖĞRENİLDİ: `box-sizing: border-box`
+            // olduğu için `padding-right` kutunun DIŞINI küçültmez, yalnızca
+            // içeriği içeri kaydırır. `pr-[340px]` ile şeridin dış kutusu yine
+            // 1376 px kalıyordu ve sağ kenarı 1480,5'te duruyordu; oynatıcının
+            // sağ kenarı ise 1140,5 → 340 px taşma sürüyordu. `margin-right`
+            // ise kutunun KENDİSİNİ daraltır, yani hizalar.
+            //
+            // Boşluk AYNI koşula bağlı: panel yüzmüyorsa (mobil/tablet)
+            // uygulanmaz, yoksa şerit gereksiz daralır.
             floatingSidebar && "mr-[340px]",
           )}
         >
-          {/* Dar ekranda öğeler TAŞMAZ: alt satıra iner (referansın telefonda
-              şeridi satırlara sarması gibi); geniş ekranda tek satır kalır. */}
-          <div className="flex min-w-0 flex-wrap items-center whitespace-nowrap sm:flex-nowrap">
-            {/* "Genişlet" yalnızca masaüstünde anlamlı: panel orada oynatıcının
-                sağına konumlanıyor. Telefon/tablette panel zaten videonun altında
-                olduğu için düğme hiçbir şey değiştirmiyordu — referans da bu
-                düğmeyi dar ekranda gizliyor. */}
-            {isDesktop && (
-              <button
-                type="button"
-                aria-pressed={wide}
-                onClick={() => setWide((value) => !value)}
-                className={stripItem}
-              >
-                <FaSolid name="expand" /> {t("watch.expand")}
-              </button>
-            )}
-            {(
-              [
-                {
-                  on: autoPlay,
-                  toggle: () => setAutoPlay((value) => !value),
-                  label: t("watch.autoPlay"),
-                },
-                // "Otomatik geçiş" (Oto. Sonraki Bölüm) buradan KALDIRILDI:
-                // kullanıcı isteğiyle bölüm listesinin üstündeki panele taşındı
-                // (bkz. EpisodeSidebar → SidebarSwitch).
-                {
-                  on: autoSkip,
-                  toggle: () => setAutoSkip((value) => !value),
-                  label: t("watch.autoSkip"),
-                  accent: true,
-                },
-              ] satisfies { on: boolean; toggle: () => void; label: string; accent?: boolean }[]
-            ).map((item) => (
-              <button
-                key={item.label}
-                type="button"
-                aria-pressed={item.on}
-                onClick={item.toggle}
-                // Renk çakışması `cn` ile çözülür: `stripItem` içindeki
-                // `text-muted-foreground` ile `text-accent` AYNI özelliği yazar;
-                // eskiden ikisi birlikte yazıldığı için kazananı CSS sırası
-                // belirliyordu ve "Otomatik atlama" gri kalıyordu.
-                className={cn(stripItem, item.accent && "text-accent")}
-              >
-                {/* Referansın (anikoto) ikon mantığı — canlı HTML'den birebir:
-                      data-off='<i class="fa-solid fa-square"></i> ...'
-                      data-on='<i class="fa-solid fa-check"></i> ...'
-                    Yani KAPALI = dolu kare, AÇIK = kalın tik. İkonlar Font Awesome
-                    SOLID ve yazıyla aynı ölçekte (1em); önceki 12px ince çizgili
-                    ikonlar referansın yanında "boş/soluk" kalıyordu. */}
-                <FaSolid name={item.on ? "check" : "square"} />
-                {item.label}
-              </button>
-            ))}
+          <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
+            <details className="group relative" onToggle={handleDetailsToggle}>
+              <summary className="flex cursor-pointer list-none items-center gap-1.5 text-[13px] text-muted-foreground transition-colors hover:text-foreground">
+                {t("watch.sourceLabel")}
+                <span className="font-semibold text-foreground">{activeSourceLabel}</span>
+                <span
+                  aria-hidden="true"
+                  className="text-[10px] transition-transform group-open:rotate-180"
+                >
+                  ▾
+                </span>
+              </summary>
+              {/* MENÜ PANELİ — referansın (lunarx) açılır menüsüyle aynı yapı:
+                  üstte liste başlığı, altında BÜYÜK HARFLİ seçenekler ve SEÇİLİ
+                  olanda sağda ✓ işareti. Panel kendi kutusu olarak açılır. */}
+              <div className="absolute left-0 bottom-full z-30 mb-1 watch-drop min-w-[210px] overflow-hidden rounded-xl border border-border bg-popover py-1 shadow-2xl">
+                <p className="px-3.5 pb-1 pt-1.5 text-[10px] font-bold uppercase tracking-widest text-muted-foreground/70">
+                  {t("watch.sourceLabel")}
+                </p>
+                {allSourceEntries.map((entry) => (
+                  <button
+                    key={entry.key}
+                    type="button"
+                    disabled={entry.disabled}
+                    onClick={entry.select}
+                    title={entry.title}
+                    className={cn(
+                      "flex w-full items-center justify-between gap-3 px-3.5 py-2 text-left text-[12.5px] font-semibold uppercase tracking-wide transition-colors",
+                      entry.active
+                        ? "bg-secondary text-foreground"
+                        : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground",
+                      entry.disabled && "cursor-not-allowed opacity-50",
+                    )}
+                  >
+                    <span className="flex min-w-0 items-center gap-2">
+                      {entry.pending ? <Loader2 size={13} className="animate-spin" /> : null}
+                      <span className="truncate">{entry.label}</span>
+                      {/* TR İŞARETİ — yalnızca TÜRKÇE altyazılı kaynaklarda.
+                          KULLANICI İSTEĞİ (01.10.2026): "türkçe altyazılı olanların
+                          yanında açık kırmızı renkle TR yaz".
+                          Renk temanın kırmızısıdır (`--primary`), böylece şeridin
+                          geri kalanıyla aynı paleti paylaşır. */}
+                      {entry.language === "tr" ? (
+                        <span className="shrink-0 text-[10px] font-bold leading-none text-primary">
+                          TR
+                        </span>
+                      ) : null}
+                    </span>
+                    {entry.active ? <span aria-hidden="true">✓</span> : null}
+                  </button>
+                ))}
+              </div>
+            </details>
 
-            {/* "Işık" da şeritten kaldırıldı: "Sahne Işıkları" adıyla bölüm
-                listesinin üstündeki panele taşındı (animecix düzeni). */}
-
-            {/* Önceki / Sonraki bölüm de bu şeritte (referanstaki gibi). */}
-            {activeSeason && currentEpisode && (
-              <EpisodeNav
-                slug={showSlug(show)}
-                multipleSeasons={multipleSeasons}
-                previous={previous}
-                upcoming={upcoming}
-              />
+            {/* AUDIO — referanstaki `Audio SUB ▾` karşılığı. Tek dil satırı varsa
+                menü DEĞİL, düz etiket çizilir (boş açılır liste gösterilmez). */}
+            {languageOptions.length > 1 ? (
+              <details className="group relative" onToggle={handleDetailsToggle}>
+                <summary className="flex cursor-pointer list-none items-center gap-1.5 text-[13px] text-muted-foreground transition-colors hover:text-foreground">
+                  {t("watch.audioLabel")}
+                  <span className="font-semibold text-foreground">{activeAudioLabel}</span>
+                  <span
+                    aria-hidden="true"
+                    className="text-[10px] transition-transform group-open:rotate-180"
+                  >
+                    ▾
+                  </span>
+                </summary>
+                <div className="absolute left-0 bottom-full z-30 mb-1 watch-drop min-w-[190px] overflow-hidden rounded-xl border border-border bg-popover py-1 shadow-2xl">
+                  <p className="px-3.5 pb-1 pt-1.5 text-[10px] font-bold uppercase tracking-widest text-muted-foreground/70">
+                    {t("watch.audioLabel")}
+                  </p>
+                  {languageOptions.map(({ lang, entry }) => (
+                    <button
+                      key={lang}
+                      type="button"
+                      disabled={entry.disabled}
+                      onClick={entry.select}
+                      className={cn(
+                        "flex w-full items-center justify-between gap-3 px-3.5 py-2 text-left text-[12.5px] font-semibold uppercase tracking-wide transition-colors",
+                        lang === activeLanguage
+                          ? "bg-secondary text-foreground"
+                          : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground",
+                        entry.disabled && "cursor-not-allowed opacity-50",
+                      )}
+                    >
+                      <span>{t(lang === "en" ? "watch.audioEn" : "watch.audioTr")}</span>
+                      {lang === activeLanguage ? <span aria-hidden="true">✓</span> : null}
+                    </button>
+                  ))}
+                </div>
+              </details>
+            ) : (
+              <span className="flex items-center gap-1.5 text-[13px] text-muted-foreground">
+                {t("watch.audioLabel")}
+                <span className="font-semibold text-foreground">{activeAudioLabel}</span>
+              </span>
             )}
           </div>
 
-          {/* Sağ grup tek kapta: kapsayıcı `justify-between` olduğu için iki çocuk
-              kalması düzeni korur (sol grup solda, bu grup sağda). */}
-          <div className="ml-auto flex shrink-0 items-center gap-2">
-            {/* Geçiş/jenerik bilgisi — "Bildir"in solunda.
-                NEDEN: kullanıcı "süreyi geçti, geçmedi" diyordu; otomatik geçişin
-                NEDEN ve NE ZAMAN olduğunu görebilmesi için kısa bir bilgi. */}
-            {advancing && (
-              <span className="inline-flex animate-pulse items-center gap-1.5 px-1.5 text-[11.4px] font-bold text-accent sm:text-[12.825px]">
-                <FaSolid name="forwardStep" /> {advancing}
-              </span>
-            )}
-            {!advancing && skipHint && (
-              <span className="hidden items-center gap-1.5 px-1.5 text-[11.4px] text-muted-foreground/80 sm:inline-flex sm:text-[12.825px]">
-                {skipHint}
-              </span>
-            )}
-
+          {/* SAĞ: ikon aksiyonları. Yalnızca GERÇEKTEN gidecek yeri olanlar
+              çizilir — tıklanınca hiçbir şey yapmayan düğme konmaz. */}
+          {/* SAĞ: yalnızca SİNEMA MODU ve BİLDİR.
+              KULLANICI İSTEĞİ (01.10.2026): "sağ tarafta bildir ve tam ekran
+              düğmesi dışındakileri sil". Bu yüzden Detaylar, TV, MAL, işaretle,
+              yorumlar ve ayarlar düğmeleri KALDIRILDI. */}
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-2 text-[12.5px] text-muted-foreground">
+            {/* SİNEMA MODU — tam ekran DEĞİLDİR.
+                KULLANICI İSTEĞİ: "o tam ekran simgesi yanlış çalışıyor; o tam
+                ekran değil sinema modu olması gerekiyor". Oynatıcıyı tam genişliğe
+                açar ve yüzen bölüm panelini aşağı indirir (`wide` durumu). */}
             <button
               type="button"
-              onClick={() => void copyReport()}
+              onClick={() => setWide((open) => !open)}
+              aria-pressed={wide}
+              title={t("watch.cinemaMode")}
+              aria-label={t("watch.cinemaMode")}
               className={cn(
-                stripItem,
-                // KOPYALANDIĞI GÖRÜNSÜN: kopyalama görünmez bir işlem olduğu için
-                // düğme yeşile dönüp onay ikonu gösteriyor (denetim: "hiçbir şey
-                // olmuyor" sanılıyordu).
-                reportCopied && "font-bold text-emerald-600 hover:text-emerald-600",
+                "grid size-7 place-items-center rounded-md transition-colors hover:bg-secondary hover:text-foreground",
+                wide && "bg-secondary text-foreground",
               )}
-              title={t("watch.reportTitle")}
             >
-              <FaSolid name={reportCopied ? "check" : "triangleExclamation"} />{" "}
-              {reportCopied ? t("watch.reportCopied") : t("watch.report")}
+              <FaSolid name="expand" aria-hidden="true" />
+            </button>
+            {/* BİLDİR — pencere açar ve şeridin EN SAĞINDA durur. */}
+            <button
+              type="button"
+              onClick={handleReport}
+              title={t("watch.reportAction")}
+              aria-label={t("watch.reportAction")}
+              className="grid size-7 place-items-center rounded-md transition-colors hover:bg-secondary hover:text-foreground"
+            >
+              <FaSolid name="triangleExclamation" aria-hidden="true" />
             </button>
           </div>
         </div>
 
-        {/* BİLGİ + SUNUCU BLOĞU — referansın `#w-servers` düzeni, oynatıcıdan AYRI:
-              · referans: `#w-servers{margin-top:10px;border-radius:5px;overflow:hidden}`
-                yani şeritten 10px boşlukla ayrılan, kendi çerçeveli kutusu
-              · solda bilgi paneli (kendi dolgusu + sağ kenarında ayraç çizgisi)
-              · sağda satırlar; satırlar arasında KESİK çizgi
-                (referans: `.type+.type{border-top:1px dashed #142030}`)
-              · her satırın başında DOLU ikon + etiket (referansta SUB/DUB/DL),
-                her çipte dolu daire-oynat glifi; yalnızca SEÇİLİ çip renkli
-            Referansta SUB/HSUB/DUB/DL satırları var; bizde ise TAM İKİ kutu:
-            kaynaklar panelin işaretlediği `episode_sources` satırlarından gelir ve
-            satırın `language` alanına göre TÜRKÇE / YABANCI kutusuna dağılır
-            (kullanıcı isteği 27.09.2026: "4 kutu görüyorum, 2 kutu olmalı"). */}
-        <div
-          className={cn(
-            "mt-2.5 flex flex-col overflow-hidden rounded-2xl border border-border bg-card transition-opacity sm:flex-row",
-            floatingSidebar && "mr-[340px]",
-            dim && "opacity-40",
-          )}
+        {/* BİLDİR PENCERESİ — referans (lunarx) "Report Anime Issue" diyaloğunun
+            karşılığı. Yerel `<dialog>`: Escape ile kapanır, arka planı karartır,
+            odak tuzağı hazır gelir; ek React durumu GEREKMEZ.
+            Pencere, şeridin KARDEŞİDİR (içine gömülü değil), bu yüzden şeridin
+            yerleşimini etkilemez. */}
+        <dialog
+          id="watch-report-dialog"
+          aria-labelledby="watch-report-title"
+          className="m-auto w-[min(92vw,420px)] rounded-xl border border-border bg-popover p-0 text-foreground backdrop:bg-black/70 motion-safe:animate-pop-in motion-reduce:animate-none"
+          onClick={(event) => {
+            // Yalnızca ARKA PLANA tıklanınca kapanır; içerideki tıklamalar kapatmaz.
+            if (event.target === event.currentTarget) event.currentTarget.close();
+          }}
         >
-          {/* Sol panel — referansta metin ORTALANMIŞ durur; aynı düzeni kurduk.
-              Ton: `bg-secondary/30` şeritle BİREBİR aynı piksele düşüyordu (ikisi de
-              #040507), panel ayırt edilemiyordu; bu yüzden ön plandan hafif bir açık
-              katman (%7) kullanılıyor. Panelin sağ kenarındaki çizgi, referanstaki
-              `#w-servers` içindeki dikey ayracın karşılığı. */}
-          <p className="flex items-center justify-center bg-foreground/[0.07] px-[15px] py-3.5 text-center text-[13.5px] leading-relaxed text-muted-foreground sm:w-[300px] sm:shrink-0 sm:border-r sm:border-border">
-            <span>
-              {/* Cümle İKİ anahtara bölünür: kalın kısım diller arasında aynı rolü
-                  korur ("3. bölümü" ↔ "Episode 3"), kuyruk ayrı çevrilir. Böylece
-                  İngilizce kelime sırası bozulmadan kalın kapsamı korunur. */}
-              <b className="text-foreground">
-                {t("watch.nowWatchingStrong", { number: currentEpisode?.number ?? "-" })}
-              </b>{" "}
-              {t("watch.nowWatchingTail")}
-              <br />
-              {t("watch.tryOtherSource")}
-            </span>
-          </p>
-
-          {/* Sağ alan — İKİ kutu: TÜRKÇE ve YABANCI.
-              Kullanıcı isteği (27.09.2026): "4 kutu görüyorum, 2 kutu olmalı; Türkçe
-              olanları bir yerde, yabancıları bir yerde topla." Burada eskiden İKİ kod
-              yolu vardı: (a) sabit Anizm/Megaplay satırları, (b) panelden gelen
-              `episode_sources` grupları. Aynı kaynak iki kez çizildiği için ekranda
-              DÖRT kutu görünüyordu; artık TEK liste (`sourceBoxes`) çizilir, yani
-              çift çizim yapısal olarak imkânsız.
-              Satır ölçüleri referanstan (`#w-servers .servers .type`): satır iç
-              boşluğu `10px 15px`, satırlar arası KESİK çizgi, etiket `min-width:70px`.
-              Kutu başlığı yalnızca o dilde kaynak VARSA çizilir: boş kutu oynatıcının
-              altını kalabalıklaştırırdı. Satırsız bölümde geriye dönük uyumluluk
-              girdileri devreye girer (`fallbackEntries`) — sayfa kaynak arayüzünü
-              hiçbir durumda kaybetmez. */}
-          <div className="flex flex-1 flex-col justify-center border-t border-dashed border-border sm:border-t-0">
-            {/*
-              ÖZEL BÖLÜM (`0. Bölüm`) — KAYNAK YOK DURUMU.
-              Kullanıcı isteği (29.09.2026, ikinci tur): "oynatılabilir kaynak yoksa
-              404 YERİNE net bir 'Bu bölüm için kaynak yok' durumu (ve varsa diğer
-              bölümler listesi) gösterilsin." Metin BİREBİR budur; kaynak
-              uydurulmaz ve ep 1'e düşülmez.
-            */}
-            {isSpecial ? (
-              <div className="flex flex-wrap items-center gap-2 px-[15px] py-[10px]">
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/50 bg-amber-500/10 px-2.5 py-1 text-[12px] font-bold text-amber-500">
-                  <FaSolid name="triangleExclamation" />
-                  {t("watch.specialNoSource")}
-                </span>
-                <span className="text-[12px] text-muted-foreground">
-                  {t("watch.specialNoSourceHint")}
-                </span>
-              </div>
-            ) : null}
-            {sourceBoxes.map((box, index) => (
-              <div
-                key={box.group.id}
-                className={cn(
-                  "flex flex-wrap items-center px-[15px] py-[10px]",
-                  // İlk kutunun üstündeki ayraç kapsayıcının `border-t` değerinden gelir;
-                  // sonrakiler referanstaki `.type+.type` gibi kesik çizgiyle ayrılır.
-                  index > 0 && "border-t border-dashed border-border",
-                )}
+          <form method="dialog" className="flex flex-col gap-3 p-5">
+            <h2 id="watch-report-title" className="text-base font-bold">
+              {t("watch.reportTitle")}
+            </h2>
+            <p className="text-[13px] text-muted-foreground">{t("watch.reportIntro")}</p>
+            <p className="rounded-lg border border-border bg-card px-3 py-2 text-[12.5px]">
+              {t("watch.reportCurrent")}:{" "}
+              <strong>
+                {currentEpisode
+                  ? t("common.seasonEpisode", {
+                      season: currentEpisode.season,
+                      n: currentEpisode.number,
+                    })
+                  : "—"}
+              </strong>
+            </p>
+            <textarea
+              name="detail"
+              rows={3}
+              placeholder={t("watch.reportPlaceholder")}
+              className="w-full resize-y rounded-lg border border-border bg-card px-3 py-2 text-[13px] outline-none focus:border-primary"
+            />
+            <div className="mt-1 flex items-center justify-end gap-2">
+              <button
+                type="submit"
+                value="cancel"
+                className="rounded-lg border border-border px-3 py-1.5 text-[12.5px] font-semibold text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
               >
-                <span className="mr-2.5 inline-flex w-[86px] shrink-0 items-center gap-1.5 text-[13.5px] text-muted-foreground">
-                  <FaSolid name={box.group.icon} /> {t(box.group.titleKey)}
-                </span>
-                <div
-                  className={cn(
-                    "gap-1.5",
-                    /*
-                      DİĞER ÇEVİRİLER ALT ALTA (kullanıcı isteği, 28.09.2026):
-                      "diğer çeviriler alt alta görünsün bide ya." Bu grupta kaynak
-                      sayısı arttıkça yan yana dizmek satırı taşırıyor ve hangi
-                      kaynağın hangisi olduğu zor okunuyordu; artık dikey liste
-                      (her satır tam genişlik). ALTYAZI grubu yan yana kalır —
-                      2-3 çip orada sorunsuz sığıyor ve üstteki kompakt görünümü
-                      koruyor.
-                    */
-                    box.group.id === "en"
-                      ? "flex flex-col items-stretch"
-                      : "flex flex-wrap items-center",
-                  )}
-                >
-                  {box.entries.map((entry) => (
-                    <button
-                      key={entry.key}
-                      type="button"
-                      disabled={entry.disabled}
-                      onClick={entry.select}
-                      // O AN OYNAYAN kaynak, ekran görüntüsündeki `Türkçe → Anizm`
-                      // satırıyla AYNI sarı (accent) dolguyla boyanır: yeni bir aktif
-                      // stil açılmadı, mevcut `serverChip` kullanılıyor.
-                      className={cn(
-                        serverChip(entry.active),
-                        entry.disabled && "cursor-not-allowed opacity-50",
-                      )}
-                      title={entry.title}
+                {t("watch.reportCancel")}
+              </button>
+              <button
+                type="submit"
+                value="send"
+                className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-[12.5px] font-semibold text-primary-foreground transition-opacity hover:opacity-90"
+              >
+                <FaSolid name="triangleExclamation" aria-hidden="true" />
+                {t("watch.reportAction")}
+              </button>
+            </div>
+          </form>
+        </dialog>
+        {/* SEZONLAR — referans izleme sayfasındaki `SEASONS` şeridi.
+              KULLANICI İSTEĞİ (01.10.2026): "sezon şeyleri de var onu da ekleyelim".
+              Yalnızca GERÇEK komşu sezonlar çizilir; olmayan taraf için boş kart
+              ÜRETİLMEZ. Kart `Link`: sayfa yenilenmeden o sezonun 1. bölümüne
+              gider. */}
+        {multipleSeasons && (previousSeason || upcomingSeason) ? (
+          <section className="mt-3 w-full">
+            <h2 className="mb-2 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+              {t("watch.seasonsHeading")}
+            </h2>
+            <div className="flex flex-wrap gap-3">
+              {[
+                { season: previousSeason, labelKey: "watch.previousSeason" as const },
+                { season: upcomingSeason, labelKey: "watch.nextSeason" as const },
+              ]
+                .filter(
+                  (
+                    entry,
+                  ): entry is {
+                    season: SeasonWithEpisodes;
+                    labelKey: "watch.previousSeason" | "watch.nextSeason";
+                  } => entry.season !== null,
+                )
+                .map(({ season, labelKey }) => (
+                  <Link
+                    key={labelKey}
+                    to="/anime/$slug/season/$season/episode/$episode"
+                    params={{
+                      slug: showSlug(show),
+                      season: String(season.number),
+                      episode: String(season.episodes[0]?.number ?? 1),
+                    }}
+                    preload={false}
+                    className="group flex w-full min-w-0 max-w-[380px] items-center gap-3 rounded-xl border border-border bg-card p-2.5 transition-colors hover:bg-secondary"
+                  >
+                    <img
+                      src={seasonCover(season.number)}
+                      alt=""
+                      width={48}
+                      height={68}
+                      loading="lazy"
+                      decoding="async"
+                      className="h-[68px] w-12 shrink-0 rounded-md object-cover"
+                    />
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+                        {t(labelKey)}
+                      </span>
+                      {/* show.title VERİTABANI içeriğidir → ÇEVRİLMEZ. */}
+                      <span className="mt-0.5 block truncate text-sm font-bold text-foreground">
+                        {show.title}
+                      </span>
+                      <span className="mt-0.5 block text-xs text-muted-foreground">
+                        {t("watch.seasonNumber", { n: season.number })} ·{" "}
+                        {t("watch.episodeCountChip", { count: season.episodes.length })}
+                      </span>
+                    </span>
+                    <span
+                      aria-hidden="true"
+                      className="shrink-0 text-lg text-muted-foreground transition-transform group-hover:translate-x-0.5"
                     >
-                      {entry.pending ? (
-                        <Loader2 size={13} className="animate-spin" />
-                      ) : (
-                        <FaSolid name="circlePlay" className="text-[0.8em]" />
-                      )}
-                      {entry.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
+                      ›
+                    </span>
+                  </Link>
+                ))}
+            </div>
+          </section>
+        ) : null}
 
         {/* TELEFON / TABLET BÖLÜM PANELİ (ve masaüstünde "Genişlet" açıkken).
             Yeri bilinçle EN SONDA: şerit ile bilgi/sunucu satırı her boyutta
@@ -1942,10 +2371,13 @@ function PlayerBox({
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
   return (
-    // Alt köşeler DÜZ ve alt kenarlık YOK: hemen altında kontrol şeridi + bilgi
-    // satırı tek blok hâlinde devam ediyor. Videoyu alttan yuvarlatınca/blok
-    // sınırı çizince arada basamak gibi bir çentik görünüyordu.
-    <div className="relative overflow-hidden rounded-t-2xl border-x border-t border-border bg-black">
+    // KÖŞELER: eskiden `rounded-t-2xl` + `border-x border-t` idi — yalnızca ÜST
+    // köşeler yuvarlak, alt köşeler DÜZ ve alt kenarlık yoktu. O tasarım,
+    // oynatıcının altına YAPIŞIK bir şerit varsayımından kalmaydı; şerit artık
+    // AYRI bir çubuk (aşağıdaki `mt-3 … rounded-xl`). Kullanıcı isteği
+    // (01.10.2026): "video sadece üstü kavisli, altı da kavisli olsun"
+    // → DÖRT köşe yuvarlak + tam çerçeve.
+    <div className="relative overflow-hidden rounded-2xl border border-border bg-black">
       {watching ? (
         directSrc ? (
           // Kendi oynatıcımız. YALNIZCA bölümün doğrudan (mp4/HLS) adresi

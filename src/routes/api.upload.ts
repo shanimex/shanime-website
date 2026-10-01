@@ -19,8 +19,16 @@ import { AwsClient } from "aws4fetch";
 import { createClient } from "@supabase/supabase-js";
 import { createFileRoute } from "@tanstack/react-router";
 
-/** Tek dosya üst sınırı — kapak/banner için fazlasıyla yeter. */
-const MAX_BYTES = 8 * 1024 * 1024;
+/**
+ * Tek dosya üst sınırı.
+ *
+ * KULLANICI KARARI (30.09.2026): mp4 sınırı 8 MB idi ve gerçek bir video sığmıyordu
+ * ("video yüklerken hata aldım"). 100 MB'a çıkarıldı: kısa bir 1080p klip rahat
+ * sığar, R2'nin 10 GB'lık bedava kotası bunu kaldırır (egress zaten ücretsiz).
+ * Vitrin videosunu LİNK (YouTube/Vimeo) olarak vermek istersen yükleme hiç
+ * gerekmez — bkz. `lib/hero-video.ts`; o yolda sınır yok.
+ */
+const MAX_BYTES = 100 * 1024 * 1024;
 /** Yazılabilir klasörler (anahtar başına eklenir, `..` yasaktır). */
 const ALLOWED_FOLDERS = new Set(["posters", "banners", "banner-videos", "covers"]);
 /** Kabul edilen içerik türleri. */
@@ -45,13 +53,35 @@ function r2() {
   return { client, endpoint: `https://${account}.r2.cloudflarestorage.com`, bucket, publicUrl };
 }
 
-/** Oturum token'ından admin doğrular; sorun varsa HTTP durumu döner. */
-async function adminProblem(request: Request): Promise<number | null> {
+/**
+ * Oturum token'ından admin doğrular.
+ *
+ * DÖNÜŞ: izin verilirse `null`; yoksa **durum + AÇIK SEBEP**.
+ *
+ * NEDEN SEBEP (ölçüm 30.09.2026): eskiden yalnızca durum kodu dönüyordu ve eksik
+ * yapılandırmada gövde "Yetkisiz." yazıyordu. Kullanıcı panelde fotoğraf eklerken
+ * **500** aldı ama sebebini göremedi: gerçek neden `SUPABASE_URL` /
+ * `SUPABASE_PUBLISHABLE_KEY` değerlerinin sunucu ortamında BULUNMAMASIYDI
+ * (yeni Cloudflare emülasyonu bu değerleri `.env`den değil `.dev.vars`tan okur).
+ * Artık hangi anahtarın eksik olduğu ve nereye yazılacağı doğrudan yazılıyor.
+ */
+async function adminProblem(request: Request): Promise<{ status: number; message: string } | null> {
   const token = (request.headers.get("authorization") ?? "").replace(/^Bearer\s+/i, "");
-  if (!token) return 401;
+  if (!token) return { status: 401, message: "Oturum bulunamadı — panelden yeniden giriş yap." };
   const url = env("SUPABASE_URL");
   const key = env("SUPABASE_PUBLISHABLE_KEY");
-  if (!url || !key) return 500;
+  if (!url || !key) {
+    const missing = [
+      ...(!url ? ["SUPABASE_URL"] : []),
+      ...(!key ? ["SUPABASE_PUBLISHABLE_KEY"] : []),
+    ];
+    return {
+      status: 500,
+      message:
+        `Sunucu yapılandırması eksik: ${missing.join(", ")}. ` +
+        `Yerelde .dev.vars dosyasına, üretimde Cloudflare Pages → Settings → Variables bölümüne ekle.`,
+    };
+  }
   try {
     const sb = createClient(url, key, {
       global: { headers: { Authorization: `Bearer ${token}` } },
@@ -59,18 +89,29 @@ async function adminProblem(request: Request): Promise<number | null> {
     });
     const { data, error } = await sb.auth.getUser(token);
     const userId = data?.user?.id;
-    if (error || !userId) return 401;
+    if (error || !userId) return { status: 401, message: "Oturum geçersiz — yeniden giriş yap." };
     const { data: role } = await sb
       .from("user_roles")
       .select("id")
       .eq("user_id", userId)
       .eq("role", "admin")
       .maybeSingle();
-    return role ? null : 403;
+    return role ? null : { status: 403, message: "Bu hesap admin değil." };
   } catch {
-    return 503;
+    return { status: 503, message: "Kimlik doğrulanamadı (Supabase'e ulaşılamadı)." };
   }
 }
+
+/** Sunucu rotalarının ihtiyaç duyduğu ortam değişkenleri (değer DEĞİL, varlık denetimi). */
+const REQUIRED_ENV = [
+  "R2_ACCOUNT_ID",
+  "R2_ACCESS_KEY_ID",
+  "R2_SECRET_ACCESS_KEY",
+  "R2_BUCKET",
+  "R2_PUBLIC_URL",
+  "SUPABASE_URL",
+  "SUPABASE_PUBLISHABLE_KEY",
+] as const;
 
 function extOf(name: string, type: string): string {
   const fromName = (name.split(".").pop() ?? "").toLowerCase().slice(0, 8);
@@ -86,9 +127,28 @@ function extOf(name: string, type: string): string {
 export const Route = createFileRoute("/api/upload")({
   server: {
     handlers: {
+      /**
+       * YALNIZCA GELİŞTİRME: ortam değişkenleri görünüyor mu? (DEĞER ASLA DÖNMEZ.)
+       *
+       * NEDEN: "500 aldım ama neden?" sorusu kör noktaydı. Dev'de bu uca bakınca
+       * hangi anahtarın eksik olduğu anında görülür; üretimde 405 döner (bilgi
+       * sızdırmaz).
+       */
+      GET: async () => {
+        if (!import.meta.env.DEV) return new Response("Yöntem desteklenmiyor.", { status: 405 });
+        const present = Object.fromEntries(
+          REQUIRED_ENV.map((key) => [key, env(key).length > 0]),
+        ) as Record<string, boolean>;
+        return Response.json({
+          ok: Object.values(present).every(Boolean),
+          present,
+          note: "Yerelde .dev.vars, üretimde Pages → Settings → Variables okunur.",
+        });
+      },
+
       POST: async ({ request }) => {
         const denied = await adminProblem(request);
-        if (denied) return new Response("Yetkisiz.", { status: denied });
+        if (denied) return new Response(denied.message, { status: denied.status });
         let form: FormData;
         try {
           form = await request.formData();
@@ -104,7 +164,11 @@ export const Route = createFileRoute("/api/upload")({
           return new Response("Dosya yok.", { status: 400 });
         }
         if (file.size > MAX_BYTES) {
-          return new Response("Dosya çok büyük (en fazla 8 MB).", { status: 413 });
+          const limitMb = Math.round(MAX_BYTES / (1024 * 1024));
+          return new Response(
+            `Dosya çok büyük (en fazla ${limitMb} MB). Daha büyük video için YouTube linki kullan.`,
+            { status: 413 },
+          );
         }
         if (!ALLOWED_TYPES.test(file.type)) {
           return new Response("Dosya türü kabul edilmiyor (resim/video).", { status: 415 });
@@ -131,7 +195,7 @@ export const Route = createFileRoute("/api/upload")({
 
       DELETE: async ({ request }) => {
         const denied = await adminProblem(request);
-        if (denied) return new Response("Yetkisiz.", { status: denied });
+        if (denied) return new Response(denied.message, { status: denied.status });
         const key = (new URL(request.url).searchParams.get("key") ?? "").trim();
         if (!key || key.includes("..") || key.startsWith("/") || !/^[\w./-]+$/.test(key)) {
           return new Response("Anahtar geçersiz.", { status: 400 });

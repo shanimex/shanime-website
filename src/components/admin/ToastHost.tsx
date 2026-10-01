@@ -199,7 +199,8 @@ export function AdminToaster() {
   if (items.length === 0) return null;
 
   return (
-    <div className="pointer-events-none fixed bottom-4 right-4 z-[80] flex w-[min(24rem,calc(100vw-2rem))] flex-col gap-2">
+    <div className="pointer-events-none fixed right-4 bottom-20 z-[80] flex w-[min(24rem,calc(100vw-2rem))] flex-col gap-2 sm:bottom-4">
+      {/* Mobilde bottom-20: köşedeki yüzen düğme bildirim varken de tıklanır. */}
       {items.map((item) => (
         <ToastCard
           key={item.id}

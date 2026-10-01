@@ -76,10 +76,69 @@ async function supabase(path) {
   return res.json();
 }
 
-/** MAL kimliği olan serileri çeker. */
+/** MAL kimliği olan serileri çeker. `id` bölüm eşleşmesi için gerekli. */
 async function fetchShows() {
-  const rows = await supabase("shows?select=slug,title,mal_id&mal_id=not.is.null");
+  const rows = await supabase("shows?select=id,slug,title,mal_id&mal_id=not.is.null");
   return rows.filter((row) => Number.isFinite(Number(row.mal_id)));
+}
+
+/**
+ * Veritabanındaki bütün bölümleri `show_id → Set("s1e1", …)` olarak döndürür.
+ *
+ * NEDEN GEREKLİ: eskiden bir seri "en az bir kapağı VARSA" tamamen atlanıyordu.
+ * Bu yüzden SONRADAN EKLENEN bölümler sonsuza dek kapaksız kalıyordu (kullanıcı
+ * bildirimi, 30.09.2026: "yeni anime eklesem de bölüm eklesem de hep kapak
+ * çeksin"). Artık atlama kararı "veritabanındaki bölümlerin TAMAMI kapsanıyor
+ * mu?" sorusuna bakar; tek bir bölüm bile eksikse seri yeniden çekilir.
+ */
+async function fetchEpisodeKeys() {
+  const rows = await supabase("show_episodes?select=show_id,season,number&limit=5000");
+  const byShow = new Map();
+  for (const row of rows) {
+    if (!byShow.has(row.show_id)) byShow.set(row.show_id, new Set());
+    byShow.get(row.show_id).add(`s${row.season}e${row.number}`);
+  }
+  return byShow;
+}
+
+/**
+ * Bütün SEZON MAL kimliklerini döndürür (`show_seasons.mal_id`).
+ *
+ * NEDEN GEREKLİ: MAL'de her sezon AYRI bir anime kaydıdır (Jujutsu Kaisen S2
+ * gibi). SERİ kimliğiyle çekilen tablo o sezonları KAPSAMAZ — ör. 40748 yalnızca
+ * 1. sezonun 24 bölümünü içerir. Sezonların kendi kimlikleri de ayrı ayrı
+ * çekilmezse `anizipCoverForSeason` boş döner ve o sezon kapaksız kalır.
+ */
+async function fetchSeasonMalIds() {
+  const rows = await supabase("show_seasons?select=mal_id&mal_id=not.is.null&limit=500");
+  const fromDb = rows
+    .map((row) => Number(row.mal_id))
+    .filter((value) => Number.isFinite(value) && value > 0);
+  // OTOMATİK ÇÖZÜLEN KİMLİKLER: `resolve-season-mal-ids.mjs` bunları AniList'in
+  // PREQUEL/SEQUEL zincirinden bulup `season-mal-ids.json`a yazar. Panelde kimlik
+  // girilmemiş sezonların (ör. Jujutsu Kaisen S2/S3) kapakları da böyle çekilir.
+  let fromResolved = [];
+  const resolvedFile = resolve(root, "src/data/season-mal-ids.json");
+  if (existsSync(resolvedFile)) {
+    const resolved = JSON.parse(readFileSync(resolvedFile, "utf8"));
+    fromResolved = Object.values(resolved).flatMap((seasons) => Object.values(seasons));
+  }
+  /**
+   * TAM SEZON ZİNCİRLERİ — BÖLÜNMÜŞ SEZONLARIN KARDEŞ KAYITLARI.
+   *
+   * NEDEN GEREKLİ (ölçüm 30.09.2026): bazı sezonlar MAL'de İKİ kayda bölünür ve
+   * `season-mal-ids.json` yalnızca VERİTABANINDAKİ sezonun kimliğini tutar (ör.
+   * re-zero S2 = 42203). Kardeş kayıt (39587 = bölüm 1-13) orada bulunmaz; bu
+   * yüzden TVDB görselleri onun için HİÇ çekilmiyordu ve `anizipCoverFromChain`
+   * işe yaramıyordu (`thumbs["39587"]` yok → bölüm 1-13 kapaksız).
+   */
+  let fromChains = [];
+  const chainsFile = resolve(root, "src/data/season-chains.json");
+  if (existsSync(chainsFile)) {
+    const chains = JSON.parse(readFileSync(chainsFile, "utf8"));
+    fromChains = Object.values(chains).flatMap((ids) => (Array.isArray(ids) ? ids : []));
+  }
+  return [...new Set([...fromDb, ...fromResolved, ...fromChains])];
 }
 
 /**
@@ -124,38 +183,50 @@ const existing = loadJson(OUT);
 const tmdbMap = loadJson(TMDB_OUT);
 
 const shows = await fetchShows();
+const episodeKeys = await fetchEpisodeKeys();
 console.log(`Supabase: ${shows.length} seri (mal_id dolu).`);
 
 let added = 0;
+let refreshed = 0;
 let skipped = 0;
 let failed = 0;
 let tmdbAdded = 0;
 
 for (const show of shows) {
   const key = String(show.mal_id);
-  const hasCovers = Boolean(existing[key] && Object.keys(existing[key]).length > 0);
   const hasTmdb = Boolean(tmdbMap[key]);
-  // Tek istek hem kapakları hem TMDB kimliğini getirir: ikisinden biri eksikse çek.
-  if (hasCovers && hasTmdb) {
+  const table = existing[key] ?? {};
+  // Veritabanında OLUP bu tabloda karşılığı olmayan bölüm sayısı.
+  const needed = episodeKeys.get(show.id) ?? new Set();
+  const missing = [...needed].filter((k) => !table[k]).length;
+  // Tek istek hem kapakları hem TMDB kimliğini getirir. Seri ancak TMDB'si
+  // varsa VE veritabanındaki bütün bölümleri kapsıyorsa atlanır.
+  if (hasTmdb && missing === 0) {
     skipped += 1;
     continue;
   }
   try {
-    const { table, tmdb } = await fetchAnizip(key);
+    const { table: fresh, tmdb } = await fetchAnizip(key);
     if (tmdb && !hasTmdb) {
       tmdbMap[key] = tmdb;
       tmdbAdded += 1;
     }
-    const count = Object.keys(table).length;
+    const count = Object.keys(fresh).length;
     if (count === 0) {
       console.warn(`  ! ${show.slug} (MAL ${key}) → kapak bulunamadı`);
       failed += 1;
-    } else if (!hasCovers) {
-      existing[key] = table;
-      added += 1;
-      console.log(`  + ${show.slug} (MAL ${key}) → ${count} kapak, TMDB ${tmdb || "yok"}`);
     } else {
-      console.log(`  ~ ${show.slug} (MAL ${key}) → TMDB ${tmdb || "yok"}`);
+      // BİRLEŞTİR, üzerine YAZMA: eski kayıtlar ve `abs` anahtarları korunur.
+      existing[key] = { ...table, ...fresh };
+      if (Object.keys(table).length === 0) {
+        added += 1;
+        console.log(`  + ${show.slug} (MAL ${key}) → ${count} kapak, TMDB ${tmdb || "yok"}`);
+      } else {
+        refreshed += 1;
+        console.log(
+          `  ~ ${show.slug} (MAL ${key}) → ${count} kapak tazelendi (${missing} bölüm eksikti)`,
+        );
+      }
     }
     // ani.zip'i yormamak için kısa bekleme.
     await new Promise((r) => setTimeout(r, 400));
@@ -165,10 +236,41 @@ for (const show of shows) {
   }
 }
 
+// ── İKİNCİ GEÇİŞ: SEZON MAL KİMLİKLERİ ───────────────────────────────────────
+// Tablo anahtarı MAL kimliğidir. Seri kimliği yalnızca KENDİ sezonunu kapsar;
+// sonraki sezonlar MAL'de ayrı kayıt olduğu için (ör. Jujutsu Kaisen S2) burada
+// ayrıca çekilir. Bu geçiş olmadan `anizipCoverForSeason` her zaman boş döner.
+const seasonMals = await fetchSeasonMalIds();
+let seasonAdded = 0;
+for (const malId of seasonMals) {
+  const key = String(malId);
+  if (existing[key] && Object.keys(existing[key]).length > 0) continue;
+  try {
+    const { table: fresh, tmdb } = await fetchAnizip(key);
+    if (tmdb && !tmdbMap[key]) tmdbMap[key] = tmdb;
+    const count = Object.keys(fresh).length;
+    if (count === 0) {
+      console.warn(`  ! sezon kaydı MAL ${key} → kapak bulunamadı`);
+    } else {
+      existing[key] = { ...(existing[key] ?? {}), ...fresh };
+      seasonAdded += 1;
+      console.log(`  + sezon kaydı MAL ${key} → ${count} kapak`);
+    }
+    await new Promise((r) => setTimeout(r, 400));
+  } catch (err) {
+    console.warn(`  ! sezon kaydı MAL ${key} → ${err.message}`);
+  }
+}
+
+// YAZMA, İKİ GEÇİŞİN DE SONUNDA YAPILIR. (Önceden birinci geçişten hemen sonra
+// yazılıyordu; sezon kayıtları bellekte kalıyor ve dosyaya HİÇ girmiyordu —
+// "13 kayıt" denip dosyada 9 kayıt görünmesinin sebebi buydu.)
 mkdirSync(dirname(OUT), { recursive: true });
 writeFileSync(OUT, `${JSON.stringify(existing, null, 2)}\n`, "utf8");
 writeFileSync(TMDB_OUT, `${JSON.stringify(tmdbMap, null, 2)}\n`, "utf8");
+
 console.log(
-  `\nYazıldı: ${OUT}\n  seri: ${Object.keys(existing).length} (yeni ${added}, atlanan ${skipped}, hata ${failed})` +
+  `\nYazıldı: ${OUT}\n  seri: ${Object.keys(existing).length}` +
+    ` (yeni ${added}, tazelenen ${refreshed}, atlanan ${skipped}, hata ${failed}, sezon kaydı ${seasonAdded})` +
     `\nYazıldı: ${TMDB_OUT}\n  TMDB eşlemesi: ${Object.keys(tmdbMap).length} (yeni ${tmdbAdded})`,
 );

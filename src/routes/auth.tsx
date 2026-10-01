@@ -3,6 +3,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
+import { BRAND_LOGO_HEIGHT, BRAND_LOGO_SRC, BRAND_LOGO_WIDTH } from "@/lib/brand";
 
 export const Route = createFileRoute("/auth")({
   head: () => ({
@@ -82,10 +83,10 @@ function AuthPage() {
       <div className="w-full max-w-sm rounded-3xl border border-border bg-card p-8 shadow-2xl">
         <a href="/" className="mb-6 flex items-center justify-center">
           <img
-            src="/shanime-logo.png?v=6"
+            src={BRAND_LOGO_SRC}
             alt="shanime logosu"
-            width={1060}
-            height={856}
+            width={BRAND_LOGO_WIDTH}
+            height={BRAND_LOGO_HEIGHT}
             loading="eager"
             decoding="async"
             className="h-14 w-auto object-contain"

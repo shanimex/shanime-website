@@ -73,6 +73,8 @@ const PUFFY_SLUG_OVERRIDES = {
   erased: "boku-dake-ga-inai-machi",
   "re-zero": "rezero-kara-hajimeru-isekai-seikatsu",
   "mushoku-tensei": "mushoku-tensei-isekai-ittara-honki-dasu",
+  // ÖLÇÜM (01.10.2026): bizim `solo-leveling` adresimiz ağda yok; ağdaki adres bu.
+  "solo-leveling": "ore-dake-level-up-na-ken",
 };
 
 /** .env / .env.local okur (bağımlılık eklememek için elle). */

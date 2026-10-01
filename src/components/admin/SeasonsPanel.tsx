@@ -27,6 +27,7 @@ import type { Episode, Season } from "@/lib/content";
 import { devMark } from "@/lib/dev-log";
 import { SOURCE_GROUPS } from "@/lib/embed-sources";
 import { isPartContinuation, puffySlugFor, puffySlugForSeason } from "@/lib/puffy";
+import { findResumableKeys } from "@/lib/anizip-sync-store";
 import {
   fetchNumberedSeasonChain,
   findPrequelMalId,
@@ -357,6 +358,28 @@ export function SeasonsPanel({
   /** Hapın çizdiği canlı durum (`AnizipSyncPanel.onActivity` besler). */
   const [catalogActivity, setCatalogActivity] = useState<PanelActivity | null>(null);
   /**
+   * YARIDA KALMIŞ SEZON — panel KAPALIYKEN (özellikle F5 sonrası) bu seride
+   * tamamlanmamış bir yazma var mı? Varsa sağ alttaki kalıcı rozet "devam et"
+   * gösterir ve tek tıkla o sezonun panelini AYNI durumla geri açar
+   * (durum `lib/anizip-sync-store.ts` içinde sezon anahtarıyla saklı).
+   */
+  const [resumableSeason, setResumableSeason] = useState<number | null>(null);
+
+  useEffect(() => {
+    // Panel açıkken kalıcı "devam et" rozetine gerek yok (panel zaten görünür).
+    if (catalogSeason !== null) {
+      setResumableSeason(null);
+      return;
+    }
+    const keys = findResumableKeys(showId);
+    if (keys.length === 0) {
+      setResumableSeason(null);
+      return;
+    }
+    const season = Number.parseInt(keys[0]?.split(":").pop() ?? "", 10);
+    setResumableSeason(Number.isFinite(season) ? season : null);
+  }, [showId, catalogSeason]);
+  /**
    * KATALOG KAPANIŞ ANİMASYONU — "pat diye kapanmasın".
    *
    * Kapatma isteği önce `catalogClosing` bayrağını kaldırır (160 ms çıkış
@@ -368,6 +391,19 @@ export function SeasonsPanel({
   /** Kapatma niyeti — animasyonlu, sonra unmount. */
   function requestCatalogClose() {
     if (catalogClosing) return;
+    /**
+     * ÇALIŞAN İŞ VARSA KAPATMA → MİNİMİZE ET (kullanıcı isteği, 30.09.2026).
+     * "Panelde yükleme yaparken başka yere dokunursam minimize etsin."
+     *
+     * Dışarı tıklama / ESC / X artık yazma sürerken paneli YOK ETMEZ; sağ alttaki
+     * canlı rozete küçültür. Böylece süren iş görünür kalır ve panel geri açılınca
+     * AYNI seçim/liste/ilerleme ile devam eder (çekilen liste sıfırlanmaz).
+     * Yazma bitince (busy=false) kapatma eskisi gibi tamamen kapatır.
+     */
+    if (catalogActivity?.busy) {
+      setCatalogMin(true);
+      return;
+    }
     if (catalogCloseTimer.current) clearTimeout(catalogCloseTimer.current);
     setCatalogClosing(true);
     catalogCloseTimer.current = setTimeout(() => {
@@ -1174,17 +1210,34 @@ export function SeasonsPanel({
           document.body,
         )}
       {/*
-        KÜÇÜLTÜLMÜŞ HAP — sağ altta, yazma sürerken canlı ilerleme.
+        KÜÇÜLTÜLMÜŞ ROZET — sağ altta, CANLI ilerleme (kullanıcı isteği, 30.09.2026).
 
-        Modal `hidden` ile gizlenir ama BİLEŞEN DURUR (yazma/sayım devam eder,
-        durum kaybolmaz). Hapa tıklayınca panel geri açılır. Boştayken "hazır"
-        yazar; yazarken "5/12" sayacı + hata sayısı görünür.
+        İKİ DURUMDA görünür:
+          · panel küçültülmüşse (`catalogMin`) — yazma sürerken
+            "Kaynak yazılıyor 7/23 · %30 · kalan ~6 sn" yazar;
+          · panel kapalıyken ama bu seride YARIDA KALMIŞ iş varsa (kapatma/F5
+            sonrası) — "yarıda kaldı · devam et" gösterir; tıklanınca panel
+            AYNI durumla (aynı seçim/liste/ilerleme) geri açılır.
+
+        Modal `hidden` ile gizlenir ama BİLEŞEN DURUR (yazma devam eder). Durum
+        `lib/anizip-sync-store.ts`te sezon anahtarıyla saklı olduğu için panel
+        kapalıyken de geri gelebilir.
       */}
-      {catalogSeason !== null && catalogMin
+      {(catalogSeason !== null && catalogMin) ||
+      (catalogSeason === null && resumableSeason !== null)
         ? createPortal(
             <button
               type="button"
-              onClick={() => setCatalogMin(false)}
+              onClick={() => {
+                if (catalogSeason === null && resumableSeason !== null) {
+                  // Panel kapalıyken: yarıda kalan sezonu aynı durumla geri aç.
+                  setCatalogSeason(resumableSeason);
+                  setCatalogMin(false);
+                  setResumableSeason(null);
+                } else {
+                  setCatalogMin(false);
+                }
+              }}
               title="Katalog paneline dön"
               className="fixed bottom-4 right-4 z-[75] flex animate-rise-in items-center gap-2 rounded-full border border-border bg-background/95 py-2 pl-3 pr-2 text-xs font-bold text-foreground shadow-2xl backdrop-blur transition-transform hover:scale-[1.04] active:scale-95"
             >
@@ -1193,14 +1246,22 @@ export function SeasonsPanel({
               ) : (
                 <CloudDownload size={13} className="text-emerald-400" />
               )}
-              <span>Katalog · S{catalogSeason}</span>
-              {catalogActivity && catalogActivity.total > 0 ? (
+              <span>Katalog · S{catalogSeason ?? resumableSeason}</span>
+              {catalogActivity?.busy && catalogActivity.total > 0 ? (
+                <PillProgress
+                  done={catalogActivity.done}
+                  total={catalogActivity.total}
+                  startedAt={catalogActivity.startedAt}
+                />
+              ) : catalogActivity && catalogActivity.total > 0 ? (
                 <span className="rounded-full bg-foreground/10 px-1.5 py-0.5 tabular-nums">
                   {catalogActivity.done}/{catalogActivity.total}
                   {catalogActivity.fail > 0 ? ` · ${catalogActivity.fail} hata` : ""}
                 </span>
               ) : (
-                <span className="font-normal text-muted-foreground">hazır</span>
+                <span className="font-normal text-muted-foreground">
+                  {catalogSeason === null ? "yarıda kaldı · devam et" : "hazır"}
+                </span>
               )}
               <ChevronUp size={13} className="text-muted-foreground" />
             </button>,
@@ -1252,10 +1313,10 @@ export function SeasonsPanel({
           Kaldırılanlar: "Kapakları güncelle" (elle kapak tazeleme) ve "Voe'dan çek"
           (Voe içe aktarma) düğmeleri + `VoeSyncPanel` bağlantısı.
 
-          KAYIP DEĞERLENDİRMESİ (dürüst kayıt):
-          · Kapak senkronu KAYBOLMADI — bölüm kaydedildiğinde arka planda yine
-            kendiliğinden çalışır (bkz. `lib/episode-covers.ts`); giden yalnızca
-            ELLE tetiklenen düğmedir.
+           KAYIP DEĞERLENDİRMESİ (dürüst kayıt):
+           · Kapak senkronu KAYBOLMADI — bölüm kapakları artık YALNIZCA TVDB'den
+             gelir ve derleme öncesi boru hattıyla üretilir
+             (`scripts/sync-covers-all.mjs`); giden yalnızca ELLE tetiklenen düğmedir.
           · Voe dönemi tamamen kapandı: `VoeSyncPanel` bileşeni ve `lib/voe.ts`
             projeden silindi; kapak/oynatıcı zincirindeki Voe dalları da
             temizlendi. Veritabanında Voe linkli bölüm kalmadı (doğrulandı). */}
@@ -1390,5 +1451,41 @@ function AddEpisodeForm({
         </Button>
       </div>
     </div>
+  );
+}
+
+/**
+ * ROZET İLERLEMESİ — CANLI, GERÇEK ÖLÇÜM (uydurma animasyon DEĞİL).
+ *
+ * Küçültülmüş rozette "Kaynak yazılıyor 7/23 · %30 · kalan ~6 sn" gösterir.
+ *   · yüzde  = tamamlanan ÷ toplam,
+ *   · kalan  = şu ana kadarki hızdan doğrusal TAHMİN (garanti değil, tahmin).
+ * Kendi saatini kendisi işletir (500 ms); yalnızca bu küçük satır yeniden çizilir.
+ */
+function PillProgress({
+  done,
+  total,
+  startedAt,
+}: {
+  done: number;
+  total: number;
+  startedAt: number;
+}) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = window.setInterval(() => setNow(Date.now()), 500);
+    return () => window.clearInterval(id);
+  }, []);
+
+  const pct = total > 0 ? Math.min(100, Math.round((done / total) * 100)) : 0;
+  const seconds = startedAt > 0 ? Math.max(0.5, (now - startedAt) / 1000) : 0;
+  const remaining =
+    done > 0 && total > done && seconds > 0 ? Math.round(((total - done) * seconds) / done) : null;
+
+  return (
+    <span className="rounded-full bg-foreground/10 px-1.5 py-0.5 tabular-nums">
+      Kaynak yazılıyor {done}/{total} · %{pct}
+      {remaining !== null ? ` · kalan ~${remaining} sn` : ""}
+    </span>
   );
 }

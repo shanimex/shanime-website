@@ -9,7 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
  * de tek bir yerde dursun diye burası tek kaynak.
  *
  * ⚠️ Proje genelindeki supabase kaçış kapısı: `db` = `supabase as any` (bkz.
- * `lib/admin.ts`, `lib/episode-covers.ts`). Şema tipleri üretilmediği için gerekli.
+ * `lib/admin.ts`). Şema tipleri üretilmediği için gerekli.
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = supabase as any;

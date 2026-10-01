@@ -616,7 +616,9 @@ export function ShowEditor({
             {/* LİNK BLOĞU — düğmesiz: link ANA Kaydet ile yazılır (kullanıcı
                 isteği, 30.09.2026). Ayrı Kaydet vardı, kaldırıldı; akış tek
                 düğmede toplandı. */}
-            <div className="min-w-[15rem] flex-1 rounded-xl bg-card/60 p-2.5">
+            {/* `min-w` masaüstünde kırpmayı önler; mobilde `min-w-0` ile
+                kart taşmaz (320px ekranda sayfa sağa kaymıyordu). */}
+            <div className="min-w-0 flex-1 rounded-xl bg-card/60 p-2.5 sm:min-w-[15rem]">
               <span className="mb-1.5 block text-[10px] font-extrabold uppercase tracking-wider text-muted-foreground">
                 Vitrin videosu — link (ana Kaydet ile yazılır)
               </span>
@@ -624,7 +626,7 @@ export function ShowEditor({
                 // `min-w-[15rem]`: dar kolonda input KIRPILIYORDU ("https://cdn.shanime.xy…"
                 // diye kesiliyordu — kullanıcı ekran görüntüsü 30.09.2026). Artık en az
                 // 15rem yer ister, sığmazsa satır altına kayar; içerik hiç kesilmez.
-                className={cn(inputCls, "min-w-[15rem] w-full")}
+                className={cn(inputCls, "w-full min-w-0 sm:min-w-[15rem]")}
                 value={videoLink}
                 onChange={(event) => setVideoLink(event.target.value)}
                 placeholder="YouTube linki — ör. https://youtu.be/…"

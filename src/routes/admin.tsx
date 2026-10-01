@@ -1,4 +1,4 @@
-﻿// /admin — Yönetim paneli: girişten sonra seri, bölüm, görsel ve reklam yönetimi.
+// /admin — Yönetim paneli: girişten sonra seri, bölüm, görsel ve reklam yönetimi.
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { AlertTriangle, Loader2, Lock, LogOut, Search } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -17,6 +17,7 @@ import { DataHealthPanel } from "@/components/admin/DataHealthPanel";
 import { checkSchema, db, moveAndPersist, type SchemaState } from "@/lib/admin";
 import { fetchShows, isAdmin, type ShowWithImage } from "@/lib/content";
 import { supabase } from "@/integrations/supabase/client";
+import { ADMIN_LOGO_HEIGHT, ADMIN_LOGO_SRC, ADMIN_LOGO_WIDTH } from "@/lib/brand";
 
 export const Route = createFileRoute("/admin")({
   head: () => ({
@@ -292,10 +293,10 @@ function AdminPage() {
         <div className="mx-auto flex max-w-5xl items-center justify-between px-5 py-3">
           <a href="/admin" aria-label="shanime yönetim" className="flex items-center gap-3">
             <img
-              src="/shanime-logo.png?v=6"
+              src={ADMIN_LOGO_SRC}
               alt="shanime logosu"
-              width={1060}
-              height={856}
+              width={ADMIN_LOGO_WIDTH}
+              height={ADMIN_LOGO_HEIGHT}
               loading="eager"
               decoding="async"
               className="h-11 w-auto object-contain"

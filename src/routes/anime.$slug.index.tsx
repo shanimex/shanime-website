@@ -1,4 +1,4 @@
-﻿// /anime/<dizi-adı> — Anime (seri) detayı: tanıtım, sezon/bölüm listesi ve benzer animeler.
+// /anime/<dizi-adı> — Anime (seri) detayı: tanıtım, sezon/bölüm listesi ve benzer animeler.
 //
 // DOSYA ADI NEDEN `anime.$slug.index.tsx` (düz `anime.$slug.tsx` DEĞİL):
 // izleme sayfası URL'yi uzatıyor (`/anime/<slug>/season/<n>/episode/<n>`) ve TanStack
@@ -11,19 +11,21 @@
 // sayfasının görünümü AYNEN korunur.
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, Check, ChevronDown, Home, LayoutGrid, List, Play } from "lucide-react";
+import { ArrowLeft, ChevronDown, Home, Play } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { AdSlot, useAdCode } from "@/components/site/AdSlot";
 import { AdsterraLeaderboard, AdsterraNative } from "@/components/site/AdsterraUnit";
-import { EpisodeCard, formatAirdate } from "@/components/site/EpisodeCard";
 import { EpisodeCover } from "@/components/site/EpisodeCover";
-import { LanguageToggle } from "@/components/site/LanguageToggle";
 import { supabase } from "@/integrations/supabase/client";
-import { anizipCover } from "@/lib/anizip-covers";
-import { resolvePosterForEpisode } from "@/lib/episode-covers";
 import {
-  episodeCoverFromWatchUrl,
+  anizipCover,
+  anizipCoverForSeason,
+  anizipCoverFromChain,
+  resolveSeasonMalId,
+} from "@/lib/anizip-covers";
+import { formatAirdate } from "@/lib/format-airdate";
+import {
   localCoverPath,
   showDetailQueryOptions,
   showSlug,
@@ -178,18 +180,56 @@ function seasonLabel(season: { number: number; title: string }, t: Translate): s
  * AÇIKLAMA SATIRI: `episode.summary` (şemada VAR) doluysa tek/iki satır yazılır;
  * boşsa satır hiç çizilmez.
  *
- * KAPAK ZİNCİRİ: `EpisodeCard` ile AYNI sıra (bölüm kapağı → sağlayıcı karesi →
- * gerçek bölüm görseli → adresten türetme → yerel dosya → seri posteri). Zincirin
- * sonu seri posteridir; hiçbiri yoksa `EpisodeCover` nötr "numara" kutusunu
- * gösterir (kırık görsel çizilmez).
+ * KAPAK ZİNCİRİ (TVDB-TEK): panelden yüklenen kapak → ani.zip/TVDB bölüm görseli
+ * → TVDB'den üretilmiş yerel dosya. Sağlayıcı kareleri, animecix/katalog kapağı ve
+ * seri posteri kapak olarak KULLANILMAZ; hiçbiri yoksa `EpisodeCover` nötr
+ * "numara" kutusunu gösterir (kırık/uydurma görsel çizilmez).
  */
+/**
+ * "YENİ" rozeti: bir sezonda EN SON EKLENEN kaç bölüm işaretlenir.
+ *
+ * DEĞER 1'DİR. Kullanıcı geri bildirimi (30.09.2026): "2 tane YENİ ne alaka" —
+ * 3 iken sezonun son üç bölümü birden rozet alıyordu (biri izlenmişse sıradaki
+ * eski bölümlere kayıyordu). Artık ekranda HER ZAMAN TEK rozet olur.
+ *
+ * Ölçüt `show_episodes.created_at`tir (eklenme anı) — tabloda yayın tarihi kolonu
+ * yoktur; aynı alanı ana sayfanın "YENİ ÇIKANLAR" bandı da kullanır.
+ *
+ * NEDEN "bugünden geriye N gün" DEĞİL: öyle olsaydı sunucu çizimi ile tarayıcı
+ * çizimi arasındaki saniye farkı, sınırda duran bir bölümün rozetini
+ * değiştirebilir ve React "hydration mismatch" uyarısı doğardı. Bu kural
+ * YALNIZCA veriye bakar → iki taraf her zaman aynı sonucu üretir.
+ */
+const NEW_EPISODE_COUNT = 1;
+
+/**
+ * Sezonun en son eklenen `count` bölümünün `id` kümesi.
+ *
+ * Eşitlikte (aynı toplu ekleme) BÜYÜK numaralı bölüm öne alınır; yani sıra
+ * "önce eklenme anı, sonra bölüm numarası (azalan)"dır. Tarihi okunamayan bölüm
+ * listenin sonuna düşer — uydurma rozet üretilmez.
+ */
+function newestEpisodeIds(episodes: Episode[], count: number): Set<string> {
+  const time = (value: string | undefined) => {
+    const parsed = Date.parse(value ?? "");
+    return Number.isNaN(parsed) ? Number.NEGATIVE_INFINITY : parsed;
+  };
+  return new Set(
+    [...episodes]
+      .sort((a, b) => time(b.created_at) - time(a.created_at) || b.number - a.number)
+      .slice(0, count)
+      .map((episode) => episode.id),
+  );
+}
+
 function EpisodeRow({
   slug,
   episode,
   watchSeason,
-  seriesPoster,
   malId,
+  seasonMalId,
   watched,
+  isNew,
   onOpen,
 }: {
   /** Serinin slug'ı: yerel kapak yolu ve izleme bağlantısı için. */
@@ -197,12 +237,19 @@ function EpisodeRow({
   episode: Episode;
   /** Bağlantının açacağı sezon (aktif sezon; bölümün kendisi değilse ona düşülür). */
   watchSeason: number;
-  /** Zincirin son adımı: seri posteri. */
-  seriesPoster?: string | undefined;
-  /** MAL kimliği: bölüme ait gerçek görseli (ani.zip) kullanmak için. */
+  /** Serinin MAL kimliği (ani.zip yedeği). */
   malId?: number | null | undefined;
+  /**
+   * Sezonun KENDİ MAL kimliği (`show_seasons.mal_id`). MAL'de her sezon ayrı bir
+   * anime kaydı olduğu için (ör. Jujutsu Kaisen S2) kapak aramasında seri
+   * kimliğinden ÖNCE denenir — `anizipCoverForSeason` bunu kullanır. Boşsa
+   * arama seri kimliğine düşer.
+   */
+  seasonMalId?: number | null | undefined;
   /** Cihazdaki kayıtta bu bölüm izlendi mi? */
   watched: boolean;
+  /** Sezonun EN SON EKLENEN bölümlerinden mi? Yalnızca izlenmemişlerde true. */
+  isNew: boolean;
   /** Satıra tıklanınca ilerleme kaydını günceller (mevcut davranış korunur). */
   onOpen: () => void;
 }) {
@@ -230,77 +277,114 @@ function EpisodeRow({
     ? translatedTitle
     : t("series.episodeLabel", { number: episode.number });
   const summary = translatedSummary;
-  // Köşe etiketi: numaralar iki basamağa tamamlanır ("S 03 B 01"). Harf (B/E)
-  // dile bağlı olduğu için sözlükten gelir; doldurma GÖRÜNÜR METNİN düzenidir.
+  // Köşe etiketi ("S1 B1"): numaralar DOLDURULMAZ. Kullanıcı isteği (30.09.2026):
+  // "s1 b1 yazsın, S 01 B 01 değil". Harf (B/E) dile bağlı olduğu için sözlükten gelir.
   const overlay = t("series.seasonEpisodeOverlay", {
-    season: String(episode.season).padStart(2, "0"),
-    number: String(episode.number).padStart(2, "0"),
+    season: String(episode.season),
+    number: String(episode.number),
   });
 
   return (
+    // İZLENEN SATIRIN TAMAMI SOLUKLAŞIR (30.09.2026). Kullanıcı geri bildirimi:
+    // "siyah beyaza çevirdin, ben kutuyu da soluklaştırsan sandım" → kapak artık
+    // GRİLEŞTİRİLMEZ, rengi korunur; solukluk satırın BÜTÜNÜNE uygulanır.
     <Link
       to="/anime/$slug/season/$season/episode/$episode"
       params={{ slug, season: String(watchSeason), episode: String(episode.number) }}
       preload={false}
       onClick={onOpen}
-      className="group flex items-center gap-3 rounded-xl border border-border bg-card p-2.5 transition-colors hover:border-accent/60 hover:bg-secondary focus-visible:border-accent focus-visible:outline-none sm:gap-4 sm:p-3"
+      className={`group flex items-center gap-3 rounded-xl border border-border bg-card p-2.5 transition-colors hover:border-accent/60 hover:bg-secondary focus-visible:border-accent focus-visible:outline-none sm:gap-4 sm:p-3 ${
+        watched ? "opacity-60" : ""
+      }`}
     >
       {/* KAPAK + alt gölge + altta ortalı sezon/bölüm etiketi (16:9 yatay kutu). */}
-      <span className="relative aspect-video w-28 shrink-0 overflow-hidden rounded-lg bg-secondary sm:w-40">
+      <span className="relative aspect-video w-32 shrink-0 overflow-hidden rounded-lg bg-secondary sm:w-48">
         <EpisodeCover
           number={episode.number}
           numberClassName="font-display text-2xl text-foreground/70"
-          // ÖNCELİK: (a) panel → (b) animecix bölüm kapağı → (c) sağlayıcı →
-          // (d) ani.zip/TVDB → (e) manifest'te VARSA yerel → (f) seri posteri.
+          // ── TVDB-TEK KAYNAK (kullanıcı kuralı) ─────────────────────────────
+          // Yalnızca: (a) panelden ELLE yüklenen kapak → (b) ani.zip/TVDB bölüm
+          // görseli (sezonun kendi kaydı → seri kaydı → zincirdeki kardeş kayıt)
+          // → (c) TVDB'den üretilmiş yerel dosya. Sağlayıcı kareleri (voe/
+          // morencius/vidmoly), animecix/mangacix, katalog kapağı ve SERİ POSTERİ
+          // kapak olarak KULLANILMAZ; hiçbiri yoksa kart numara rozetiyle kalır.
           candidates={[
             episode.thumbnail ?? "",
-            episode.animecixC ?? "",
-            episode.poster ?? "",
+            // SEZONUN KENDİ MAL kaydı ÖNCE denenir: MAL'de her sezon ayrı bir
+            // anime kaydıdır (ör. Jujutsu Kaisen S2), seri kimliği o sezonun
+            // görsellerini İÇERMEZ. Boşsa alttaki seri-kimliği aramasına düşer.
+            anizipCoverForSeason(seasonMalId, episode.season, episode.number),
             anizipCover(malId, episode.season, episode.number),
-            episodeCoverFromWatchUrl(episode.watch_url),
+            // BÖLÜNMÜŞ SEZONLAR (ör. re-zero S2 = 39587 + 42203): sezonun kendi
+            // kaydı bu bölümü içermiyorsa zincirdeki KARDEŞ kayda bakılır.
+            anizipCoverFromChain(malId, episode.season, episode.number, seasonMalId),
+            // TVDB görselinden üretilmiş yerel dosya (manifest'te varsa).
             localCoverPath(slug, episode.season, episode.number),
-            seriesPoster ?? "",
           ]}
-          resolveFallback={() => resolvePosterForEpisode(episode.watch_url)}
         />
         <span
           aria-hidden
           className="absolute inset-x-0 bottom-0 h-9 bg-gradient-to-t from-background/95 to-transparent"
         />
-        <span className="absolute inset-x-0 bottom-1 text-center text-[11px] font-semibold tracking-[0.2em] text-foreground/90">
+        {/* Geniş harf aralığı KALDIRILDI (`tracking-[0.2em]`): "S1 B1" bitişik okunsun. */}
+        <span className="absolute inset-x-0 bottom-1 text-center font-ui text-[11px] font-semibold text-foreground/90">
           {overlay}
         </span>
-        {watched ? (
-          <span
-            title={t("series.watchedBadge")}
-            className="absolute right-1.5 top-1.5 grid size-5 place-items-center rounded-full bg-emerald-500/90 text-white shadow"
-          >
-            <Check size={12} strokeWidth={3.5} />
+        {/* "YENİ" ROZETİ (30.09.2026). Kullanıcı geri bildirimi: "o sarı nokta çok
+            çirkin; sarı nokta yerine NEW yazsın ve SADECE yeni eklenen bölümlere
+            yazsın" → nokta kaldırıldı, yerine altın zeminli YAZI rozeti geldi.
+            Ölçüt: sezonun en son eklenen bölümlerinden biri (bkz. NEW_EPISODE_COUNT)
+            VE henüz izlenmemiş olması — ikisi birlikte `isNew` ile gelir.
+            İzlenen bölümde rozet YOKTUR: onun işareti satırın soluklaşmasıdır. */}
+        {isNew ? (
+          <span className="absolute right-1.5 top-1.5 rounded-full bg-accent px-1.5 py-0.5 font-ui text-[10px] font-bold text-accent-foreground">
+            {t("series.newBadge")}
           </span>
         ) : null}
       </span>
 
-      {/* BAŞLIK + (varsa) AÇIKLAMA. */}
+      {/* BAŞLIK + (varsa) AÇIKLAMA. Yazı tipi `font-ui` (Manrope, sade geometrik sans).
+          Başlık rengi NÖTR kalır: "izlendi" bilgisini artık satırın bütününün
+          soluklaşması taşır, metni ayrıca donuklaştırmaya gerek yok. */}
       <span className="flex min-w-0 flex-1 flex-col gap-1">
-        <span className="truncate text-sm font-bold text-foreground sm:text-base">{label}</span>
+        <span className="truncate font-ui text-sm font-bold text-foreground sm:text-base">
+          {label}
+        </span>
         {summary ? (
-          <span className="line-clamp-2 text-xs text-muted-foreground sm:text-sm">{summary}</span>
+          <span className="line-clamp-2 font-ui text-xs text-muted-foreground sm:text-sm">
+            {summary}
+          </span>
         ) : null}
       </span>
 
-      {/* SAĞDAKİ METİN: "1. Bölüm · 3/4/2016" — kutusuz, düz metin.
-          Tarih `episode.airdate`ten gelir (ani.zip, uzun önbellekli); yoksa
-          yazılmaz, uydurma yazılmaz. İzlendi işareti kapağın köşesindedir. */}
-      <span
-        className="shrink-0 text-[11px] font-semibold text-muted-foreground"
-        title={episode.airdate ? formatAirdate(episode.airdate, lang, true) : undefined}
-      >
-        {[
-          t("series.episodeLabel", { number: episode.number }),
-          episode.airdate ? formatAirdate(episode.airdate, lang, false) : "",
-        ]
-          .filter(Boolean)
-          .join(" · ")}
+      {/* SAĞDAKİ ROZETLER: "1. Bölüm" ve tarih AYRI yuvarlak kutularda (kullanıcı
+          isteği, 30.09.2026: "tarih şeyi ile bölüm yazısını böyle yapsana").
+          Tarih `episode.airdate`ten gelir (ani.zip, uzun önbellekli); tarih YOKSA
+          o kutu hiç çizilmez — uydurma yazılmaz. İzlendi işareti kapağın köşesindedir. */}
+      {/* RENK (30.09.2026): tarih rozeti NÖTR kalır; yalnızca BÖLÜM rozeti renk alır
+          ("geri al, sadece bölüm pillinin rengini değiş"). İki rozet birden
+          renklenince sayfa yapay duruyordu.
+
+          Ton, admin paneldeki `Reklam kodları` kartının YUMUŞAK tonuyla aynı mantık:
+            `.admin-card--ads { background: color-mix(in oklab, var(--card) 88%, var(--accent) 12%) }`
+          → "tam renk" değil, kartın üstünde ince bir vurgu.
+          Marka kırmızısı (`primary`) burada KULLANILMAZ: detay sayfasında o renk
+          oynat düğmesinin ve ilerleme çubuğunun; burada vurgu rengi `accent`.
+
+          ÇERÇEVE (stroke) YOK (30.09.2026, kullanıcı isteği: "bg'nin dışındaki
+          stroke'u kaldır") — rozeti yalnızca yumuşak dolgu taşır. */}
+      <span className="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
+        <span className="rounded-full bg-accent/10 px-2.5 py-1 font-ui text-[11px] font-semibold text-accent">
+          {t("series.episodeLabel", { number: episode.number })}
+        </span>
+        {episode.airdate ? (
+          <span
+            className="rounded-full border border-border bg-secondary px-2.5 py-1 font-ui text-[11px] font-semibold text-muted-foreground"
+            title={formatAirdate(episode.airdate, lang, true)}
+          >
+            {formatAirdate(episode.airdate, lang, false)}
+          </span>
+        ) : null}
       </span>
     </Link>
   );
@@ -394,8 +478,6 @@ function ShowDetailPage() {
   // birimi bulunmalıdır, çünkü o birim `window.atOptions` global'ini kullanır.
   const adDetailTop = useAdCode("ad_detail_top");
   const adDetailBottom = useAdCode("ad_detail_bottom");
-  // Varsayılan görünüm animecix tarzı SATIR düzeni; kapak ızgarası alternatif.
-  const [view, setView] = useState<"row" | "grid">("row");
   const [visibleCount, setVisibleCount] = useState(GRID_PAGE_SIZE);
   // Uzun açıklama 3 satırda kısaltılır; sayfa "kompakt" kalsın diye.
   const [descOpen, setDescOpen] = useState(false);
@@ -478,6 +560,17 @@ function ShowDetailPage() {
   const backdrop = show.banner_image || show.image;
   const activeEpisodes = activeSeason?.episodes ?? [];
   const visibleEpisodes = activeEpisodes.slice(0, visibleCount);
+  // "YENİ" rozeti: aktif sezonun EN SON EKLENEN bölümü (`created_at`).
+  //
+  // ROZET YER DEĞİŞTİRMEZ (tasarım kararı, 30.09.2026 — "nasıl olması gerekiyorsa
+  // öyle yap" dendi). İki yol denenip bu seçildi:
+  //   (a) İZLENMEMİŞLER arasından en yeni: izlenince rozet BİR ÖNCEKİ ESKİ bölüme
+  //       kayıyordu — hiç yeni eklenmemiş bir bölüğe "YENİ" yazıyordu. Yanlış.
+  //   (b) BURADAKİ: yalnızca en son EKLENEN bölüm. İzlenmişse rozet HİÇ görünmez,
+  //       eski bir bölüme kaymaz. Yeni bölüm eklendiği an rozet kendiliğinden
+  //       çıkar (siteye yeni bölüm girmek = panelden eklemek).
+  // Yani "YENİ" gerçekten "yeni eklendi" demektir ve en fazla TEK rozet olur.
+  const newestIds = newestEpisodeIds(activeEpisodes, NEW_EPISODE_COUNT);
   const hiddenCount = activeEpisodes.length - visibleEpisodes.length;
   // Açıklama ve tür İÇERİK çevirisinden gelir (yukarıdaki kanca): TR seçiliyse
   // DeepL karşılığı, İngilizce'de orijinal metin.
@@ -525,37 +618,8 @@ function ShowDetailPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="sticky top-0 z-50 border-b border-border bg-background">
-        <div className="mx-auto flex h-[72px] max-w-6xl items-center justify-between px-5 lg:px-8">
-          <Link
-            to="/"
-            aria-label={t("common.homeAria")}
-            className="flex items-center gap-2 rounded-full px-1 py-1"
-          >
-            <img
-              src="/shanime-logo.png?v=6"
-              alt={t("common.logoAlt")}
-              width={1060}
-              height={856}
-              loading="eager"
-              decoding="async"
-              className="h-11 w-auto object-contain sm:h-12"
-            />
-            <span className="sr-only">shanime</span>
-          </Link>
-          {/* "Geri" kaldırıldı: tarayıcıda zaten geri düğmesi var, burada
-              tekrar etmek yerine her sayfada aynı olan ana sayfa bağlantısı
-              duruyor. */}
-          <Link
-            to="/"
-            className="ml-auto flex items-center gap-1.5 text-sm font-bold text-muted-foreground transition-colors hover:text-accent"
-          >
-            <Home size={16} /> {t("series.home")}
-          </Link>
-          {/* Dil değiştirici: her sayfada görünür (paylaşılan başlık şeridi). */}
-          <LanguageToggle />
-        </div>
-      </header>
+      {/* ESKI SAYFA-ICI BASLIK SERIDI KALDIRILDI (01.10.2026): "header her yerde ayni olsun". */}
+      {/* Serit artik TEK yerde: `SiteHeader` -> `__root.tsx`. */}
 
       <section className="relative isolate overflow-hidden border-b border-border">
         {/* Vitrin bandı SABİT yükseklikte. Eskiden görsel `inset-0` idi: "Devamını
@@ -748,112 +812,52 @@ function ShowDetailPage() {
             <p className="mt-4 text-sm text-muted-foreground">{t("series.noEpisodes")}</p>
           ) : (
             <>
-              {/* Araç çubuğu: solda izleme ilerlemesi, sağda görünüm değiştirici. */}
-              <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-                {/* AKTİF SEZON İLERLEMESİ — cihazdaki kayda göre. İlerleme yokken
-                    de "0/24 izlendi" görünür: düğme değil, bilgi satırıdır. */}
-                {activeSeason && activeEpisodes.length > 0 ? (
-                  <span className="text-xs font-bold text-muted-foreground">
-                    {t("series.watchedProgress", {
-                      watched: watchedInActiveSeason,
-                      total: activeEpisodes.length,
-                    })}
-                  </span>
-                ) : (
-                  <span />
-                )}
+              {/* AKTİF SEZON İLERLEMESİ — cihazdaki kayda göre. İlerleme yokken
+                  de "0/24 izlendi" görünür: düğme değil, bilgi satırıdır.
+                  Görünüm değiştirici (satır/ızgara) KALDIRILDI: liste artık
+                  yalnızca satır düzeninde çizilir. */}
+              {activeSeason && activeEpisodes.length > 0 ? (
+                <p className="mt-4 text-xs font-bold text-muted-foreground">
+                  {t("series.watchedProgress", {
+                    watched: watchedInActiveSeason,
+                    total: activeEpisodes.length,
+                  })}
+                </p>
+              ) : null}
 
-                <div className="flex flex-wrap items-center gap-2">
-                  <div className="flex items-center gap-1 rounded-full border border-border p-1">
-                    <button
-                      type="button"
-                      aria-pressed={view === "row"}
-                      aria-label={t("series.rowView")}
-                      onClick={() => setView("row")}
-                      className={`grid size-8 place-items-center rounded-full transition-colors ${
-                        view === "row"
-                          ? "bg-accent/15 text-accent"
-                          : "text-muted-foreground hover:text-foreground"
-                      }`}
-                    >
-                      <List size={16} />
-                    </button>
-                    <button
-                      type="button"
-                      aria-pressed={view === "grid"}
-                      aria-label={t("series.gridView")}
-                      onClick={() => setView("grid")}
-                      className={`grid size-8 place-items-center rounded-full transition-colors ${
-                        view === "grid"
-                          ? "bg-accent/15 text-accent"
-                          : "text-muted-foreground hover:text-foreground"
-                      }`}
-                    >
-                      <LayoutGrid size={16} />
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              {/* SATIR GÖRÜNÜMÜ (varsayılan): geniş yatay satırlar — kapak solda,
-                  başlık/açıklama ortada, rozetler sağda. Satırlar arası boşluk
-                  12 px (YAKLAŞIK). IZGARA görünümü alternatif olarak KORUNDU
-                  (`EpisodeCard` çizimi değişmedi). */}
-              <div
-                className={
-                  view === "row"
-                    ? "mt-5 flex flex-col gap-3"
-                    : "mt-5 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4"
-                }
-              >
+              {/* BÖLÜM LİSTESİ: geniş yatay satırlar — kapak solda, başlık/açıklama
+                  ortada, rozetler sağda. Satırlar arası boşluk 12 px. */}
+              <div className="mt-5 flex flex-col gap-3">
                 {visibleEpisodes.map((episode) => {
                   const isWatched = watched.has(episodeKey(episode.season, episode.number));
                   // Kartın açacağı sezon: aktif sezon (bölümün kendi sezonu
                   // yoksa ona düşülür). Rota bunu izleme YOLUNA
                   // (`/anime/<slug>/season/<n>/episode/<n>`) çevirir.
                   const watchSeason = activeSeason?.number ?? episode.season;
-                  if (view === "row") {
-                    return (
-                      // Tıklama kaydı (recordWatched) eskiden sarmalayıcı <div>
-                      // üzerindeydi; satır artık doğrudan <Link> olduğu için aynı
-                      // iş bağlantının onClick'inde yapılır: tarayıcı sayfayı
-                      // değiştirmeden ÖNCE ilerleme kaydedilir.
-                      <EpisodeRow
-                        key={episode.id}
-                        slug={showSlug(show)}
-                        episode={episode}
-                        watchSeason={watchSeason}
-                        seriesPoster={show.image}
-                        malId={show.mal_id ?? null}
-                        watched={isWatched}
-                        onOpen={() => recordWatched(episode.season, episode.number)}
-                      />
-                    );
-                  }
+                  // Tıklama kaydı (recordWatched) eskiden sarmalayıcı <div>
+                  // üzerindeydi; satır artık doğrudan <Link> olduğu için aynı
+                  // iş bağlantının onClick'inde yapılır: tarayıcı sayfayı
+                  // değiştirmeden ÖNCE ilerleme kaydedilir.
                   return (
-                    // IZGARA: eski sarmalayıcı + EpisodeCard + "izlendi" işareti
-                    // AYNEN korunur (yalnızca satır görünümü değişti).
-                    <div
+                    <EpisodeRow
                       key={episode.id}
-                      className="relative"
-                      onClick={() => recordWatched(episode.season, episode.number)}
-                    >
-                      <EpisodeCard
-                        slug={showSlug(show)}
-                        episode={episode}
-                        seriesPoster={show.image}
-                        malId={show.mal_id ?? null}
-                        variant="grid"
-                        watchSeason={watchSeason}
-                      />
-                      {/* "izlendi" işareti yalnızca kayıtlı bölümde; tıklamayı
-                          engellemez (pointer-events-none). */}
-                      {isWatched && (
-                        <span className="pointer-events-none absolute left-4 top-4 z-10 rounded-full border border-accent/40 bg-background/95 px-2 py-0.5 text-[10px] font-bold text-accent">
-                          {t("series.watchedBadge")}
-                        </span>
+                      slug={showSlug(show)}
+                      episode={episode}
+                      watchSeason={watchSeason}
+                      malId={show.mal_id ?? null}
+                      // Veritabanındaki kimlik yoksa OTOMATİK ÇÖZÜLENDEN gelir
+                      // (AniList sezon zinciri) — panele elle giriş gerekmez.
+                      seasonMalId={resolveSeasonMalId(
+                        show.mal_id,
+                        activeSeason?.number ?? 0,
+                        activeSeason?.mal_id,
                       )}
-                    </div>
+                      watched={isWatched}
+                      // "YENİ": en son EKLENEN bölüm VE henüz izlenmemiş olması.
+                      // İzlenmişse rozet gösterilmez ve BAŞKA bölüme kaymaz.
+                      isNew={!isWatched && newestIds.has(episode.id)}
+                      onOpen={() => recordWatched(episode.season, episode.number)}
+                    />
                   );
                 })}
               </div>

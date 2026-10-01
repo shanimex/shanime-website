@@ -294,7 +294,24 @@ export async function fetchShows(): Promise<ShowWithImage[]> {
  * 1 saatte bir ölüyor, her ziyaretçi kapakları baştan indiriyordu → 33 GB egress
  * ile kota patladı. R2 adresleri sabit + önbelleklenebilir + egress ücretsiz.
  */
+/** Sunucuyla AYNI sınırlar (istemcide erken uyarı: dosya ağa verilmez). */
+const UPLOAD_MAX_BYTES = 100 * 1024 * 1024;
+const UPLOAD_ALLOWED_TYPES = /^(image\/(jpeg|png|webp|gif|svg\+xml)|video\/(mp4|webm))$/i;
+
 async function uploadToBucket(file: File, folder: string, fallbackExt: string): Promise<string> {
+  // ERKEN UYARI (özellikle mobil): tür/boyut ağa çıkmadan denetlenir; sunucu
+  // zaten aynı sebeple 413/415 dönecekti. iPhone HEIC/MOV burada yakalanır:
+  // Ayarlar → Kamera → Biçimler → "En Uyumlu" (JPEG) önerilir.
+  if (file.size > UPLOAD_MAX_BYTES) {
+    throw new Error(
+      "Dosya çok büyük (en fazla 100 MB). Daha büyük video için YouTube linki kullan.",
+    );
+  }
+  if (file.type && !UPLOAD_ALLOWED_TYPES.test(file.type)) {
+    throw new Error(
+      "Dosya türü kabul edilmiyor (JPEG/PNG/WebP/GIF/SVG ya da MP4/WebM). iPhone HEIC/MOV kullanıyorsa JPEG'e çevir ya da YouTube linki ver.",
+    );
+  }
   const { data } = await supabase.auth.getSession();
   const token = data.session?.access_token ?? "";
   const form = new FormData();

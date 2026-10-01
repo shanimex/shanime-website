@@ -2,45 +2,53 @@
  * SEZONUN "0. BÖLÜM"LERİ — ani.zip kataloğundaki `season: 0` (özel/ön bölüm).
  *
  * ═══════════════════════════════════════════════════════════════════════════════
- * NEDEN VAR (kullanıcı bildirimi, 29.09.2026, ikinci tur)
+ * NEDEN VAR  ·  İLK SÜRÜMÜN HATASI  ·  DOĞRU KURAL (30.09.2026)
  *
- * "İzleme sayfasında 0. bölüm görünmüyor; `/anime/mushoku-tensei/season/2/
- *  episode/0` sessizce **ep 1 içeriğine düşüyor**."
+ * İLK SÜRÜM (29.09.2026): katalogdan gelen `season: 0` kayıtları doğrudan
+ * listeye "0. Bölüm" olarak EKLENİYORDU; veritabanında satırı OLMAYA BİLİRDİ.
+ * Amaç, "episode/0 sessizce ep 1'e düşüyor" şikâyetini gidermekti (Mushoku S2
+ * "Guardian Fitz").
  *
- * SEBEP: izleme sayfası bölüm listesini YALNIZCA `show_episodes` tablosundan
- * okuyordu; ani.zip kataloğu `season: 0` altında "0. Bölüm — Guardian Fitz"
- * verse bile (Mushoku S2) veritabanında satırı OLMADIĞI için ne listede
- * görünüyor ne de doğrudan `episode/0` adresi açılabiliyordu.
+ * ── ÖLÇÜLEN HATA (kullanıcı bildirimi, 30.09.2026) ──────────────────────────
+ * "Re:Zero'yu eklerken bir sürü 0. bölüm vardı; hiçbirini seçmeden yalnızca 0
+ *  OLMAYAN bölümleri yükledim. Ama oynatıcı sayfasında neden o eklemediğim
+ *  bölümler var? Kaynakları da yok ki."
  *
- * ÇÖZÜM: özel bölümler KATALOGDAN okunur ve sezon verisine eklenir; DB'de satır
- * olmasa bile listede "0. Bölüm" olarak en üstte durur. Numaralandırma (1..N ya
- * da part aralığı 12..23) DEĞİŞMEZ — özel bölüm `number: 0` ile aralığın
- * DIŞINDA durur, part offset hesabına KATILMAZ.
+ * Sebep: ani.zip kataloğu Re:Zero S2 (MAL 42203) için `season: 0` altında 12 adet
+ * "Re:Zero - Starting Break Time from Zero" kaydı döndürüyor. Bunlar veritabanında
+ * KARŞILIĞI OLMADIĞI hâlde listeye sentetik "0. Bölüm" olarak ekleniyordu —
+ * hiçbiri oynatılamıyordu (kaynak yok).
  *
- * ÖNBELLEK: sonuç `cachedRead` ile saklanır (6 saat). Bu veri BİZİM kataloğumuz
- * değil, dış bir API'nin (ani.zip/TVDB) yanıtıdır ve gün mertebesinde değişir;
- * her sayfa açılışında upstream'e gidilmesi sayfa yükünü yavaşlatırdı (bkz.
- * `lib/server-cache.ts` — dev'de önbellek kapalı, üretimde açık).
+ * ── DOĞRU KURAL ─────────────────────────────────────────────────────────────
+ * Bir "0. Bölüm" listede YALNIZCA şu iki koşul BİRLİKTE sağlanırsa görünür:
+ *   (a) `show_episodes`ta o sezona ait `number = 0` satırı VAR, ve
+ *   (b) o satırın en az bir KAYNAĞI var (`episode_sources`).
+ * Aksi hâlde HİÇ görünmez. Yani KATALOG TEK BAŞINA satır ÜRETMEZ.
+ *
+ * Bu dosya artık YALNIZCA bir "katalog eşleştirme" yardımcısıdır: veritabanında
+ * KARŞILIĞI OLAN özel bölümün başlığını katalogla doğrular. SENTETİK KAYIT
+ * ÜRETMEZ. (Katalog GÖRSELİ bilinçli olarak kullanılmaz: kapak sistemi bu
+ * değişikliğin kapsamı DIŞINDADIR — TVDB-tek kapak akışına dokunulmaz.)
+ *
+ * ÖNBELLEK: sonuç `cachedRead` ile saklanır (6 saat). Bu veri BİZİM
+ * kataloğumuz değil, dış bir API'nin (ani.zip/TVDB) yanıtıdır ve gün mertebesinde
+ * değişir (bkz. `lib/server-cache.ts`).
  * ═══════════════════════════════════════════════════════════════════════════════
  */
 import { fetchCatalogEpisodes } from "@/lib/admin-anizip";
 import { cachedRead } from "@/lib/server-cache";
 
-/** İzleme sayfasında gösterilen özel/ön bölüm. */
-export type SeasonSpecial = {
-  /**
-   * HER ZAMAN `0` — özel bölümün sezon içi numarası budur ve 1..N aralığının
-   * DIŞINDA kalır (numaralandırmayı kaydırmaz).
-   */
-  number: 0;
-  /** Katalogdaki gerçek (sezon-içi) numara; bilgi amaçlı taşınır (ör. 2). */
+/** ani.zip kataloğundaki tek bir özel/ön bölüm kaydı. */
+export type CatalogSpecial = {
+  /** Katalogdaki gerçek (sezon-içi) numara; bilgi amaçlı (ör. 43). */
   catalogNumber: number;
-  /** Bölüm adı (katalogdan; ör. "Guardian Fitz"). */
+  /** Katalog başlığı (ör. "Guardian Fitz"). */
   title: string;
-  /** Katalog görseli (varsa); kapak zincirinin ilk adayı olur. */
+  /**
+   * Katalog görseli (varsa). NOT: kapak akışı bu değişikliğin KAPSAMI DIŞINDA
+   * olduğu için (TVDB-tek kapak politikası) BURADAN KAPAK ÜRETİLMEZ.
+   */
   image: string;
-  /** Kararlı listeleme kimliği (veritabanı satırı YOK — sentetiktir). */
-  id: string;
 };
 
 /**
@@ -56,14 +64,19 @@ export const TTL_SPECIALS_SECONDS = 6 * 60 * 60;
 /**
  * Bir MAL kaydının kataloğundan ÖZEL bölümleri (ani.zip `season: 0`) çeker.
  *
+ * ⚠️ ARTIK SENTETİK SATIR ÜRETİLMEZ. Dönen liste yalnızca veritabanında
+ * KARŞILIĞI OLAN özel bölümü eşleştirmek için kullanılır; çağıran taraf
+ * (`lib/content.ts`) her kaydı bir DB satırıyla eşleştirmedikçe listeye HİÇBİR
+ * ŞEY eklemez (bkz. `matchCatalogSpecial`).
+ *
  * HATALAR YUTULUR: ani.zip 404/ağ hatası verirse `[]` döner — izleme sayfası
- * ASLA bu yüzden düşmez (özel bölüm göstermemek, sayfayı kaybetmekten iyidir).
- * Sonuç önbelleğe YALNIZCA başarılıysa yazılır (`cachedRead` sözleşmesi).
+ * ASLA bu yüzden düşmez. Sonuç önbelleğe YALNIZCA başarılıysa yazılır
+ * (`cachedRead` sözleşmesi).
  *
  * @param malId Sezonun KENDİ MAL kimliği (`show_seasons.mal_id`); yoksa serinin
  *        kimliği (`shows.mal_id`) çağıran tarafından verilir.
  */
-export async function fetchSeasonSpecials(malId: number): Promise<SeasonSpecial[]> {
+export async function fetchSeasonSpecials(malId: number): Promise<CatalogSpecial[]> {
   if (!Number.isFinite(malId) || malId <= 0) return [];
   return cachedRead(`season-specials:${malId}`, TTL_SPECIALS_SECONDS, async () => {
     try {
@@ -72,15 +85,33 @@ export async function fetchSeasonSpecials(malId: number): Promise<SeasonSpecial[
         .filter((episode) => episode.season === 0)
         .sort((a, b) => a.number - b.number)
         .map((episode) => ({
-          number: 0 as const,
           catalogNumber: episode.number,
           title: episode.title,
           image: episode.image,
-          id: `special-${malId}-${episode.number}`,
         }));
     } catch {
       // 404 / ağ hatası: özel bölüm yokmuş gibi davran (sayfa bozulmaz).
       return [];
     }
   });
+}
+
+/**
+ * Katalog kaydını veritabanındaki ÖZEL bölümle EŞLEŞTİRİR.
+ *
+ * EŞLEŞME ÖLÇÜTÜ: başlık (Türkçe küçük/büyük harf duyarsız, kırpılmış) BİREBİR
+ * eşitliği. NUMARA ile eşleştirme GÜVENİLMEZ (katalog numarası sezon-içi, DB
+ * satırının numarası ise her zaman `0`) — bu yüzden yalnızca başlık esas alınır.
+ * Güvenilir eşleşme YOKSA `null` döner ve çağıran taraf DB satırındaki başlığı
+ * KULLANIR (katalog başlığı zorla yazılmaz).
+ */
+export function matchCatalogSpecial(
+  dbTitle: string | null | undefined,
+  catalog: CatalogSpecial[],
+): CatalogSpecial | null {
+  const name = (dbTitle ?? "").trim().toLocaleLowerCase("tr");
+  if (!name) return null;
+  return (
+    catalog.find((special) => (special.title ?? "").trim().toLocaleLowerCase("tr") === name) ?? null
+  );
 }

@@ -5,6 +5,7 @@ import {
   Link,
   createRootRouteWithContext,
   useRouter,
+  useRouterState,
   HeadContent,
   Scripts,
 } from "@tanstack/react-router";
@@ -12,11 +13,18 @@ import { useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { LanguageToggle } from "@/components/site/LanguageToggle";
+import { SiteHeader } from "@/components/site/SiteHeader";
 // `translate`: modül seviyesindeki `t`nin takma adı — kök `<head>` meta'sı
 // bileşen dışında (rota `head()` içinde) üretildiği için orada hook çağrılamaz.
 // `DEFAULT_LANG`: SSR'de basılan metnin dili; `<html lang>` ile AYNI kaynaktan
 // beslenir ki ilk boyamada dil uyuşmazlığı olmasın (bkz. RootShell).
 import { DEFAULT_LANG, t as translate, useDocumentTitle, useLang } from "@/lib/i18n";
+import {
+  BRAND_ICON_VERSION,
+  BRAND_LOGO_HEIGHT,
+  BRAND_LOGO_SRC,
+  BRAND_LOGO_WIDTH,
+} from "@/lib/brand";
 
 function NotFoundComponent() {
   const { t } = useLang();
@@ -33,10 +41,10 @@ function NotFoundComponent() {
       <div className="max-w-md text-center">
         <Link to="/" className="mb-8 inline-flex items-center justify-center">
           <img
-            src="/shanime-logo.png?v=6"
+            src={BRAND_LOGO_SRC}
             alt={t("common.logoAlt")}
-            width={1060}
-            height={856}
+            width={BRAND_LOGO_WIDTH}
+            height={BRAND_LOGO_HEIGHT}
             loading="eager"
             decoding="async"
             className="h-14 w-auto object-contain"
@@ -58,18 +66,22 @@ function NotFoundComponent() {
               çip şeridine (`/#genres`) gidiyordu; o şerit KULLANICI İSTEĞİYLE
               silindiği için hedefi ölü kalmasın diye `/#series` (seri ızgarası)
               yapıldı. Etiket ("Türler"/"Genres") DEĞİŞMEDİ. */}
-          <a
-            href="/#series"
+          {/* `Link` (01.10.2026): kullanıcı isteği "sayfa yenilenmeden gitsin".
+              Eskiden `<a href="/#series">` tam sayfa yüklemesi yapıyordu. */}
+          <Link
+            to="/"
+            hash="series"
             className="inline-flex items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"
           >
             {t("footer.allSeries")}
-          </a>
-          <a
-            href="/#series"
+          </Link>
+          <Link
+            to="/"
+            hash="series"
             className="inline-flex items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"
           >
             {t("footer.genres")}
-          </a>
+          </Link>
         </div>
         {/* Dil değiştirici: 404 de bir site sayfasıdır; kök şeritte başlık yok,
             bu yüzden seçici buraya konur ki her sayfada dil seçilebilsin. */}
@@ -103,12 +115,13 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
           >
             {t("error.retry")}
           </button>
-          <a
-            href="/"
+          {/* `Link`: hata ekranından çıkış da sayfa YENİLEMEDEN olur. */}
+          <Link
+            to="/"
             className="inline-flex items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"
           >
             {t("common.home")}
-          </a>
+          </Link>
         </div>
         {/* Dil değiştirici: hata ekranı da bir site sayfasıdır (bkz. NotFound). */}
         <div className="mt-6 flex justify-center">
@@ -172,12 +185,31 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         },
         {
           rel: "stylesheet",
-          href: "https://fonts.googleapis.com/css2?family=Archivo+Black&family=Signika+Negative:wght@400;500;600;700&display=swap",
+          // `Nunito` — başlık şeridi (header) referans sitedeki (anikoto) yazı tipini
+          // birebir kullanır; gövde yazı tipi dokunulmadı (bkz. styles.css `#sh-header`).
+          href: "https://fonts.googleapis.com/css2?family=Archivo+Black&family=Manrope:wght@400;500;600;700&family=Nunito:wght@400;500;600;700&family=Signika+Negative:wght@400;500;600;700&display=swap",
         },
-        { rel: "icon", href: "/favicon.ico?v=6", type: "image/x-icon" },
-        { rel: "icon", href: "/icon-192.png?v=6", type: "image/png", sizes: "192x192" },
-        { rel: "icon", href: "/icon-512.png?v=6", type: "image/png", sizes: "512x512" },
-        { rel: "apple-touch-icon", href: "/apple-touch-icon.png?v=6", sizes: "180x180" },
+        // SEKME İKONLARI — sürüm `brand.ts`ten gelir (tek yerden yönetilir).
+        // İkonlar 01.10.2026'da yeniden üretildi: görünür içerik tuvalin
+        // tamamına kırpıldı, böylece sekmede mümkün olan EN BÜYÜK hâlde çizilir.
+        { rel: "icon", href: `/favicon.ico?v=${BRAND_ICON_VERSION}`, type: "image/x-icon" },
+        {
+          rel: "icon",
+          href: `/icon-192.png?v=${BRAND_ICON_VERSION}`,
+          type: "image/png",
+          sizes: "192x192",
+        },
+        {
+          rel: "icon",
+          href: `/icon-512.png?v=${BRAND_ICON_VERSION}`,
+          type: "image/png",
+          sizes: "512x512",
+        },
+        {
+          rel: "apple-touch-icon",
+          href: `/apple-touch-icon.png?v=${BRAND_ICON_VERSION}`,
+          sizes: "180x180",
+        },
       ],
     };
   },
@@ -206,8 +238,22 @@ function RootShell({ children }: { children: ReactNode }) {
   );
 }
 
+/**
+ * Şeridin GÖRÜNMEDİĞİ yollar.
+ *
+ * NEDEN: `/admin` yönetim paneli ve `/auth` giriş ekranı sitenin gezinmesinin
+ * parçası değildir; buraya hamburger/arama koymak yanlış olurdu. Diğer TÜM
+ * sayfalar (ana sayfa, seri detayı, oynatıcı, 404) AYNI şeridi kullanır —
+ * kullanıcı isteği (01.10.2026): "header her yerde aynı olsun ... her sayfada
+ * header farklı".
+ */
+const HEADER_HIDDEN_PREFIXES = ["/admin", "/auth"] as const;
+
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  // Aktif yol: şerit yalnızca yukarıdaki ön eklerde gizlenir.
+  const pathname = useRouterState({ select: (state) => state.location.pathname });
+  const showHeader = !HEADER_HIDDEN_PREFIXES.some((prefix) => pathname.startsWith(prefix));
 
   /**
    * CANLI HATA GÜNLÜĞÜ — yalnızca geliştirmede kurulur.
@@ -226,6 +272,15 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
+      {/* ORTAK BAŞLIK ŞERİDİ — TEK yerde, her sayfa için.
+          KULLANICI GERİ BİLDİRİMİ (01.10.2026): "header her yerde aynı olsun
+          ... ayrıca en önemli şey her sayfada header farklı".
+
+          Eskiden her rota kendi şeridini çiziyordu ve üçü farklı tasarımdı
+          (ana sayfa `#sh-header`, detay ve oynatıcı 72 px'lik Tailwind
+          şeritleri). Artık şerit BURADA, kök düzeyde bir kez çizilir; sayfalar
+          kendi şeridini çizmez. `sticky` olduğu için içerik akışı bozulmaz. */}
+      {showHeader && <SiteHeader />}
       {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
       <Outlet />
     </QueryClientProvider>

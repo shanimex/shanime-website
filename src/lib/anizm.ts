@@ -29,11 +29,6 @@ type AnizmEntry = {
 
 const TABLE = BAKED_ANIZM as Record<string, AnizmEntry>;
 
-/** Tablodaki kayıt sayısı (teşhis/panel için). */
-export function anizmResolvedCount(): number {
-  return Object.keys(TABLE).length;
-}
-
 /**
  * ⚠️ BURADA ESKİDEN `anizmCountForShow(malId)` VARDI — SİLİNDİ, GERİ GETİRMEYİN.
  *
