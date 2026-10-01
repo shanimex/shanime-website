@@ -221,7 +221,7 @@ function rankMeta(show: ShowWithImage, t: Translate): RankMeta {
  * KURAL: ÖNCE serinin BANNER'ı, banner yoksa/boşsa ESKİ davranış olan POSTER.
  * Poster yalnızca banner gerçekten yokken çizilir; hiçbir satır görselsiz kalmaz.
  */
-export function rankArtwork(show: ShowWithImage): string {
+function rankArtwork(show: ShowWithImage): string {
   const banner = (show.banner_image ?? "").trim();
   return banner || show.image;
 }
