@@ -30,6 +30,7 @@ import {
 } from "react";
 import { ShowLogo } from "@/components/home/heroStatic";
 import { AzList, SeriesCard } from "@/components/home/azList";
+import { ContinueRow } from "@/components/home/continueWatching";
 import {
   DISCOVERY_GRID,
   DISCOVERY_GRID_CAPPED,
@@ -40,7 +41,14 @@ import {
   PAGE_CONTAINER,
   SECTION_GAP,
 } from "@/components/home/homeClass";
-import { cardSlug, fallbackShows, heroBackdrop, heroVideo, type HeroCard } from "@/lib/home-static";
+import {
+  cardSlug,
+  fallbackShows,
+  heroBackdrop,
+  heroVideo,
+  type ContinueItem,
+  type HeroCard,
+} from "@/lib/home-static";
 import { heroVideoSource } from "@/lib/hero-video";
 import { AdSlot, useAdCode } from "@/components/site/AdSlot";
 import { AdsterraLeaderboard } from "@/components/site/AdsterraUnit";
@@ -765,210 +773,6 @@ function PosterCard({
       params={{ slug, season: String(season ?? 1), episode: String(episode ?? 1) }}
       preload={false}
       className={cardClassName}
-    >
-      {body}
-    </Link>
-  );
-}
-
-/**
- * "KALDIĞIN YERDEN DEVAM ET" SATIRININ VERİSİ (cihazda tutulur).
- *
- * NEDEN `frame` VE `fraction` AYRI: ikisi farklı kaynaklardan gelir ve farklı
- * güvenilirliğe sahiptir.
- *   · `fraction` — oynatma konumunun süreye oranı. Konum, kendi oynatıcımızdan
- *     (`timeupdate`) YA DA gömülü oynatıcının `postMessage` bildiriminden
- *     (`event:"time"`) gelir; ikisi de GERÇEK ölçümdür, tahmin değildir.
- *   · `frame` — yalnızca kendi `<video>`muzdan yakalanabilen gerçek kare.
- *     Embed/iframe durumunda ÜRETİLEMEZ (cross-origin) ve boş kalır; o zaman
- *     satır seri posterine düşer. Uydurma kare üretilmez, kırık görsel gösterilmez.
- */
-type ContinueItem = {
-  show: HeroCard;
-  season: number;
-  episode: number;
-  /** Yakalanmış gerçek kare (data URL); yoksa boş metin → poster gösterilir. */
-  frame: string;
-  /** 0..1 arası ilerleme; konum kaydı yoksa `null` (çubuk hiç çizilmez). */
-  fraction: number | null;
-  /** Kayıtlı son saniye (0 = kayıt yok) → zaman damgası "0:55 / 23:40". */
-  position: number;
-  /** Toplam süre saniye (0 = bilinmiyor) → "23 dk kaldı". */
-  duration: number;
-  /** Serinin toplam bölüm sayısı (0 = bilinmiyor). */
-  total: number;
-  /** Serinin MAL kimliği; bölüm kapağını çözmek için (yoksa zincir boş döner). */
-  malId: number | null;
-};
-
-/** Saat biçimi: 143 → "2:23", 1423 → "23:43", 3700 → "1:01:40". */
-function formatClock(totalSeconds: number): string {
-  const s = Math.max(0, Math.floor(totalSeconds));
-  const hours = Math.floor(s / 3600);
-  const minutes = Math.floor((s % 3600) / 60);
-  const seconds = s % 60;
-  const pad = (value: number) => String(value).padStart(2, "0");
-  return hours > 0 ? `${hours}:${pad(minutes)}:${pad(seconds)}` : `${minutes}:${pad(seconds)}`;
-}
-
-/**
- * "İZLEMEYE DEVAM ET" KARTI — referans (animex.one `#continue-watching`) düzeni.
- *
- * KULLANICI İSTEĞİ (01.10.2026): "animex.one/home bu sitedeki gibi continue
- * watching bizde de böyle olsun, aynı şekilde olsun; bizimki çok kötü, bak tam
- * kaldığı yerin çizgisi süresi bile var".
- *
- * REFERANS DÜZENİ (ekran görüntüsünden ölçüldü):
- *   · 16:9 görsel; zaman damgası görselin SAĞ ALTINDA ("0:55 / 23:40")
- *   · ilerleme çubuğu görselin EN ALT KENARINDA, tam genişlikte
- *   · görselin altında: kalan süre ("23 dk kaldı")
- *   · sonra "Seri Adı | Bölüm 1"
- *   · en altta "Bölüm 1 / 19"
- *
- * DÜRÜSTLÜK: zaman damgası ve kalan süre YALNIZCA gerçek konum kaydı varsa
- * yazılır. Kayıt yoksa (ör. hiç başlatılmamış bölüm) bu satırlar hiç çizilmez —
- * uydurma "%0" ya da "0:00" gösterilmez.
- */
-function ContinueRow({
-  slug,
-  season,
-  episode,
-  title,
-  image,
-  frame,
-  fraction,
-  position,
-  duration,
-  total,
-  malId,
-  editing,
-  onRemove,
-}: {
-  /** Hedef serinin slug'ı; boşsa (veritabanı kaydı olmayan yedek içerik) bağlantı çizilmez. */
-  slug?: string | undefined;
-  season: number;
-  episode: number;
-  title: string;
-  /** Yedek görsel: yakalanmış kare yoksa seri posteri. */
-  image: string;
-  /** Yakalanmış gerçek kare (data URL) ya da boş metin. */
-  frame: string;
-  /** 0..1 ilerleme; `null` ise çubuk çizilmez. */
-  fraction: number | null;
-  /** Kayıtlı son saniye (0 = kayıt yok). */
-  position: number;
-  /** Toplam süre saniye (0 = bilinmiyor). */
-  duration: number;
-  /** Serinin toplam bölüm sayısı (0 = bilinmiyor). */
-  total: number;
-  /** Serinin MAL kimliği — bölüm kapağını çözer (yoksa zincir boş döner). */
-  malId: number | null;
-  /** Düzenleme kipi: kart bağlantı olmaz, köşede "çıkar" düğmesi çıkar. */
-  editing: boolean;
-  onRemove: (slug: string) => void;
-}) {
-  const { t } = useLang();
-  const percent = fraction === null ? 0 : Math.round(Math.min(1, Math.max(0, fraction)) * 100);
-  // Kalan süre YALNIZCA iki değer de biliniyorsa ve anlamlıysa yazılır.
-  const remainingMinutes =
-    position > 0 && duration > position
-      ? Math.max(1, Math.round((duration - position) / 60))
-      : null;
-
-  /**
-   * KAPAK ZİNCİRİ — kullanıcı isteği (01.10.2026): "kaldığım bölümün kapağı
-   * olsun daima". Sıra bölüm listesiyle AYNIDIR: önce sezonun kendi MAL kaydı,
-   * sonra seri kaydı, sonra zincirdeki kardeş kayıt, sonra üretilmiş yerel kare.
-   *
-   * ESKİDEN NEYDİ: yalnızca `[fra, image]` deneniyordu; yakalanmış kare yoksa
-   * doğrudan SERİ POSTERİNE düşüyordu — bu yüzden kart "hep aynı görsel" gibi
-   * görünüyordu. Poster artık EN SON çaredir.
-   */
-  const seasonMalId = resolveSeasonMalId(malId, season, null);
-  const coverCandidates = [
-    anizipCoverForSeason(seasonMalId, season, episode),
-    anizipCover(malId, season, episode),
-    anizipCoverFromChain(malId, season, episode, seasonMalId),
-    localCoverPath(slug ?? "", season, episode),
-    frame,
-    image,
-  ];
-
-  const body = (
-    <div className="flex min-w-0 flex-col">
-      <span className="relative block aspect-video w-full overflow-hidden rounded-lg bg-secondary">
-        <EpisodeCover
-          number={episode}
-          numberClassName="font-display text-2xl text-foreground/70"
-          candidates={coverCandidates}
-        />
-        {/* ZAMAN DAMGASI — görselin sağ altı (referans ölçüsü: 11 px, yarı saydam
-            siyah zemin). `tabular-nums` rakam genişliğini sabitler ki sayaç
-            oynarken metin zıplamasın. */}
-        {duration > 0 && (
-          <span className="absolute bottom-2.5 right-2 rounded bg-black/75 px-1.5 py-0.5 text-[11px] font-semibold tabular-nums text-white">
-            {formatClock(position)} / {formatClock(duration)}
-          </span>
-        )}
-        {/* İLERLEME ÇUBUĞU — görselin en alt kenarında, tam genişlikte. */}
-        {fraction !== null && (
-          <span
-            role="progressbar"
-            aria-label={t("home.continueHeading")}
-            aria-valuemin={0}
-            aria-valuemax={100}
-            aria-valuenow={percent}
-            className="absolute inset-x-0 bottom-0 block h-1 bg-white/25"
-          >
-            <span className="block h-full bg-primary" style={{ width: `${percent}%` }} />
-          </span>
-        )}
-      </span>
-
-      <span className="mt-2 flex min-w-0 flex-col">
-        {remainingMinutes !== null && (
-          <span className="text-[13px] font-semibold text-primary">
-            {t("home.minLeft", { min: remainingMinutes })}
-          </span>
-        )}
-        {/* show.title VERİTABANI içeriğidir → bilerek ÇEVRİLMEZ. */}
-        <strong className="mt-0.5 truncate text-sm font-bold text-foreground">{title}</strong>
-        {/* KULLANICI İSTEĞİ (01.10.2026): "1. Sezon 1. Bölüm" yazacak —
-            "Bölüm 1 / 85" gibi bir sayaç DEĞİL. */}
-        <span className="mt-0.5 text-xs text-muted-foreground">
-          {t("common.seasonEpisode", { season, n: episode })}
-        </span>
-      </span>
-    </div>
-  );
-
-  // DÜZENLEME KİPİ: kart bağlantı DEĞİL (iç içe etkileşimli öğe geçersiz olurdu)
-  // ve çıkarma düğmesi çizilir.
-  if (editing) {
-    return (
-      <div className="group relative">
-        {body}
-        <button
-          type="button"
-          onClick={() => slug && onRemove(slug)}
-          aria-label={t("home.continueRemove", { title })}
-          className="absolute right-2 top-2 grid size-7 place-items-center rounded-full bg-black/80 text-white transition-colors hover:bg-primary"
-        >
-          <X size={14} aria-hidden="true" />
-        </button>
-      </div>
-    );
-  }
-
-  // Hedef yoksa (yedek içerik) bağlantı çizilmez: bugünkü davranış korunur.
-  if (!slug) return <div className="group">{body}</div>;
-  // Yoğun kart listesi → `preload={false}` (gerekçe: PosterCard notu).
-  return (
-    <Link
-      to="/anime/$slug/season/$season/episode/$episode"
-      params={{ slug, season: String(season), episode: String(episode) }}
-      preload={false}
-      className="group"
     >
       {body}
     </Link>

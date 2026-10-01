@@ -126,3 +126,38 @@ export function cardSlug(show: HeroCard): string {
   const slug = show.slug;
   return slug && slug.trim() ? slug : (show.id ?? "");
 }
+
+/**
+ * "KALDIĞIN YERDEN DEVAM ET" SATIRININ VERİSİ (cihazda tutulur).
+ *
+ * NEDEN `frame` VE `fraction` AYRI: ikisi farklı kaynaklardan gelir ve farklı
+ * güvenilirliğe sahiptir (kare: kendi videomuzdan; oran: gerçek konum ölçümü).
+ * Uydurma kare üretilmez, kırık görsel gösterilmez.
+ */
+export type ContinueItem = {
+  show: HeroCard;
+  season: number;
+  episode: number;
+  /** Yakalanmış gerçek kare (data URL); yoksa boş metin → poster gösterilir. */
+  frame: string;
+  /** 0..1 arası ilerleme; konum kaydı yoksa `null` (çubuk hiç çizilmez). */
+  fraction: number | null;
+  /** Kayıtlı son saniye (0 = kayıt yok) → zaman damgası "0:55 / 23:40". */
+  position: number;
+  /** Toplam süre saniye (0 = bilinmiyor) → "23 dk kaldı". */
+  duration: number;
+  /** Serinin toplam bölüm sayısı (0 = bilinmiyor). */
+  total: number;
+  /** Serinin MAL kimliği; bölüm kapağını çözmek için (yoksa zincir boş döner). */
+  malId: number | null;
+};
+
+/** Saat biçimi: 143 → "2:23", 1423 → "23:43", 3700 → "1:01:40". */
+export function formatClock(totalSeconds: number): string {
+  const s = Math.max(0, Math.floor(totalSeconds));
+  const hours = Math.floor(s / 3600);
+  const minutes = Math.floor((s % 3600) / 60);
+  const seconds = s % 60;
+  const pad = (value: number) => String(value).padStart(2, "0");
+  return hours > 0 ? `${hours}:${pad(minutes)}:${pad(seconds)}` : `${minutes}:${pad(seconds)}`;
+}
