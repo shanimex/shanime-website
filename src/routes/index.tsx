@@ -29,6 +29,17 @@ import {
   type ReactNode,
 } from "react";
 import { ShowLogo } from "@/components/home/heroStatic";
+import { AzList, SeriesCard } from "@/components/home/azList";
+import {
+  DISCOVERY_GRID,
+  DISCOVERY_GRID_CAPPED,
+  HEAD_BAND,
+  HEAD_GAP_BAND,
+  HEAD_GAP_ROW,
+  HEAD_ROW,
+  PAGE_CONTAINER,
+  SECTION_GAP,
+} from "@/components/home/homeClass";
 import { cardSlug, fallbackShows, heroBackdrop, heroVideo, type HeroCard } from "@/lib/home-static";
 import { heroVideoSource } from "@/lib/hero-video";
 import { AdSlot, useAdCode } from "@/components/site/AdSlot";
@@ -579,63 +590,9 @@ const RANK_TABS: { id: RankTab; labelKey: I18nKey; hintKey: I18nKey }[] = [
  *
  * NOT: buradaki değerler yalnızca ÖLÇÜDÜR. Referansın renkleri, markası, ikonları
  * KOPYALANMAZ; renkler bizim temamızdan (koyu yüzey + ana kırmızı) gelir.
- */
-const PAGE_CONTAINER = "mx-auto w-full max-w-[1800px] px-2.5";
-
-/**
- * Ana kolondaki poster ızgaralarının ortak düzeni (referansın kendi kuralı:
- * `.ani.items .item{width:16.667%}` → masaüstünde 6 sütun).
  *
- * NEDEN 6 SÜTUN: referansta HOME'daki TÜM poster ızgaraları iki kolonlu alanın
- * %75'lik ana kolonundadır ve 20 px boşlukla 6 sütun, ölçülen kart genişliğini
- * tam verir. Aritmetik (20 px boşluk = `gap-5`):
- *   1552 px pencere → ana kolon 1144 px → kart = (1144 − 5×20)/6 = 174 px ✓
- *   1600 px pencere → ana kolon 1180 px → kart = (1180 − 5×20)/6 = 180 px ✓
- * Referans aynı genişliklerde 174 ve 180 px ölçüldü; yani kart hem birebir aynı
- * hem de referanstaki gibi pencereyle birlikte büyüyüp küçülüyor.
- *
- * Bu düzen YALNIZCA kabı referansın ana kolonu kadar (içeriğin %75'i) olan
- * ızgaralarda doğrudur. Ana kolon tam genişliğe yayıldığında (kenar çubuğu
- * verisi yok) veya tam kap genişliğindeki bir bölümde ("Bu sezon") aynı 6 sütun
- * 1532 px'te 238.66 px kart üretir — referanstan ~%37 büyük. O durumlarda
- * `DISCOVERY_GRID_CAPPED` kullanılır. Telefonda 2 → 3 → 4 sütun (eski davranış).
+ * Izgara/başlık sabitleri homeClass.ts içindedir (tek kaynak).
  */
-const DISCOVERY_GRID = "grid grid-cols-2 gap-5 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6";
-
-/**
- * Kabı referansın ana kolonundan GENİŞ olan ızgaralar için düzen. Sabit sütun
- * sayısı burada ölçülen kart genişliğini tutturamadığı için kart genişliği
- * sınırlanır: `repeat(auto-fill, minmax(160px,1fr))` → kart asla referansın
- * kartından büyük olmaz, sütun sayısı sığdığı kadar artar.
- *
- * ARİTMETİK (20 px boşluk): sütun = (kap + 20) / (160 + 20), kalan boşluk eşit
- *   1552 px pencere, tam kap 1532 px → (1532+20)/180 = 8.62 → 8 sütun
- *      → kart = (1532 − 7×20)/8 = 1392/8 = 174 px  (referans 174 px ✓)
- *   1600 px pencere, tam kap 1580 px → (1580+20)/180 = 8.88 → 8 sütun
- *      → kart = (1580 − 7×20)/8 = 1440/8 = 180 px  (referans 180 px ✓)
- *   1552 px pencerede ana kolon tam genişliğe yayılırsa (kenar çubuğu yok)
- *      → (1532+20)/180 = 8.62 → 8 sütun → kart = 174 px (eskiden 238.66 px)
- */
-const DISCOVERY_GRID_CAPPED =
-  "grid grid-cols-2 gap-5 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-[repeat(auto-fill,minmax(160px,1fr))]";
-
-/**
- * Bölüm başlıklarının tipografik ölçeği (referanstan ölçüldü):
- *   · ana kolon başlığı : 27 px (2rem), 600, letter-spacing normal
- *   · bant kolonu başlığı: 20.25 px (1.5rem), BÜYÜK HARF, soluk renk
- *   · başlık altı boşluk : 15 px (bantta 10 px)
- *   · bölümler arası      : 40 px
- * NEDEN SABİT: aynı ölçek üç ayrı yerde (satır başlığı, bant, kenar çubuğu)
- * kullanılıyor; tek yerde tutulmazsa başlıklar birbirinden sapar.
- */
-const HEAD_ROW = "text-[27px] font-semibold tracking-normal text-foreground";
-const HEAD_BAND = "text-[20px] font-semibold tracking-normal text-muted-foreground uppercase";
-/** Başlığın altındaki boşluk: referans `section .head` margin-bottom 15 px. */
-const HEAD_GAP_ROW = "mb-[15px]";
-/** Bant başlığının altındaki boşluk: referans `section.top-table .head` 10 px. */
-const HEAD_GAP_BAND = "mb-2.5";
-/** Bölümler arası boşluk: referans `section { margin-bottom: 40px }`. */
-const SECTION_GAP = "mb-10";
 
 /**
  * BANT SATIRI ÖLÇÜLERİ — anikototv.to/home'un ALT BANDI, gerçek tarayıcıda
@@ -806,65 +763,6 @@ function PosterCard({
     <Link
       to="/anime/$slug/season/$season/episode/$episode"
       params={{ slug, season: String(season ?? 1), episode: String(episode ?? 1) }}
-      preload={false}
-      className={cardClassName}
-    >
-      {body}
-    </Link>
-  );
-}
-
-/**
- * SERİ KARTI — ana ızgaraların ("Bu sezon" ve "A-Z Listesi") ORTAK kartı.
- *
- * NEDEN TEK BİLEŞEN: aynı kart eskiden "Bu sezon" ızgarasının İÇİNDE satır içi
- * yazılıydı. A-Z bölümü de seri listesini çizdiği için işaretleme kopyalanınca
- * iki ızgara zamanla birbirinden sapardı; tek bileşen bunu önler. İşaretleme ve
- * ölçüler ESKİ hâliyle birebir aynıdır (poster 1:1.4, başlık 16 px / 500,
- * alt başlık 13.5 px, "Yakında" rozeti, kart sınıfı).
- */
-function SeriesCard({ show }: { show: HeroCard }) {
-  const { t } = useLang();
-  const cardClassName =
-    "group card-hover relative block overflow-hidden rounded-2xl bg-card shadow-2xl";
-  const body = (
-    <>
-      {/* Bölümü olmayan seriler ana sayfadan belli olsun. */}
-      {show.id && show.episode_count === 0 && (
-        <span className="absolute left-2 top-2 z-10 rounded-full bg-background/95 px-2.5 py-1 text-[11px] font-extrabold text-accent">
-          {t("common.comingSoon")}
-        </span>
-      )}
-      {/* Ölçüler keşif kartlarıyla aynı tutuldu (poster 1:1.4, yazı 16 px / 500,
-          meta 13.5 px) ki sayfadaki tüm posterler tek boyutta görünsün. */}
-      <div className="aspect-[5/7] overflow-hidden bg-muted">
-        <img
-          src={show.image}
-          alt={t("home.coverAlt", { title: show.title })}
-          width={768}
-          height={1152}
-          loading="lazy"
-          className="size-full object-cover transition-transform duration-500 ease-out group-hover:scale-105"
-        />
-      </div>
-      <div className="px-3 pt-3 pb-2.5">
-        <h3 className="truncate text-[16px] font-medium leading-5 text-foreground">{show.title}</h3>
-        <p className="mt-1 line-clamp-2 text-[13.5px] leading-[18px] text-muted-foreground">
-          {show.subtitle}
-        </p>
-      </div>
-    </>
-  );
-  // Veritabanı kaydı yoksa (yedek içerik) gidilecek sayfa yoktur: `href`siz <a>.
-  if (!show.id) {
-    return <a className={cardClassName}>{body}</a>;
-  }
-  // İSTEMCİ İÇİ GEZİNME; ÖNDEN ÇEKME (preload) KAPALI — tam gerekçe PosterCard
-  // üstündeki notta (hover başına boşa Supabase okuması olmasın).
-  return (
-    <Link
-      to="/anime/$slug"
-      params={{ slug: showSlug(show) }}
       preload={false}
       className={cardClassName}
     >
@@ -2759,132 +2657,6 @@ function HomeSections({
         </aside>
       )}
     </div>
-  );
-}
-
-/**
- * ============================================================================
- * A-Z LİSTESİ — referansın `DIV.azlist` bloğu (blueprint §4).
- * ============================================================================
- * NEREDE DURUR: referansta A-Z listesi ANA KOLONUN içinde DEĞİL, FOOTER'ın
- * içindedir (`FOOTER > DIV.container > DIV.azlist`). Bu yüzden bölüm main'den
- * çıkarılıp footer'ın İLK bloğu olarak çizilir (bkz. `Index()`).
- *
- * Referans burada bir BAŞLIK ("A-Z List"), bir ALT BAŞLIK ("Searching anime order
- * by alphabet name A to Z.") ve `All # 0-9 A B C … Z` biçiminde (toplam 29 çip)
- * bir HARF ÇİPİ SATIRI taşır. Bizde bu bölüm YENİ VERİ İSTEMEZ: çipler,
- * hâlihazırda yüklü olan seri listesini (`shows`) başlığın İLK HARFİNE göre
- * İSTEMCİDE süzer — ağa/Supabase'e yeni bir sorgu ÇIKMAZ (kota/egress sabit).
- * (Referans çipe basınca `/az-list/<harf>` sayfasına GİDER; bizde ayrı liste
- * sayfası olmadığı için aynı süzme sayfa içinde, istemcide yapılır.)
- *
- * ÇİP DAVRANIŞI (referansın `ALL # 0-9 A…Z` sırası korunur):
- *   · ALL → tüm seriler.
- *   · 0-9 → başlığı RAKAMLA başlayanlar.
- *   · #   → başlığı HARF OLMAYAN karakterle başlayanlar (rakam ya da simge).
- *           `0-9` bunun yalnızca RAKAMA daraltılmış hâlidir; ikisi bilerek
- *           örtüşür, çünkü referansta "#" tam olarak "harf olmayan" kovasıdır.
- *   · A…Z → o harfle başlayanlar.
- *
- * TÜRKÇE HARFLER: başlığın ilk harfi önce Türkçe büyütülür, sonra ASCII tabanına
- * indirgenir (Ç→C, Ğ→G, İ→I, Ö→O, Ş→S, Ü→U). Böylece "İ" ile başlayan seriler de
- * `I` çipinde, "Ç" ile başlayanlar `C` çipinde görünür; ayrı Türkçe çipler
- * eklemeye gerek kalmaz (referans da yalnızca A-Z çizer).
- * ============================================================================
- */
-/** Çip kimlikleri: sabitler + tek harfler (A…Z). Tek harf değerleri sabitlerle çakışmaz. */
-const AZ_ALL = "all";
-const AZ_HASH = "hash";
-const AZ_DIGITS = "digits";
-
-/** A-Z çip satırındaki 26 harf (referans sırası: A…Z). */
-const AZ_LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
-
-/** Başlığın İLK harfini Türkçe büyütüp ASCII tabanına indirger (yukarıdaki nota bkz.). */
-function azFirstLetter(title: string): string {
-  const first = (title ?? "").trim().charAt(0);
-  if (!first) return "";
-  const upper = first.toLocaleUpperCase("tr");
-  const folded: Record<string, string> = { Ç: "C", Ğ: "G", İ: "I", Ö: "O", Ş: "S", Ü: "U" };
-  return folded[upper] ?? upper;
-}
-
-/** Seçili çipin bir seriyi gösterip göstermediği (yukarıdaki çip davranışı). */
-function azMatches(title: string, filter: string): boolean {
-  if (filter === AZ_ALL) return true;
-  const base = azFirstLetter(title);
-  if (filter === AZ_DIGITS) return /^[0-9]$/.test(base);
-  // "#" = harf olmayan (rakam ya da simge). Boş başlık da bu kovaya düşer.
-  if (filter === AZ_HASH) return !/^[A-Z]$/.test(base);
-  return base === filter;
-}
-
-/**
- * A-Z bölümü: başlık + alt başlık + harf çipleri + süzülmüş seri ızgarası.
- * `shows` çağırandan gelir (ana sayfada zaten yüklü liste); ek okuma yoktur.
- */
-function AzList({ shows }: { shows: HeroCard[] }) {
-  const { t } = useLang();
-  // Seçili çip; varsayılan ALL (bölüm açıldığında tüm seriler görünür).
-  const [filter, setFilter] = useState<string>(AZ_ALL);
-  // Çip listesi SABİTTİR (ALL, #, 0-9, A…Z) — veriden türetilmez; referansın
-  // kendi çip satırı budur ve sırası da referanstaki sıradır.
-  const chips = useMemo(
-    () => [
-      { id: AZ_ALL, label: t("home.azAll") },
-      { id: AZ_HASH, label: "#" },
-      { id: AZ_DIGITS, label: "0-9" },
-      ...AZ_LETTERS.map((letter) => ({ id: letter, label: letter })),
-    ],
-    [t],
-  );
-  // Süzme İSTEMCİDE: liste `shows` ile zaten elde, ek sorgu YOK.
-  const filteredShows = useMemo(
-    () => shows.filter((show) => azMatches(show.title, filter)),
-    [shows, filter],
-  );
-  return (
-    // Kap footer'ın içindedir; bu yüzden sayfa ritmi korunur (kap + 10 px yan
-    // boşluk) ve dikey boşluk `pt-12`/`pb-10` ile footer'ın kendi `py-12` bloğuna
-    // uydurulur. YAKLAŞIK: bu iki dikey boşluk bizim seçimimizdir (blueprint A-Z
-    // bloğu için yalnızca `.azlist { margin-bottom: 40px }` verir; 40 px alt boşluk
-    // korunur, üst boşluk footer ritmine uydurulmuştur). `id="az"` korunur.
-    <section id="az" aria-label={t("home.azAria")} className={`${PAGE_CONTAINER} pt-12 pb-10`}>
-      {/* Başlık + alt başlık (referansın bu bölümdeki kendi düzeni). */}
-      <div className={HEAD_GAP_ROW}>
-        <h2 className={HEAD_ROW}>{t("home.azHeading")}</h2>
-        <p className="mt-2 text-sm text-muted-foreground">{t("home.azSubtitle")}</p>
-      </div>
-      {/* ÇİP SATIRI — referans: `ALL # 0-9 A B C … Z`; dar ekranda sarar. */}
-      <div aria-label={t("home.azFilterAria")} className="flex flex-wrap items-center gap-2">
-        {chips.map((chip) => (
-          <button
-            key={chip.id}
-            type="button"
-            aria-pressed={filter === chip.id}
-            onClick={() => setFilter(chip.id)}
-            className={`ui-hover min-w-[36px] rounded-md border px-3 py-1.5 text-sm font-bold ${
-              filter === chip.id
-                ? "border-primary bg-primary text-primary-foreground"
-                : "border-border text-muted-foreground hover:border-accent hover:text-accent"
-            }`}
-          >
-            {chip.label}
-          </button>
-        ))}
-      </div>
-      {/* SONUÇ IZGARASI: süzülen seriler. Hiç sonuç yoksa uydurma kart yerine
-          kısa bir bilgi satırı gösterilir. */}
-      {filteredShows.length === 0 ? (
-        <p className="mt-6 text-sm text-muted-foreground">{t("home.azEmpty")}</p>
-      ) : (
-        <div className={`mt-6 ${DISCOVERY_GRID_CAPPED}`}>
-          {filteredShows.map((show) => (
-            <SeriesCard key={show.slug ?? show.title} show={show} />
-          ))}
-        </div>
-      )}
-    </section>
   );
 }
 
