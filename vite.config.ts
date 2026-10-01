@@ -7,15 +7,13 @@ import { defineConfig } from "vite";
 /**
  * shanime — standart Vite + TanStack Start yapılandırması.
  *
- * Bu dosya bilinçli olarak sade: hiçbir platform sarmalayıcısı kullanmıyor.
- * Derleme tamamen kendi üzerinde durur.
- *
  * NELER VAR:
  * - `tanstackStart` : SSR çatısı. `server.entry` kendi hata yakalayıcımıza
  *   (`src/server.ts`) yönlendirir; h3'ün yuttuğu 500'leri okunur sayfaya çevirir.
  * - `viteReact`     : React derleyicisi.
  * - `tailwindcss`   : Tailwind v4 (CSS'ten yapılandırılır, ayrı config dosyası yok).
- * - `nitro`         : Üretim derlemesini Cloudflare çıktısına çevirir.
+ * - `nitro`         : Üretim derlemesini Cloudflare Pages çıktısına çevirir
+ *   (`cloudflare-pages` preset'i, `dist/` çıktısı).
  *
  * YAYIN HEDEFİ: `cloudflare-pages` preset'i.
  * Site Cloudflare Pages'te yayınlanıyor ve Pages, çıktı olarak `dist/` klasörünü

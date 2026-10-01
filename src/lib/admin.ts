@@ -7,9 +7,6 @@ export const db = supabase as any;
 
 export const inputCls =
   "h-10 w-full rounded-xl border border-border bg-card px-3 text-sm text-foreground outline-none transition-colors focus:border-primary";
-export const areaCls =
-  "min-h-24 w-full rounded-xl border border-border bg-card p-3 text-sm text-foreground outline-none focus:border-primary";
-export const tinyLabelCls = "mb-1 block text-[11px] font-bold text-muted-foreground";
 
 /** Başlıktan URL dostu slug üretir (Türkçe karakterler sadeleştirilir). */
 export function slugify(text: string): string {
@@ -36,11 +33,6 @@ export function uniqueSlug(base: string, taken: (string | null | undefined)[]): 
   let n = 2;
   while (used.has(`${base}-${n}`)) n += 1;
   return `${base}-${n}`;
-}
-
-/** Yeni kaydın sırası: mevcut en büyük sort_order + 1. */
-export function nextSortOrder(rows: { sort_order: number }[]): number {
-  return rows.reduce((max, row) => Math.max(max, row.sort_order), 0) + 1;
 }
 
 /** Dizideki bir elemanı bir yukarı/aşağı taşır ve sıralarını veritabanına yazar. */
@@ -79,7 +71,7 @@ export async function moveAndPersist<T extends { id: string }>(
  * biçimidir. Kullanıcı `/e/<kod>` yapıştırdı; o adres ana sayfaya yönlendiği için
  * oynatıcıda Filemoon'un tanıtım sayfası göründü ("oynatıcı bozuk").
  */
-export function canonicalEmbedUrl(url: string): string {
+function canonicalEmbedUrl(url: string): string {
   const value = (url ?? "").trim();
   if (!value) return "";
   let parsed: URL;

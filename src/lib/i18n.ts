@@ -19,8 +19,14 @@ import { useCallback, useEffect, useSyncExternalStore } from "react";
 
 export type Lang = "tr" | "en";
 
-/** Desteklenen diller; çip sırası da bu liste. */
-export const LANGS: readonly Lang[] = ["tr", "en"];
+/** Desteklenen diller; ÇİP SIRASI da bu listedir.
+ *
+ * KULLANICI GERİ BİLDİRİMİ (01.10.2026): "EN önce olsun — ana dil artık İngilizce."
+ * Sıra `DEFAULT_LANG` ile hizalı tutulur: site İngilizce açıldığı için aktif çip
+ * solda durur ve dil anahtarı ilk bakışta doğru dili işaret eder. Ayrıca çipler
+ * arası ayırıcı çizgi `:first-child`/`:last-child` ile çizildiğinden sıra
+ * değişince şekil bozulmaz (bkz. styles.css `.sh-lang`). */
+export const LANGS: readonly Lang[] = ["en", "tr"];
 
 /**
  * localStorage anahtarı — SÜRÜMLÜ (`:v1`).
@@ -33,7 +39,7 @@ export const LANGS: readonly Lang[] = ["tr", "en"];
  * gitmesine gerek yoktur, oturum/hesap da gerekmez. Çerez olsaydı her istekte
  * ağa fazladan veri binerdi.
  */
-export const LANG_STORAGE_KEY = "shanime:ui-lang:v1";
+const LANG_STORAGE_KEY = "shanime:ui-lang:v1";
 
 /**
  * Tarayıcı dili tanınmadığında kullanılan dil: **İNGİLİZCE**.
@@ -83,6 +89,8 @@ const tr = {
   "common.comingSoon": "Yakında",
   "common.search": "Anime ara",
   "common.searchPlaceholder": "Anime ara...",
+  // Başlıktaki arama kutusunun sağ ucundaki kısayol ipucu (referans: "Quick Access").
+  "common.quickAccess": "Hızlı Erişim",
   "common.closeSearch": "Aramayı kapat",
   "common.clearSearch": "Aramayı temizle",
   "common.openMenu": "Menüyü aç",
@@ -126,6 +134,37 @@ const tr = {
   "home.continueTag": "İzlemeye devam",
   "home.continueHeading": "KALDIĞIN YERDEN DEVAM ET",
   "home.continueAria": "Kaldığın yerden devam et",
+  "home.continueEdit": "Düzenle",
+  "home.continueDone": "Bitti",
+  "home.continueRemove": "{title} kaydını listeden çıkar",
+  "home.minLeft": "{min} dk kaldı",
+  // "1. Sezon 1. Bölüm" — hem "İzlemeye devam et" kartı hem izleme sayfasının
+  // üst bilgisi kullanır (kullanıcı isteği 01.10.2026: "1/59" gibi sayaç
+  // yerine sezon+bölüm yazacak).
+  "common.seasonEpisode": "{season}. Sezon {n}. Bölüm",
+  "watch.backToSeries": "Seriye dön",
+  "watch.episodeCountChip": "{count} bölüm",
+  "watch.sourceLabel": "Kaynak",
+  "watch.audioLabel": "Ses",
+  "watch.audioTr": "TÜRKÇE",
+  "watch.audioEn": "İNGİLİZCE",
+  "watch.reportAction": "Bildir",
+  "watch.reportCancel": "Vazgeç",
+  "watch.reportIntro":
+    "Bu bölümdeki teknik bir sorunu (video açılmıyor, yanlış altyazı vb.) ekibe iletirsin.",
+  "watch.reportCurrent": "Şu anki bölüm",
+  "watch.reportPlaceholder": "Sorunu kısaca yaz (isteğe bağlı)",
+  "watch.fullscreenAction": "Tam ekran",
+  "watch.cinemaMode": "Sinema modu",
+  "watch.detailsAction": "Detaylar",
+  "watch.malAction": "MyAnimeList sayfası",
+  "watch.flagAction": "İşaretle",
+  "watch.commentsAction": "Yorumlar",
+  "watch.settingsAction": "Ayarlar",
+  "watch.seasonsHeading": "Sezonlar",
+  "watch.previousSeason": "Önceki sezon",
+  "watch.nextSeason": "Sonraki sezon",
+  "watch.seasonNumber": "{n}. Sezon",
   "home.continueFrom": "S{season}B{episode}'ten devam et",
   // Ana kolon başlığı. Referans "Latest Episode" (başlık cümlesi) yazar; eskiden
   // BÜYÜK HARF ("SON BÖLÜMLER") idi ve referanstan sapıyordu → DÜZELTİLDİ.
@@ -161,12 +200,12 @@ const tr = {
   // başlık şeridi ölçüm notu). "SEZON"/"YENİ" kısalmaya gerek olmadan
   // sığıyor, bu yüzden ölçüt adları okunur kalır; tam açıklama zaten
   // ipucu (title) balonundadır.
-  "home.rankEpisode": "BÖL.",
-  "home.rankSeason": "SEZON",
-  "home.rankNew": "YENİ",
-  "home.rankEpisodeHint": "Bölüm sayısına göre (çok → az)",
-  "home.rankSeasonHint": "Sezon sayısına göre (çok → az)",
-  "home.rankNewHint": "Eklenme tarihine göre (yeni → eski)",
+  "home.rankDay": "GÜN",
+  "home.rankWeek": "HAFTA",
+  "home.rankMonth": "AY",
+  "home.rankDayHint": "Son 24 saatte eklenen bölüm sayısına göre (çok → az)",
+  "home.rankWeekHint": "Son 7 günde eklenen bölüm sayısına göre (çok → az)",
+  "home.rankMonthHint": "Son 30 günde eklenen bölüm sayısına göre (çok → az)",
   "home.episodeCountTitle": "Bölüm sayısı",
   "home.seasonCountTitle": "Sezon sayısı",
   "home.seasonTag": "Yeni seçkiler",
@@ -295,7 +334,7 @@ const tr = {
   "watch.autoSkip": "Otomatik atlama",
   "watch.report": "Bildir",
   "watch.reportCopied": "Kopyalandı",
-  "watch.reportTitle": "Bölüm bilgisini panoya kopyalar",
+  "watch.reportTitle": "Bölüm sorunu bildir",
   "watch.skipHint": "Kapanış jeneriği {time}'de atlanır",
   "watch.advancing": "{number}. bölüme geçiliyor… · {reason}",
   "watch.reasonEnded": "bölüm bitti",
@@ -412,6 +451,7 @@ const en: Record<I18nKey, string> = {
   "common.comingSoon": "Coming soon",
   "common.search": "Search anime",
   "common.searchPlaceholder": "Search anime...",
+  "common.quickAccess": "Quick Access",
   "common.closeSearch": "Close search",
   "common.clearSearch": "Clear search",
   "common.openMenu": "Open menu",
@@ -455,6 +495,34 @@ const en: Record<I18nKey, string> = {
   "home.continueTag": "Keep watching",
   "home.continueHeading": "CONTINUE WHERE YOU LEFT OFF",
   "home.continueAria": "Continue where you left off",
+  "home.continueEdit": "Edit",
+  "home.continueDone": "Done",
+  "home.continueRemove": "Remove {title} from the list",
+  "home.minLeft": "{min} min left",
+  "common.seasonEpisode": "Season {season}, Episode {n}",
+  "watch.backToSeries": "Back to series",
+  "watch.episodeCountChip": "{count} episodes",
+  "watch.sourceLabel": "Source",
+  "watch.audioLabel": "Audio",
+  "watch.audioTr": "TURKISH",
+  "watch.audioEn": "ENGLISH",
+  "watch.reportAction": "Report",
+  "watch.reportCancel": "Cancel",
+  "watch.reportIntro":
+    "Send a technical issue with this episode (video won't play, wrong subtitles, etc.) to the team.",
+  "watch.reportCurrent": "Current episode",
+  "watch.reportPlaceholder": "Describe the issue (optional)",
+  "watch.fullscreenAction": "Fullscreen",
+  "watch.cinemaMode": "Cinema mode",
+  "watch.detailsAction": "Details",
+  "watch.malAction": "MyAnimeList page",
+  "watch.flagAction": "Flag",
+  "watch.commentsAction": "Comments",
+  "watch.settingsAction": "Settings",
+  "watch.seasonsHeading": "Seasons",
+  "watch.previousSeason": "Previous season",
+  "watch.nextSeason": "Next season",
+  "watch.seasonNumber": "Season {n}",
   "home.continueFrom": "Resume from S{season}E{episode}",
   // Reference wording ("Latest Episode"): the old ALL-CAPS value ("LATEST
   // EPISODES") did not match the reference. The small filter row + arrows the
@@ -479,12 +547,12 @@ const en: Record<I18nKey, string> = {
   // Tab labels shortened for the same 364 px single-line fit as the Turkish
   // dictionary (EPISODES → EPS., SEASONS → SEAS.); full wording stays in the
   // hint (title) tooltips.
-  "home.rankEpisode": "EPS.",
-  "home.rankSeason": "SEAS.",
-  "home.rankNew": "NEW",
-  "home.rankEpisodeHint": "By episode count (most → least)",
-  "home.rankSeasonHint": "By season count (most → least)",
-  "home.rankNewHint": "By date added (newest → oldest)",
+  "home.rankDay": "DAY",
+  "home.rankWeek": "WEEK",
+  "home.rankMonth": "MONTH",
+  "home.rankDayHint": "By episodes added in the last 24 hours (most → least)",
+  "home.rankWeekHint": "By episodes added in the last 7 days (most → least)",
+  "home.rankMonthHint": "By episodes added in the last 30 days (most → least)",
   "home.episodeCountTitle": "Episode count",
   "home.seasonCountTitle": "Season count",
   "home.seasonTag": "New picks",
@@ -570,7 +638,7 @@ const en: Record<I18nKey, string> = {
   "watch.autoSkip": "Auto skip",
   "watch.report": "Report",
   "watch.reportCopied": "Copied",
-  "watch.reportTitle": "Copies the episode info to the clipboard",
+  "watch.reportTitle": "Report episode issue",
   "watch.skipHint": "Ending skipped at {time}",
   "watch.advancing": "Switching to episode {number}… · {reason}",
   "watch.reasonEnded": "episode finished",
@@ -738,10 +806,25 @@ function writeStoredLang(lang: Lang): void {
  * `DEFAULT_LANG`e (bugün `en`) düşer. (Eskiden varsayılan `tr`ydi.)
  */
 function detectBrowserLang(): Lang | null {
-  if (typeof navigator === "undefined") return null;
-  const raw = (navigator.language || "").toLowerCase();
-  if (raw.startsWith("tr")) return "tr";
-  if (raw.startsWith("en")) return "en";
+  /**
+   * TARAYICI DİLİ ARTIK KULLANILMIYOR — site HERKESE İngilizce açılır.
+   *
+   * KULLANICI İSTEĞİ (01.10.2026): "ana dil İngilizce olacak, varsayılan".
+   *
+   * ESKİDEN NEYDİ: sıra "KAYITLI TERCİH → TARAYICI DİLİ → varsayılan" idi; bu
+   * yüzden Türkçe tarayıcı (`navigator.language = "tr…"`) otomatik TÜRKÇE
+   * açılıyordu. İngilizce isteyen ziyaretçi her seferinde TR→EN çevirmek zorunda
+   * kalıyordu ve site varsayılan olarak Türkçe görünüyordu.
+   *
+   * YENİ SIRA: KAYITLI TERCİH → (yoksa) İNGİLİZCE.
+   * Yani:
+   *   · İlk kez gelen HERKES İngilizce görür (tarayıcısı ne olursa olsun),
+   *   · TR düğmesine basan TÜRKÇE'ye geçer ve tercih cihazda saklanır,
+   *   · kayıtlı tercih her zaman kazanır — kimsenin seçimi ezilmez.
+   *
+   * Fonksiyon silinmedi: `hydrateLang()` hâlâ onu çağırıyor ve `null` dönmesi
+   * "varsayılana düş" anlamına geliyor; böylece çağrı zinciri değişmiyor.
+   */
   return null;
 }
 

@@ -157,7 +157,7 @@ const POSITION_KEY = "shanime:izleme-konumu:v1";
  * göstereceğiz, bu yüzden 160 px fazlasıyla yeterlidir ve kayıt küçük kalır
  * (yerel depo dolmasın).
  */
-export const RESUME_FRAME_WIDTH = 160;
+const RESUME_FRAME_WIDTH = 160;
 
 /** JPEG sıkıştırma oranı — küçük tutulur (kayıt boyutu öncelikli). */
 const RESUME_FRAME_QUALITY = 0.45;
@@ -287,12 +287,7 @@ function writeFrames(map: Record<string, string>): void {
  * Bölüm için yakalanmış kareyi kaydeder. Yalnızca geçerli bir data URL kabul
  * edilir; boş/geçersiz değer kaydı DEĞİŞTİRMEZ (var olan kare korunur).
  */
-export function saveResumeFrame(
-  showSlug: string,
-  season: number,
-  episode: number,
-  dataUrl: string,
-): void {
+function saveResumeFrame(showSlug: string, season: number, episode: number, dataUrl: string): void {
   if (!showSlug || !Number.isFinite(season) || !Number.isFinite(episode)) return;
   if (!dataUrl.startsWith("data:image/") || dataUrl.length > MAX_FRAME_LENGTH) return;
   const map = readFrames();
@@ -349,5 +344,39 @@ export function captureResumeFrame(
     // Cross-origin (`SecurityError`), çözülmüş tuval ya da bozuk video verisi:
     // KARE YOK sayılır. Arayüz postere düşer; oynatma hiç etkilenmez.
     return "";
+  }
+}
+
+/**
+ * Bir serinin TÜM ilerleme kaydını siler — "İzlemeye devam et" listesinden
+ * çıkarma (referans animex.one'daki "Edit" davranışı).
+ *
+ * NEDEN İKİ DEPO DA TEMİZLENİR: izlenen bölüm listesi silinse bile konum
+ * kayıtları (`<seri>:s1b5` → saniye) depoda kalırdı; seri sonradan yeniden
+ * izlendiğinde eski "kaldığın yer" geri gelirdi. İkisi birlikte silinir.
+ *
+ * Hata yutulur (depo bozuk/dolu olabilir): silme yardımcı bir işlemdir,
+ * sayfayı çökertmemelidir.
+ */
+export function forgetShow(showSlug: string): void {
+  if (!showSlug) return;
+  try {
+    const watched = readAll();
+    if (watched[showSlug]) {
+      delete watched[showSlug];
+      writeAll(watched);
+    }
+    const positions = readPositions();
+    const prefix = `${showSlug}:`;
+    let touched = false;
+    for (const key of Object.keys(positions)) {
+      if (key.startsWith(prefix)) {
+        delete positions[key];
+        touched = true;
+      }
+    }
+    if (touched) writePositions(positions);
+  } catch {
+    // Sessiz düşüş.
   }
 }

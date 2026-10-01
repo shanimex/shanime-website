@@ -170,7 +170,7 @@ async function flushQueue(): Promise<void> {
  * Verilen metinlerin çevirilerini döndürür: önce önbellek, eksikler tek istekte.
  * Çevrilemeyen metin için ORİJİNAL metin döner.
  */
-export async function translateTexts(texts: string[], target: "tr" | "en"): Promise<string[]> {
+async function translateTexts(texts: string[], target: "tr" | "en"): Promise<string[]> {
   const wanted = texts.map((text) => text.trim());
   const cache = readCache();
   const result = [...texts];
@@ -256,15 +256,4 @@ export function useTranslatedTexts(texts: string[]): string[] {
   }, [signature, lang]);
 
   return resolved;
-}
-
-/**
- * TEK metin için kısa yol. `${...}` gibi bileşen içi metinlerde kullanılır.
- * Gereksiz iş yapmaz: dil İngilizce ise metni aynen döndürür.
- */
-export function useTranslatedText(text: string): string {
-  // Kanca sırası sabit kalsın diye dizi her çizimde yeniden kurulur; içerik
-  // değişmediğinde `useTranslatedTexts` içindeki imza aynı kalır.
-  const [value] = useTranslatedTexts([text]);
-  return value ?? text;
 }

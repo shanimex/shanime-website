@@ -38,12 +38,12 @@ shanime-react/
 │   └── routeTree.gen.ts                 ← OTOMATİK (elle düzenleme!)
 │
 ├── scripts/                             ← bakım betikleri (node)
-│   └── sql/                             ← elle çalıştırılan yardımcı SQL'ler
 │
 ├── supabase/
 │   ├── migrations/                      ← şema geçmişi (SQL)
 │   ├── config.toml
-│   └── IMPORT_OLD_SITE.sql
+│   ├── setup-fresh.sql                  ← sıfırdan kurulum anlık görüntüsü (+ patch notu)
+│   └── patch-missing-columns.sql        ← migrations'da olmayan `parts` eki
 │
 ├── docs/
 │   ├── yapi.md                          ← bu dosya
@@ -77,7 +77,6 @@ npm run preview      # derlemeyi yerelde önizle
 npm run lint         # ESLint
 npm run format       # Prettier
 npm run sitemap      # public/sitemap.xml'i serilere göre yeniden üret
-npm run covers:sync  # bölüm kapaklarını sağlayıcıdan çekip dosyaya yaz
 npx tsc --noEmit     # tip kontrolü
 ```
 
@@ -107,8 +106,9 @@ kişi adı çözümlemek zorunda kalmadan ne olduğunu görür.
 | `src/routes/api.anizm.ts` | `/api/anizm` | Sunucu rotası: anizm/puffytr zincirinden bölüm oynatıcı adresini çözer |
 | `src/routes/api.animecix.ts` | `/api/animecix` | Sunucu rotası: animecix'te seri arar, bölüm kaynağını (TauVideo) çözer |
 
-> `src/routes/README.md` bir rota **değildir**; yalnızca TanStack Start'ın dosya
-> tabanlı yönlendirme kurallarını anlatan nottur (hiçbir adres üretmez).
+> `docs/ROUTES.md` yalnızca TanStack Start'ın dosya
+> tabanlı yönlendirme kurallarını anlatan nottur (hiçbir adres üretmez;
+> eskiden `src/routes/README.md` idi, 2026-10-01'de taşındı).
 
 ## 4. "Nerede ne var" — Bileşenler
 
@@ -118,7 +118,6 @@ kişi adı çözümlemek zorunda kalmadan ne olduğunu görür.
 | --- | --- |
 | `AdSlot.tsx` | Reklam slotları (`AD_SLOTS`, `useAdCode`) |
 | `AdsterraUnit.tsx` | Adsterra reklam birimleri (leaderboard / native) |
-| `EpisodeCard.tsx` | Bölüm kartı (kapak + başlık) |
 | `EpisodeCover.tsx` | Bölüm kapağı (görsel + yedek üretim) |
 | `FaSolid.tsx` | Font Awesome ikon seti (`FaSolid`, `FaSolidName`) |
 | `FluidPlayer.tsx` | Video oynatıcı sarmalayıcı (Fluid Player) |
@@ -134,7 +133,6 @@ kişi adı çözümlemek zorunda kalmadan ne olduğunu görür.
 | `ShowEditor.tsx` | Açılmış seri formu (vitrin anahtarı, kapak, banner burada) |
 | `SeasonsPanel.tsx` | Sezon + bölüm yönetimi (sayfalı liste) |
 | `AnizipSyncPanel.tsx` | ani.zip'ten bölüm/kapak senkronu paneli |
-| `VoeSyncPanel.tsx` | Voe'dan otomatik bölüm çekme paneli |
 | `DataHealthPanel.tsx` | İçerik sağlığı uyarıları |
 | `ImageDrop.tsx` | Sürükle-bırak görsel yükleme |
 | `ToastHost.tsx` | Panel bildirimleri (`AdminToaster`) |
@@ -159,7 +157,6 @@ kişi adı çözümlemek zorunda kalmadan ne olduğunu görür.
 | `content-health.ts` | İçerik sağlık kontrolleri (`scripts/audit-content.mjs` ile aynı mantık) |
 | `embed-provider.ts` | Sağlayıcı şablonları (`EMBED_PROVIDERS`) |
 | `embed-sources.ts` | Kaynak grupları listesi (`SOURCE_GROUPS`) — **tek kaynak** |
-| `episode-covers.ts` | Bölüm kapağı çözümü (`resolvePosterForEpisode`, `syncAllEpisodePosters`) |
 | `episode-sources.ts` | `episode_sources` erişimi (`fetchSourcesForEpisodes`, `replaceEpisodeSources`) |
 | `error-capture.ts` | Sunucu hata yakalama (`consumeLastCapturedError`) |
 | `error-page.ts` | Okunur 500 sayfası (`renderErrorPage`) |
@@ -172,7 +169,6 @@ kişi adı çözümlemek zorunda kalmadan ne olduğunu görür.
 | `skip-times.ts` | AniSkip intro/outro atlama (`fetchSkipTimes`, `formatSkipTime`) |
 | `utils.ts` | `cn()` sınıf birleştirici |
 | `vast.ts` | VAST reklam çözümleme (`fetchVastAds`, `fireBeacons`) |
-| `voe.ts` | Voe adres ayrıştırma (`parseEpisodeName`) |
 | `watch-progress.ts` | İzleme ilerlemesi (`getWatched`, `markWatched`, `savePosition`, `getResumeFrame`) |
 
 **Gömülü veri — `src/data/`** (derleme zamanında koda gömülür)
@@ -180,9 +176,7 @@ kişi adı çözümlemek zorunda kalmadan ne olduğunu görür.
 | Dosya | Ne yapar |
 | --- | --- |
 | `anizm-hashes.json` | anizm → bölüm hash tablosu (ürün: `scripts/resolve-anizm-hashes.mjs`) |
-| `episode-posters.json` | Bölüm kapakları (ürün: `npm run covers:sync`) |
 | `episode-thumbs.json` | Bölüm 16:9 görselleri (ürün: `scripts/sync-anizip-covers.mjs`) |
-| `episode-embeds.json` | Anikoto/megaplay hazır embed adresleri (`scripts/sync-anikoto-embeds.mjs`) |
 | `mal-tmdb.json` | MAL → TMDB kimlik eşlemesi |
 
 ## 6. Kaynak çözüm rotaları (`/api/*`)
@@ -236,12 +230,9 @@ Editor'de çalıştır.
 | Betik | Ne yapar | Nasıl çalıştırılır |
 | --- | --- | --- |
 | `generate-sitemap.mjs` | `public/sitemap.xml` üretir | `npm run sitemap` |
-| `sync-episode-covers.mjs` | Bölüm kapaklarını çekip `src/data/episode-posters.json`'a yazar | `npm run covers:sync` |
 | `sync-anizip-covers.mjs` | ani.zip'ten bölüm görselleri → `episode-thumbs.json`, `mal-tmdb.json` | `node scripts/sync-anizip-covers.mjs` |
 | `resolve-anizm-hashes.mjs` | Bölüm → hash çözücü (puffytr zinciri) | `node scripts/resolve-anizm-hashes.mjs --slug <slug>` |
-| `sync-anikoto-embeds.mjs` | Anikoto/megaplay embed adresleri → `episode-embeds.json` (kimlikler: `anikoto-ids.json`) | `node scripts/sync-anikoto-embeds.mjs --scan` |
 | `audit-content.mjs` | İçerik sağlığı CLI raporu | `node scripts/audit-content.mjs` |
-| `sql/*.sql` | Elle çalıştırılan yardımcı SQL'ler | Supabase SQL Editor |
 
 ## 9. "Şunu yapmak istiyorum" → nereye bakacağım
 

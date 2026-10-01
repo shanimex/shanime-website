@@ -10,8 +10,9 @@
     "preview": "vite preview",
     "lint": "eslint .",
     "sitemap": "node scripts/generate-sitemap.mjs",
-    "covers:sync": "node scripts/sync-episode-covers.mjs",
     "covers:manifest": "node scripts/generate-episode-cover-manifest.mjs",
+    "covers:all": "node scripts/sync-covers-all.mjs",
+    "prebuild": "node scripts/sync-covers-all.mjs",
     "logos:manifest": "node scripts/generate-anime-logo-manifest.mjs",
     "format": "prettier --write ."
   },
@@ -52,6 +53,7 @@
     "supabase": "^2.117.0",
     "typescript": "^5.8.3",
     "typescript-eslint": "^8.56.1",
-    "vite": "8.1.5"
+    "vite": "8.1.5",
+    "wrangler": "^4.144.0"
   }
 }

@@ -622,3 +622,12 @@ alter table public.show_seasons
 comment on column public.show_seasons.mal_id is
   'Sezonun MyAnimeList (anime) kimliği. NULL ise katalog serinin kimliğinden ve AniList zincirinden çözülür.';
 
+-- 20261001_parts (temizlik): patch dosyasındaki eksik buraya eklendi.
+-- `parts` hiçbir migration dosyasında yok, eski projede elle açılmış.
+-- Sıfırdan kurulumda bu blok olmazsa sezon bölüm aralıkları gelmez.
+alter table public.show_seasons
+  add column if not exists parts jsonb;
+
+comment on column public.show_seasons.parts is
+  'Part kayitlari: [{malId, start, count}]. Katalog paneli yazar/okur.';
+

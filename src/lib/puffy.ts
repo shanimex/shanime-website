@@ -9,10 +9,17 @@
  * ÖLÇÜM (26.09.2026, tarayıcıyla doğrulandı): puffytr bazı dizilerde Japonca adı
  * kullanıyor, bizim slug'ımız tutmuyor.
  */
-export const PUFFY_SLUG_OVERRIDES: Record<string, string> = {
+const PUFFY_SLUG_OVERRIDES: Record<string, string> = {
   erased: "boku-dake-ga-inai-machi",
   "re-zero": "rezero-kara-hajimeru-isekai-seikatsu",
   "mushoku-tensei": "mushoku-tensei-isekai-ittara-honki-dasu",
+  /**
+   * ÖLÇÜM (01.10.2026, puffytr ağ dizini): bizim `solo-leveling` adresimiz ağda YOK;
+   * dizi `ore-dake-level-up-na-ken` olarak duruyor (S2: `…-season-2-arise-from-the-shadow`).
+   * Eşleme olmadan sunucu ADRES AİLESİNİ bulamıyor ve ad benzerliğiyle BAŞKA bir diziyi
+   * (`25-jigen-no-ririsa`) çözüyordu → yanlış kaynak. Bu satır o yolu kapatır.
+   */
+  "solo-leveling": "ore-dake-level-up-na-ken",
 };
 
 /** Bizim seri slug'ı → puffytr'daki dizi slug'ı (özel eşleme yoksa kendisi). */
@@ -130,10 +137,45 @@ export function puffySlugCandidates(base: string, season: number): string[] {
  *     SEZON GENELİNDE tutarlı olmasıyla kapatılır (tek bölüme bakıp karar verilmez).
  */
 
-/** Sezonun en küçük bölüm numarasından SEZONA GÖRE (1 tabanlı) numarayı verir. */
-export function seasonRelativeNumber(raw: number, seasonMin: number): number {
-  const min = Number.isFinite(seasonMin) && seasonMin > 1 ? Math.floor(seasonMin) : 1;
-  return raw - (min - 1);
+/**
+ * KAYNAK KATALOĞUNA sorulacak numaranın TABANI — PART FARKINDALIKLI (01.10.2026).
+ *
+ * NEDEN GEREKLİ: puffytr bir sezonu PART başına 1'den numaralandırır ve her part
+ * AYRI sayfadır. Ölçüm (01.10.2026, canlı): Re:Zero S2 → `…-2-sezon` sayfası 1..13
+ * (Part 1), `…-2nd-season-part-2` sayfası 1..12 (Part 2); bizim sezonumuz ise 1..25
+ * BİRLEŞİK. Doğru eşleme part'ın KENDİ sayfası + part içi göreli numaradır
+ * (mutlak 14 → Part 2 sayfasının 1. bölümü).
+ *
+ * ESKİ DAVRANIŞ (hatalı): kaynağa SEZONUN en küçük numarası (`min = 1`) veriliyordu;
+ * sunucu mutlak 14'ü Part 1 sayfasında (1..13) aradı, bulamadı, sonra başka bir aday
+ * olarak ilk sayfaya düşüp 1. bölümü "buldu" → 14. bölüm yerine 1. bölüm oynadı
+ * (canlı veri: re-zero S2B14–B25 adresleri S1B1–B12'ye işaret ediyordu).
+ *
+ * `min` olarak part'ın `start`'ı verilince `episodeNumberCandidates`in "ÖNCEKİ COUR
+ * TUZAĞI" kuralı (sayfa uzunluğu = min−1 → göreli aday geçersiz) devreye girer:
+ * Part 1 sayfası (13 = 14−1) elenir, Part 2 sayfasında göreli 1 bulunur.
+ *
+ * @param episode   bizim bölüm numaramız (mutlak, sezon içi)
+ * @param seasonMin sezonun en küçük bölüm numarası (kayma yoksa 1)
+ * @param parts     `show_seasons.parts` — `{ start, count }` aralıkları
+ * @returns         istenecek numaranın tabanı (bölüm bir part'a düşüyorsa part.start)
+ */
+export function sourceEpisodeMinimum(
+  episode: number,
+  seasonMin: number,
+  parts: { start?: number | null; count?: number | null }[] | null | undefined,
+): number {
+  if (Array.isArray(parts) && Number.isFinite(episode)) {
+    for (const entry of parts) {
+      const start = entry?.start;
+      const count = entry?.count;
+      if (typeof start !== "number" || typeof count !== "number") continue;
+      if (!Number.isInteger(start) || !Number.isInteger(count) || start <= 0 || count <= 0)
+        continue;
+      if (episode >= start && episode < start + count) return start;
+    }
+  }
+  return Number.isFinite(seasonMin) && seasonMin > 0 ? Math.floor(seasonMin) : 1;
 }
 
 /**
@@ -221,12 +263,9 @@ export type NetworkEntry = { slug: string; title: string };
 /** Roma rakamı → sezon (tek başına "I" belirsiz sayılır, kullanılmaz). */
 const ROMAN_SEASONS: Record<string, number> = { ii: 2, iii: 3, iv: 4, v: 5, vi: 6 };
 
-// Metin sadeleştirme/eşleştirme TEK YERDE: `lib/title-match.ts`. Buradaki adlar
-// korunur (çağıranlar `foldTurkish`/`titleTokens` diye çağırıyor) ama gövde
-// KOPYALANMAZ — iki kopya tutulunca biri düzeltilip öteki unutuluyordu.
+// Metin sadeleştirme/eşleştirme TEK YERDE: `lib/title-match.ts` (çağıranlar
+// `foldText`/`tokenize` adlarıyla oradan çağırır).
 import { MIN_MATCH_SCORE, titleSimilarity, tokenize } from "@/lib/title-match";
-
-export { foldText as foldTurkish, tokenize as titleTokens } from "@/lib/title-match";
 
 /** `2nd Season`, `2. Sezon`, `Season 2` gibi yazımlar. */
 const TITLE_SEASON_RES: RegExp[] = [
@@ -269,7 +308,7 @@ const NON_SERIES_RE =
  * `1` = sezon işareti yok (düz kayıt), `0` = BELİRSİZ (film/özel bölüm ya da
  * yalnızca "Part 2" gibi bir kısım işareti) → belirsiz olan aday gösterilmez.
  */
-export function seasonNumberFromTitle(title: string): number {
+function seasonNumberFromTitle(title: string): number {
   const text = (title ?? "").trim();
   if (!text) return 0;
   if (NON_SERIES_RE.test(text)) return 0;
@@ -413,11 +452,6 @@ export function networkSeasonCandidates(
 
 /** Anizm oynatıcı adresi geçerli mi (hash biçimi denetimi). */
 export const ANIZM_PLAYER_RE = /^https:\/\/anizmplayer\.com\/video\/[0-9a-f]{16,}$/i;
-
-/** Bir bölümün puffytr adresi (bölüm anahtarı tam sayı olmayabilir: "1a"). */
-export function puffyEpisodeUrl(slug: string, numberKey: string): string {
-  return `https://puffytr.com/${slug}-${numberKey}-bolum-izle`;
-}
 
 /**
  * "PART N" / "COUR N" / "KISIM N" — AYNI SEZONUN DEVAMI (yeni sezon DEĞİL).

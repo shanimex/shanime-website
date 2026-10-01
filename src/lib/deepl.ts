@@ -42,7 +42,7 @@ export function deepLTarget(lang: "tr" | "en"): DeepLTarget {
 }
 
 /** Anahtarın ücretsiz planda olup olmadığı (`:fx` eki). */
-export function isFreeKey(apiKey: string): boolean {
+function isFreeKey(apiKey: string): boolean {
   return /:fx$/i.test(apiKey.trim());
 }
 

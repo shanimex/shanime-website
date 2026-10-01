@@ -292,167 +292,9 @@ export async function findPrequelMalId(malId: number): Promise<number | null> {
   }
 }
 
-/** Ada göre arama sonucu (Jikan). */
-export type SeriesHit = {
-  malId: number;
-  /** Seri adı (romaji; panelde asıl gösterilen). */
-  title: string;
-  /** İngilizce ad (varsa) — aynı adlı serileri ayırt etmeye yarar. */
-  english: string;
-  /** Yayın yılı (varsa). */
-  year: number | null;
-  /** Bölüm sayısı (varsa) — "TV" ve uzun serileri ayırt eder. */
-  episodes: number | null;
-  type: string;
-  image: string;
-};
-
-type RawSearchHit = {
-  mal_id?: number;
-  title?: string;
-  title_english?: string | null;
-  type?: string | null;
-  episodes?: number | null;
-  year?: number | null;
-  aired?: { prop?: { from?: { year?: number | null } } };
-  images?: { jpg?: { image_url?: string } };
-};
-
-/**
- * AniList GraphQL sorgusu — aramanın BİRİNCİL kaynağı.
- *
- * NEDEN ANILIST: arama için önce Jikan (MAL sarmalayıcı) kullanıldı; ölçümde
- * sık sık `HTTP 504` döndürdü ("Jikan failed to connect to MyAnimeList") —
- * yani MAL tarafı kapalıyken panelde arama hiç çalışmıyordu. AniList kendi
- * API'sini servis ediyor, CORS'a açık ve `idMal` alanıyla MAL kimliğini
- * doğrudan veriyor (ani.zip de MAL kimliğiyle çalıştığı için birebir uyumlu).
- */
-const ANILIST_SEARCH = `query ($search: String) {
-  Page(page: 1, perPage: 12) {
-    media(search: $search, type: ANIME, sort: POPULARITY_DESC, isAdult: false) {
-      idMal
-      title { romaji english native }
-      startDate { year }
-      episodes
-      format
-      coverImage { medium }
-    }
-  }
-}`;
-
-type AniListHit = {
-  idMal?: number | null;
-  title?: { romaji?: string | null; english?: string | null; native?: string | null };
-  startDate?: { year?: number | null };
-  episodes?: number | null;
-  format?: string | null;
-  coverImage?: { medium?: string | null };
-};
-
-async function searchViaAniList(text: string): Promise<SeriesHit[]> {
-  const res = await fetch("https://graphql.anilist.co", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Accept: "application/json" },
-    body: JSON.stringify({ query: ANILIST_SEARCH, variables: { search: text } }),
-  });
-  if (!res.ok) throw new Error(`AniList ${res.status}`);
-  const json = (await res.json()) as { data?: { Page?: { media?: AniListHit[] } } };
-  return (json.data?.Page?.media ?? [])
-    .map((hit) => {
-      const malId = Number(hit.idMal ?? 0);
-      const title = (hit.title?.romaji || hit.title?.english || hit.title?.native || "").trim();
-      if (!Number.isFinite(malId) || malId <= 0 || !title) return null;
-      return {
-        malId,
-        title,
-        english: (hit.title?.english ?? "").trim(),
-        year: hit.startDate?.year ?? null,
-        episodes: hit.episodes ?? null,
-        type: (hit.format ?? "").trim(),
-        image: hit.coverImage?.medium ?? "",
-      } satisfies SeriesHit;
-    })
-    .filter((hit): hit is SeriesHit => hit !== null);
-}
-
-/** Yedek arama: Jikan (MAL sarmalayıcı). AniList çökerse devreye girer. */
-async function searchViaJikan(text: string): Promise<SeriesHit[]> {
-  const url =
-    "https://api.jikan.moe/v4/anime?sfw&limit=12&order_by=members&sort=desc&q=" +
-    encodeURIComponent(text);
-  const res = await fetch(url, { headers: { Accept: "application/json" } });
-  if (!res.ok) throw new Error(`Jikan ${res.status}`);
-  const json = (await res.json()) as { data?: RawSearchHit[] };
-  return (json.data ?? [])
-    .map((hit) => {
-      const malId = Number(hit.mal_id ?? 0);
-      const title = (hit.title ?? "").trim();
-      if (!Number.isFinite(malId) || malId <= 0 || !title) return null;
-      return {
-        malId,
-        title,
-        english: (hit.title_english ?? "").trim(),
-        year: hit.year ?? hit.aired?.prop?.from?.year ?? null,
-        episodes: hit.episodes ?? null,
-        type: (hit.type ?? "").trim(),
-        image: hit.images?.jpg?.image_url ?? "",
-      } satisfies SeriesHit;
-    })
-    .filter((hit): hit is SeriesHit => hit !== null);
-}
-
-/**
- * Seriyi ADINA göre arar → MAL kimliğini bulmak için.
- *
- * NEDEN: panelde katalog için MAL kimliği elle giriliyordu; kullanıcı bunu
- * "kod girmek" olarak gördü ve haklı — kimse MAL numarası ezberlemez. Artık ad
- * yazılıp sonuçtan seri seçilir, kimlik kendiliğinden dolar.
- *
- * SIRA: AniList → (olmadı) Jikan. İkisi de olmazsa hata mesajı kullanıcıya
- * AYNEN gösterilir; "sessizce boş liste" dönmez (kullanıcı hangi servisin
- * bozuk olduğunu bilsin).
- *
- * @throws iki arama servisi de hata verirse
- */
-export async function searchSeriesByName(query: string): Promise<SeriesHit[]> {
-  const text = query.trim();
-  if (text.length < 2) return [];
-
-  const problems: string[] = [];
-  for (const attempt of [searchViaAniList, searchViaJikan]) {
-    try {
-      const hits = await attempt(text);
-      if (hits.length > 0) return hits;
-    } catch (err) {
-      problems.push(err instanceof Error ? err.message : String(err));
-    }
-  }
-  if (problems.length === 2) throw new Error(problems.join(" · "));
-  return [];
-}
-
 /** Katalogda geçen sezon numaraları (küçükten büyüğe). */
 export function catalogSeasons(list: CatalogEpisode[]): number[] {
   return [...new Set(list.map((ep) => ep.season))].sort((a, b) => a - b);
-}
-
-/**
- * Bir sezonun bölümlerini seçer.
- *
- * FALLBACK: bazı serilerde ani.zip sezon ayrımı yapmaz (tüm bölümler `season: 1`
- * altında, mutlak numarayla). İstenen sezonda hiç kayıt yoksa ve tek sezon
- * varsa, o liste döner ve `exact: false` işaretlenir — panel bunu kullanıcıya
- * "katalogda sezon ayrımı yok" diye bildirir (sessizce yanlış ekleme olmaz).
- */
-export function pickSeason(
-  list: CatalogEpisode[],
-  season: number,
-): { episodes: CatalogEpisode[]; exact: boolean } {
-  const exact = list.filter((ep) => ep.season === season);
-  if (exact.length > 0) return { episodes: exact, exact: true };
-  const seasons = catalogSeasons(list);
-  if (seasons.length === 1 && list.length > 0) return { episodes: list, exact: false };
-  return { episodes: [], exact: false };
 }
 
 /** Sezon zincirindeki tek bir halka: serinin kendi kaydı ya da bir devam kaydı. */
@@ -563,7 +405,7 @@ const SEASON_SIGNAL_RE =
  * @param title Başlık (romaji + İngilizce birlikte verilebilir; ikisi de taranır)
  * @returns `"part"` · `"season"` · `"ambiguous"` (iki sinyal de yok)
  */
-export function classifySeasonTitle(title: string): SeasonEntryKind {
+function classifySeasonTitle(title: string): SeasonEntryKind {
   const text = (title ?? "").trim();
   if (!text) return "ambiguous";
   // PART ÖNCE: "Season 3 Part 2" = S3'ün 2. cour'u (yeni sezon DEĞİL).

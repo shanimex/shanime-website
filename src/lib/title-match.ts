@@ -33,7 +33,7 @@ const FOLD: [RegExp, string][] = [
 ];
 
 /** Karşılaştırma için sadeleştirilmiş metin (küçük harf + aksansız). */
-export function foldText(value: unknown): string {
+function foldText(value: unknown): string {
   let out =
     typeof value === "string" ? value : value === null || value === undefined ? "" : String(value);
   for (const [re, ch] of FOLD) out = out.replace(re, ch);
@@ -65,7 +65,7 @@ export function tokenize(value: unknown): string[] {
  * "Kilinc Ustasi", "Jujutsu" ↔ "Jujustu"). Sözcük bazlı karşılaştırma bunları
  * "tamamen farklı" sayıyordu; bu yardımcı yalnızca YAKIN yazımları eşler.
  */
-export function editSimilarity(a: string, b: string): number {
+function editSimilarity(a: string, b: string): number {
   if (a === b) return 1;
   const left = foldText(a);
   const right = foldText(b);
@@ -96,7 +96,7 @@ export function editSimilarity(a: string, b: string): number {
 const TOKEN_FUZZ_MIN_LENGTH = 5;
 const TOKEN_FUZZ_MIN_SCORE = 0.8;
 
-export function tokensMatch(a: string, b: string): boolean {
+function tokensMatch(a: string, b: string): boolean {
   if (a === b) return true;
   // Kısa sözcüklerde yakınlık tehlikeli ("the" ↔ "then"); yalnızca uzunlarda.
   if (a.length < TOKEN_FUZZ_MIN_LENGTH || b.length < TOKEN_FUZZ_MIN_LENGTH) return false;
@@ -229,21 +229,4 @@ export function rankMatches<T>(
   return Number.isFinite(options.limit) && Number(options.limit) > 0
     ? ranked.slice(0, Number(options.limit))
     : ranked;
-}
-
-/** En iyi eşleşme (yoksa `null`) — "hata fırlatmak yerine" davranışın kendisi. */
-export function bestMatch<T>(
-  terms: readonly (string | null | undefined)[],
-  candidates: readonly MatchCandidate<T>[],
-  options: { minScore?: number } = {},
-): ScoredMatch<T> | null {
-  return rankMatches(terms, candidates, options)[0] ?? null;
-}
-
-/**
- * Slug'ı aranabilir ada çevirir (`mushoku-tensei-iii` → `mushoku tensei iii`).
- * Kaynak slug'ları adlardan üretildiği için arama terimi olarak çok işe yarar.
- */
-export function slugToText(slug: unknown): string {
-  return foldText(slug).replace(/[-_]+/g, " ").trim();
 }

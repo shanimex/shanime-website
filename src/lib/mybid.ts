@@ -16,10 +16,10 @@
  */
 
 /** Birincil MyBid spotu (ad-pod 1. reklam). */
-export const MYBID_VAST_SPOT_1 = "https://vast.vstserv.com/vast?spot_id=2028789";
+const MYBID_VAST_SPOT_1 = "https://vast.vstserv.com/vast?spot_id=2028789";
 
 /** İkincil MyBid spotu (ad-pod 2. reklam). */
-export const MYBID_VAST_SPOT_2 = "https://vast.vstserv.com/vast?spot_id=2028790";
+const MYBID_VAST_SPOT_2 = "https://vast.vstserv.com/vast?spot_id=2028790";
 
 /**
  * Kullanılacak VAST etiketleri — **iki adet** (ad-pod).

@@ -1,29 +1,10 @@
 import { supabase } from "@/integrations/supabase/client";
 import EPISODE_COVER_FILES from "@/data/episode-cover-files.json";
-import EPISODE_POSTERS from "@/data/episode-posters.json";
-import { anizipCover, fetchSeasonAirdates } from "@/lib/anizip-covers";
+import { fetchSeasonAirdates } from "@/lib/anizip-covers";
 import type { SeasonPartEntry } from "@/lib/embed-provider";
-import {
-  animecixCoversForEpisodes,
-  posterFromMap,
-  POSTER_SETTINGS_KEY,
-} from "@/lib/episode-covers";
 import { QUERY_STALE_MS } from "@/lib/query-client";
 import { cachedRead, TTL_DETAIL_SECONDS } from "@/lib/server-cache";
-import { fetchSeasonSpecials, type SeasonSpecial } from "@/lib/season-specials";
-import { fetchSiteSettings } from "@/lib/site-settings";
-
-/**
- * Kapak haritası: dosyadaki tohum + veritabanındaki güncel kayıtlar.
- * Anahtarlar `"<slug>-s<sezon>e<bölüm>"` biçiminde. `fetchShowDetail` veritabanı
- * katmanını yükleyip buraya uygular; yeni bölümlerin kapakları böyle görünür.
- */
-let posterMap: Record<string, unknown> = EPISODE_POSTERS as Record<string, string>;
-
-/** Veritabanından gelen kapak haritasını (dosya tohumunun üzerine) uygular. */
-export function applyPosterMap(map: Record<string, unknown>): void {
-  posterMap = { ...(EPISODE_POSTERS as Record<string, string>), ...map };
-}
+import { fetchSeasonSpecials, matchCatalogSpecial } from "@/lib/season-specials";
 
 export type Show = {
   id: string;
@@ -131,27 +112,21 @@ export type Episode = {
   /** Çözümlenmiş kapak adresi. Bölüme özel kapak yoksa boş string döner. */
   thumbnail?: string;
   /**
-   * Sağlayıcıdan çözülmüş bölüm kapağı (VidMoly karesi).
-   *
-   * Bölüm nesnesinin İÇİNDE taşınır: sunucuda üretilip istemciye serileştirilir,
-   * böylece ilk çizimde iki taraf aynı adresi kullanır. Modül durumundan
-   * okunsaydı sunucu/istemci farkı hydration hatasına yol açardı.
-   */
-  poster?: string;
-  /**
-   * ANIMECIX'ten çözülmüş BÖLÜME ÖZEL kapak (29.09.2026).
-   *
-   * Yalnızca başka hiçbir kaynaktan kapağı OLMAYAN bölümler için sunucuda
-   * çözülür (bkz. `fillAnimecixCovers`). `poster` gibi bölüm NESNESİNDE taşınır:
-   * sunucuda üretilip istemciye serileştirilir, hydration farkı olmaz.
-   */
-  animecixC?: string;
-  /**
    * Yayın tarihi (`YYYY-MM-DD`, ani.zip). Veritabanında tutulmaz — detay
    * okunurken sezon (+ part) MAL kimliklerinden çözülüp nesneye yazılır.
    * Yoksa kart tarih rozetini atlar.
    */
   airdate?: string;
+  /**
+   * Bölümün VERİTABANINA EKLENME anı (ISO) — `show_episodes.created_at`.
+   *
+   * Tabloda YAYIN tarihi kolonu yoktur; bu alan "ne zaman eklendi"dir (şema
+   * doğrulandı; ana sayfanın "YENİ ÇIKANLAR" bandı da aynı alana bakar —
+   * bkz. `routes/index.tsx`). Satırlar `select("*")` ile okunduğu için alan
+   * zaten geliyordu, yalnızca tip tanımına yazıldı.
+   * Detay sayfasındaki "YENİ" rozeti bu alana göre karar verir.
+   */
+  created_at?: string;
 };
 
 export type ShowWithImage = Show & {
@@ -164,20 +139,16 @@ export type ShowWithImage = Show & {
   season_count: number;
 };
 export type SeasonWithEpisodes = Season & {
-  episodes: Episode[];
   /**
-   * ÖZEL / ÖN BÖLÜMLER (`0. Bölüm`) — ani.zip kataloğunun `season: 0` kayıtları.
+   * Sezonun bölümleri — `number` ARTAN sıralı.
    *
-   * NEDEN AYRI DİZİ (bölümlere eklenmez): özel bölümün numarası `0`dır ve
-   * `episodes` aralığının (1..N ya da part aralığı 12..23) DIŞINDA durur; ayrı
-   * tutulunca numaralandırma/kaydırma hesapları HİÇ etkilenmez. İzleme sayfası
-   * bunları listenin EN ÜSTÜNDE "0. Bölüm" olarak gösterir.
-   *
-   * Veritabanında satırı OLMAYABİLİR (katalogdan gelir) ve bu yüzden
-   * `volume`/`parts` gibi hesaplara katılmaz. Boş/undefined ise özel bölüm yok.
-   * (Detay: `lib/season-specials.ts`.)
+   * NOT: Olası bir "0. Bölüm" de bu dizinin İÇİNDEDİR (`number = 0`, en başta).
+   * Ayrı bir `specials` dizisi KALDIRILDI: özel bölüm de bir `show_episodes`
+   * satırıdır ve `episode_sources` kaynağı varsa burada durur. Kaynağı olmayan
+   * `0` satırları bu diziye HİÇ girmez (bkz. `loadShowDetail`) — katalogdan
+   * gelen sentetik "0. Bölüm" üretilmez (bkz. `lib/season-specials.ts`).
    */
-  specials?: SeasonSpecial[];
+  episodes: Episode[];
 };
 
 export type ShowDetail = {
@@ -197,7 +168,7 @@ function r2PublicBase(): string {
 }
 
 /** R2 URL'sinden nesne anahtarını çıkarır (`posters/…`); bizim adresimiz değilse "". */
-export function r2KeyOf(url: string): string {
+function r2KeyOf(url: string): string {
   const base = r2PublicBase();
   if (!base || !url.startsWith(`${base}/`)) return "";
   const key = url.slice(base.length + 1).split(/[?#]/)[0] ?? "";
@@ -220,6 +191,11 @@ function staticUrl(path: string): string {
 export async function signImagePath(path: string): Promise<string> {
   if (!path) return "";
   if (isStaticPath(path)) return staticUrl(path);
+  // R2/dış adresler olduğu gibi kullanılır (bkz. `signImagePaths`teki aynı kontrol).
+  // Bu satır eksikken panelde banner yüklendikten SONRA önizleme BOŞ kalıyordu:
+  // yükleme tam adres (`https://cdn.shanime.xyz/banners/…`) döndürüyor, o adres
+  // `createSignedUrl`e gidiyor, hata dönüyor ve `""` yazılıyordu.
+  if (/^https?:\/\//i.test(path)) return path;
   const { data } = await supabase.storage.from(BUCKET).createSignedUrl(path, SIGNED_URL_TTL);
   return data?.signedUrl ?? "";
 }
@@ -262,7 +238,7 @@ export async function signImagePaths(paths: string[]): Promise<Map<string, strin
  * (konsolda onlarca uyarı + gereksiz trafik). Bu yedekle veri katmanı asla
  * boş kapak üretmez; gerçek kapak gelince (R2/panel) zaten değişir.
  */
-export const FALLBACK_COVER =
+const FALLBACK_COVER =
   "data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='600' height='856'%3E%3Crect width='600' height='856' fill='%2317171c'/%3E%3C/svg%3E";
 
 /** Seri satırı + gömülü sayımlar (`show_episodes(count)`, `show_seasons(count)`). */
@@ -335,7 +311,55 @@ async function uploadToBucket(file: File, folder: string, fallbackExt: string): 
   return json.url;
 }
 
+/**
+ * Vitrin görselinin EN KÜÇÜK genişliği.
+ *
+ * Vitrin `<img>`i 1536×864 olarak çiziliyor (retina ekranda daha fazlası gerekir),
+ * yani bundan küçük bir dosya tarayıcı tarafından BÜYÜTÜLÜR ve bulanık görünür.
+ * ÖLÇÜM (30.09.2026): kullanıcı kaliteli sandığı bir görsel yükledi; dosya
+ * 600×375 çıktı ve vitrinde 2,6 kat büyütülüp bulanık göründü. Kaynak dosya
+ * olduğu gibi R2'ye yüklendiği için (sunucu küçültmüyor/iyileştirmiyor) sorun
+ * baştan engellenmeli: yükleme anında ölçü denetlenir ve SEBEBİ açıkça söylenir.
+ */
+const HERO_MIN_WIDTH = 1536;
+
+/** Görselin gerçek piksel ölçüsü; okunamazsa `null` (denetim atlanır, akış durmaz). */
+async function imagePixelSize(file: File): Promise<{ w: number; h: number } | null> {
+  try {
+    if (typeof createImageBitmap === "function") {
+      const bitmap = await createImageBitmap(file);
+      const size = { w: bitmap.width, h: bitmap.height };
+      bitmap.close?.();
+      return size;
+    }
+    const url = URL.createObjectURL(file);
+    try {
+      const image = await new Promise<HTMLImageElement>((resolve, reject) => {
+        const element = new Image();
+        element.onload = () => resolve(element);
+        element.onerror = () => reject(new Error("görsel okunamadı"));
+        element.src = url;
+      });
+      return { w: image.naturalWidth, h: image.naturalHeight };
+    } finally {
+      URL.revokeObjectURL(url);
+    }
+  } catch {
+    return null;
+  }
+}
+
 export async function uploadImage(file: File, folder: string): Promise<string> {
+  // Vitrin klasöründe ÖLÇÜ ŞARTI: küçük dosya yüklenirse sonuç her zaman bulanık olur.
+  if (folder === "banners") {
+    const size = await imagePixelSize(file);
+    if (size && size.w < HERO_MIN_WIDTH) {
+      throw new Error(
+        `Görsel ${size.w}×${size.h} piksel. Vitrin ${HERO_MIN_WIDTH} piksel genişliğinde ` +
+          `gösteriyor; bu yüzden bulanık çıkar. En az ${HERO_MIN_WIDTH}×864 (ideal 1920×1080) yükle.`,
+      );
+    }
+  }
   return uploadToBucket(file, folder, "jpg");
 }
 
@@ -387,68 +411,6 @@ export function showSlug(show: { id?: string | null; slug?: string | null }): st
 }
 
 /**
- * İzleme sayfası adresi: `/anime/<slug>/season/<n>/episode/<n>`.
- *
- * Sezon/bölüm verilmezse YALNIZCA seri detay yolu (`/anime/<slug>`) döner. Sebep:
- * izleme sayfasının yolu bu iki değeri ZORUNLU tutar; eksik değerlerle uydurma bir
- * bölüm adresi üretmek yanlış sayfa açardı. "İlk bölüme düşme" kararı izleme
- * sayfasının kendi içindedir (oradaki yedek mantık korunur).
- *
- * Kaynak seçimi (`?kaynak=`) bu yardımcıdan GEÇMEZ: o, aynı bölümün bir varyantıdır
- * (yolun parçası değildir) ve gerekirse çağıran taraf sorgu parametresi olarak ekler.
- */
-export function watchHref(
-  show: Pick<Show, "id" | "slug">,
-  season?: number,
-  episodeNumber?: number,
-): string {
-  const base = `/anime/${showSlug(show)}`;
-  if (season === undefined || episodeNumber === undefined) return base;
-  return `${base}/season/${season}/episode/${episodeNumber}`;
-}
-
-/** Embed adresinden video kodunu çıkarır (`embed-<kod>.html`, `embed/<kod>`, `<kod>`). */
-export function videoCodeFromWatchUrl(watchUrl?: string | null): string {
-  if (!watchUrl) return "";
-  const clean = (watchUrl.split(/[?#]/)[0] ?? "").replace(/\/+$/, "");
-  const last = clean.split("/").filter(Boolean).pop() ?? "";
-  const dashed = /^embed-([a-z0-9]{6,})\.html$/i.exec(last);
-  if (dashed) return dashed[1] ?? "";
-  const plain = /^([a-z0-9]{6,})\.html$/i.exec(last);
-  if (plain) return plain[1] ?? "";
-  return /^[a-z0-9]{6,}$/i.test(last) ? last : "";
-}
-
-/**
- * Bölüm kapağını oynatıcının embed adresinden TÜRETİR — yalnızca türetmenin
- * gerçekten geçerli olduğu sağlayıcı için.
- *
- *   https://morencius.com/embed/<kod>   →   https://pixibay.cc/<kod>.jpg
- *
- * ÖNEMLİ: aynı kodun `_xt.jpg` eki de var ama o 25 küçük kareden oluşan bir
- * MOZAİK (storyboard); kapak olarak kullanılamaz. Kapak için eki olmayan
- * `.jpg` kullanılır — tek, temiz, 16:9 sahne karesi verir.
- *
- * ALAN ADI KONTROLÜ ŞART: VidMoly kapakları `pixibay` üzerinden gelmez. Eskiden
- * yalnızca son yol parçasına bakılıyordu; `vidmoly.org/embed/<kod>` biçiminde bir
- * adres girilse kod geçerli sayılıp `pixibay.cc/<kod>.jpg` istenirdi — o da 404.
- * Bu yüzden türetme yalnızca morencius adresleri için yapılır; VidMoly kapakları
- * `fetchShowDetail` içinde çözülüp bölümün `poster` alanına yazılır.
- */
-export function episodeCoverFromWatchUrl(watchUrl?: string | null): string {
-  if (!watchUrl) return "";
-  let host = "";
-  try {
-    host = new URL(watchUrl.split(/[?#]/)[0] ?? "").hostname.toLowerCase();
-  } catch {
-    return "";
-  }
-  if (!/(^|\.)morencius\.com$/.test(host)) return "";
-  const code = videoCodeFromWatchUrl(watchUrl);
-  return code ? `https://pixibay.cc/${code}.jpg` : "";
-}
-
-/**
  * `public/static/episode-covers/` altında GERÇEKTEN var olan dosyaların kümesi.
  *
  * Manifest `scripts/generate-episode-cover-manifest.mjs` (`npm run covers:manifest`)
@@ -460,9 +422,9 @@ const localCoverFiles = new Set<string>(EPISODE_COVER_FILES as string[]);
 /**
  * Yerelde üretilmiş bölüm kapağının yolu — YALNIZCA dosya gerçekten varsa.
  *
- * Sağlayıcı bazı bölümler için hiç görsel yayınlamıyor (o bölümlerin videosu da
- * bozuk olabiliyor — DURUM-RAPORU §20.3). O bölümlerin karesi videodan alınıp
- * `public/static/episode-covers/` altına konursa arayüz bu yolu kullanır.
+ * Dosyalar TVDB bölüm görselinden indirilip `public/static/episode-covers/`
+ * altına yazılır (`scripts/sync-anizip-local-covers.mjs`). TVDB'de görseli
+ * olmayan bölüm için dosya ÜRETİLMEZ.
  *
  * ── NEDEN MANİFEST (düzeltme, 29.09.2026) ────────────────────────────────────
  * Eskiden yol KÖRLEMESİNE kuruluyordu. Ama `public/static/episode-covers/`
@@ -472,7 +434,8 @@ const localCoverFiles = new Set<string>(EPISODE_COVER_FILES as string[]);
  * `EpisodeCover` bu adayı hiç denemez → **0 istek, 0 404**.
  *
  * `static/` ile başladığı için imzalı URL gerekmez, doğrudan servis edilir
- * (bkz. `isStaticPath`). Zincirin SONUNDA denenir (seri posterinden hemen önce).
+ * (bkz. `isStaticPath`). Dosyalar YALNIZCA TVDB görselinden üretilir
+ * (`scripts/sync-anizip-local-covers.mjs`).
  */
 export function localCoverPath(slug: string, season: number, episodeNumber: number): string {
   if (!slug) return "";
@@ -481,64 +444,19 @@ export function localCoverPath(slug: string, season: number, episodeNumber: numb
 }
 
 /**
- * Kapağı OLMAYAN bölümler için animecix'ten BÖLÜME ÖZEL kapak çözer.
- *
- * ── NEDEN (kullanıcı isteği, 29.09.2026) ─────────────────────────────────────
- * "bazı videolarda kapak olmayınca (boş kalınca) … embedlerden kapak al."
- * Türkçe kaynak (`anizmplayer.com/video/<hash>`) kapak vermez; puffytr bazı
- * ağlarda 403 döner; Cyberpunk gibi serilerde ani.zip/TVDB kaydı da yoktur.
- * Bu durumda bölüm kartı boş kalıp yalnızca seri posterini gösteriyordu.
- *
- * ── MALİYET DENETİMİ ─────────────────────────────────────────────────────────
- * Yalnızca HİÇBİR kaynağı olmayan bölümler için istek atılır: panel kapağı,
- * `poster` haritası (VidMoly/Türkçe kaynak), ani.zip/TVDB (`anizipCover`)
- * ve `watch_url`'den türetilen kapak varsa animecix HİÇ SORULMAZ. Kalan bölümler
- * SINIRLI eşzamanlılıkla (`animecixCoversForEpisodes`) ve kısa timeout'la
- * çözülür; sonuç `lib/episode-covers.ts` içinde önbelleğe alınır (üretimde
- * `server-cache`, dev'de modül söz önbelleği). Seri `animecix_id`'si yoksa
- * hiçbir istek atılmaz.
- */
-async function fillAnimecixCovers(show: Show, episodes: Episode[]): Promise<Episode[]> {
-  const animecixId = Number(show.animecix_id ?? 0);
-  if (!Number.isFinite(animecixId) || animecixId <= 0) return episodes;
-  const need = episodes.filter(
-    (ep) =>
-      !ep.thumbnail &&
-      !ep.poster &&
-      !anizipCover(show.mal_id, ep.season, ep.number) &&
-      !episodeCoverFromWatchUrl(ep.watch_url),
-  );
-  if (need.length === 0) return episodes;
-  try {
-    const covers = await animecixCoversForEpisodes(
-      animecixId,
-      need.map((ep) => ({ season: ep.season, number: ep.number })),
-    );
-    if (covers.size === 0) return episodes;
-    return episodes.map((ep) => {
-      const cover = covers.get(`${ep.season}:${ep.number}`);
-      return cover ? { ...ep, animecixC: cover } : ep;
-    });
-  } catch {
-    // Kapak çözülemedi: sayfa düşmez, zincir seri posterine kadar iner.
-    return episodes;
-  }
-}
-
-/**
  * Bölümleri sezonlara göre gruplar.
  * `show_seasons` kaydı olmayan bir sezon numarası görülürse (ör. migration
  * öncesinden kalan veri) o sezon için sanal bir kayıt üretilir; böylece
  * hiçbir bölüm arayüzde kaybolmaz.
  */
-export function groupSeasons(
+function groupSeasons(
   seasonRows: Season[],
   episodes: Episode[],
   showId: string,
 ): SeasonWithEpisodes[] {
   const map = new Map<number, SeasonWithEpisodes>();
   for (const row of seasonRows) {
-    map.set(row.number, { ...row, episodes: [], specials: [] });
+    map.set(row.number, { ...row, episodes: [] });
   }
   for (const episode of episodes) {
     let season = map.get(episode.season);
@@ -550,7 +468,6 @@ export function groupSeasons(
         title: "",
         sort_order: episode.season,
         episodes: [],
-        specials: [],
       };
       map.set(episode.season, season);
     }
@@ -582,27 +499,10 @@ async function loadShowDetail(slug: string): Promise<ShowDetail | null> {
   }
   if (!show) return null;
 
-  // Kapak haritası da paralel çekilir: sağlayıcıdan çözülmüş güncel kapaklar
-  // `site_settings` içinde durur (bkz. lib/episode-covers.ts). Yeni bölüm
-  // eklendiğinde kapak, yayına almaya gerek kalmadan buradan gelir.
-  //
-  // NEDEN PAYLAŞIMLI OKUMA (kota/egress): bu satır TÜM serilerde AYNIDIR. Eskiden
-  // her seri sayfası (anime detayı ve izleme yolu) onu sıfırdan okuyordu; 20 farklı seri
-  // açan ziyaretçi aynı satırı 20 kez çekiyordu. Artık okuma `fetchSiteSettings`
-  // üzerinden gider ve `QUERY_STALE_MS` boyunca hatırlanır (bkz.
-  // lib/site-settings.ts) — yani pencere başına TEK okuma.
-  const [episodesRes, seasonsRes, settings] = await Promise.all([
+  const [episodesRes, seasonsRes] = await Promise.all([
     db.from("show_episodes").select("*").eq("show_id", show.id),
     db.from("show_seasons").select("*").eq("show_id", show.id),
-    fetchSiteSettings([POSTER_SETTINGS_KEY]),
   ]);
-
-  try {
-    const raw = (settings[POSTER_SETTINGS_KEY] ?? "").trim();
-    if (raw) applyPosterMap(JSON.parse(raw) as Record<string, unknown>);
-  } catch {
-    // Bozuk/eski kayıt kapakları bozmasın; dosyadaki tohum geçerli kalır.
-  }
 
   const rawEpisodes = ((episodesRes.data ?? []) as (Episode & { season?: number })[])
     .map((ep) => ({
@@ -621,30 +521,55 @@ async function loadShowDetail(slug: string): Promise<ShowDetail | null> {
     ...rawEpisodes.map((ep) => ep.thumbnail_path ?? ""),
   ]);
 
-  // Sağlayıcıdan çözülmüş kapak, bölüm NESNESİNE yazılır (modül durumundan
-  // okunmaz). Sebep: bu nesne sunucuda üretilip istemciye serileştirilir; kapak
-  // ayrı bir modül durumundan okunursa sunucu ile tarayıcı farklı adres
-  // üretebiliyor ve React "hydration mismatch" hatası veriyordu.
-  const posterSlug = show.slug ?? slug;
-  const mapped: Episode[] = rawEpisodes.map((ep) => ({
+  // Bölüm kapağı (PANELDEN yüklenen manuel kapak → `thumbnail_path` imzalı/dogrudan
+  // adres). TVDB görselleri ve TVDB'den üretilmiş yerel dosyalar BİLEŞENDE
+  // (`EpisodeCover` aday listesi) çözülür; burada yalnızca manuel panel kapağı
+  // nesneye yazılır. TVDB dışı hiçbir kaynak (sağlayıcı/katalog/seri posteri)
+  // kapak olarak KULLANILMAZ.
+  const episodes: Episode[] = rawEpisodes.map((ep) => ({
     ...ep,
     thumbnail: ep.thumbnail_path ? (urls.get(ep.thumbnail_path) ?? "") : "",
-    // `posterFromMap`: kayıt, bölümün GÜNCEL videosunun koduyla çözülmüşse kullanılır.
-    // Link değiştirildiğinde eski kapak gösterilmez (bkz. lib/episode-covers.ts).
-    poster: posterFromMap(posterMap[`${posterSlug}-s${ep.season}e${ep.number}`], ep.watch_url),
   }));
 
   /**
-   * Son halka: kapağı başka hiçbir kaynaktan OLMAYAN bölümler için animecix'ten
-   * bölüme özel kapak (`animecixC`). Sunucuda çözülür ve bölüm NESNESİNE yazılır
-   * → SSR ile istemci aynı adresi görür (hydration farkı yok). Detay sonucu zaten
-   * `cachedRead` ile tutulduğu ve animecix kapağı da ayrıca önbelleklendiği için
-   * maliyet sınırlıdır (bkz. `fillAnimecixCovers`).
+   * ═══════════════════════════════════════════════════════════════════════════
+   * ÖZEL BÖLÜMLER (`number = 0`) — YALNIZCA "DB SATIRI + KAYNAK" İSE LİSTEDE.
+   *
+   * NEDEN (kullanıcı bildirimi, 30.09.2026): "Re:Zero'yu eklerken bir sürü 0.
+   * bölüm vardı; hiçbirini seçmeden yalnızca 0 OLMAYAN bölümleri yükledim. Ama
+   * oynatıcı sayfasında neden o eklemediğim bölümler var? Kaynakları da yok."
+   *
+   * ÖLÇÜM: ani.zip kataloğu Re:Zero S2 (MAL 42203) için `season: 0` altında 12
+   * "Starting Break Time from Zero" kaydı veriyor. İlk sürüm bunları katalogdan
+   * SENTETİK olarak listeye ekliyordu; hiçbirinin veritabanı satırı ve kaynağı
+   * yoktu → oynatılamayan hayalet satırlar.
+   *
+   * KURAL: `0` numaralı bir satır listede ancak (a) veritabanında o sezona ait
+   * `number = 0` satırı VARSA ve (b) o satırın `episode_sources` içinde en az bir
+   * kaynağı VARSA görünür. Aksi hâlde listeden TAMAMEN çıkarılır. Böylece
+   * katalogdaki kayıt TEK BAŞINA satır üretmez; katalog yalnızca DB'de karşılığı
+   * olan özel bölümün başlığını doğrulamak için kullanılır (aşağıda).
+   *
+   * MALİYET: sorgu YALNIZCA `0` satırı varsa atılır (çoğu seride hiç yoktur →
+   * hiç istek yok). Tek sorgu, tüm özel bölüm kimlikleri için.
+   * ═══════════════════════════════════════════════════════════════════════════
    */
-  const episodes: Episode[] = await fillAnimecixCovers(show, mapped);
+  const specialEpisodeIds = episodes.filter((ep) => ep.number === 0).map((ep) => ep.id);
+  const sourcedSpecialIds = new Set<string>();
+  if (specialEpisodeIds.length > 0) {
+    const { data } = await db
+      .from("episode_sources")
+      .select("episode_id")
+      .in("episode_id", specialEpisodeIds);
+    for (const row of (data ?? []) as { episode_id: string }[]) {
+      if (row?.episode_id) sourcedSpecialIds.add(row.episode_id);
+    }
+  }
+  /** Kaynağı olmayan `0` satırı listede GÖRÜNMEZ (yukarıdaki kural). */
+  const visibleEpisodes = episodes.filter((ep) => ep.number !== 0 || sourcedSpecialIds.has(ep.id));
 
   // Sezon gruplaması bir kez yapılır: hem sayfa verisinde hem sezon sayısında kullanılır.
-  const grouped = groupSeasons((seasonsRes.data ?? []) as Season[], episodes, show.id);
+  const grouped = groupSeasons((seasonsRes.data ?? []) as Season[], visibleEpisodes, show.id);
 
   /**
    * YAYIN TARİHLERİ — sezon (+ part) MAL kimliklerinden, uzun önbellekli.
@@ -673,33 +598,42 @@ async function loadShowDetail(slug: string): Promise<ShowDetail | null> {
       airBySeason.set(season.number, merged);
     }),
   );
-  for (const ep of episodes) {
+  for (const ep of visibleEpisodes) {
     const date = airBySeason.get(ep.season)?.[`${ep.season}:${ep.number}`];
     if (date) ep.airdate = date;
   }
 
   /**
-   * ÖZEL / ÖN BÖLÜMLER (`0. Bölüm`) — KATALOGDAN, önbellekli.
+   * ÖZEL BÖLÜM BAŞLIĞI — YALNIZCA veritabanında KARŞILIĞI OLAN için katalogla
+   * doğrulanır (kullanıcı kuralı, 30.09.2026).
    *
-   * ── NEDEN BURADA (kullanıcı isteği, 29.09.2026, ikinci tur) ─────────────────
-   * İzleme sayfasının bölüm listesi özel bölümleri de içermeli (Mushoku S2 →
-   * "0. Bölüm — Guardian Fitz") ve özel bölümün DB'de satırı OLMAYABİLİR. Bu
-   * yüzden özel bölümler sezonun KENDİ MAL kimliğiyle (`show_seasons.mal_id`)
-   * ani.zip'ten okunur. Sonuç `fetchSeasonSpecials` içinde 6 saat önbelleklenir,
-   * yani sayfa yükü upstream'e bağlanmaz (bkz. lib/season-specials.ts).
+   * KATALOG SENTETİK SATIR ÜRETMEZ: burada yalnızca, yukarıda "DB satırı +
+   * kaynak" süzgecinden GEÇMİŞ özel bölümlerin başlığı katalog kaydıyla
+   * eşleştirilir. Eşleşme BİREBİR başlık eşitliğidir (`matchCatalogSpecial`);
+   * güvenilir eşleşme yoksa DB satırındaki başlık AYNEN kalır.
    *
    * MAL KİMLİĞİ SEÇİMİ: önce sezonun kendi kimliği; yoksa ve seri TEK sezonluysa
-   * serinin kimliği (`show.mal_id`). Böylece satırı olmayan (tek sezonlu) seride
-   * de özel bölüm bulunur; çok sezonlu seride bilinmeyen kimlikle YANLIŞ sezona
-   * özel bölüm iliştirilmez.
+   * serinin kimliği (`show.mal_id`). Katalog, o sezonda DB'de özel bölüm YOKSA
+   * hiç çekilmez (upstream'e boşa gidilmez).
    *
-   * HATA YUTULUR: özel bölüm çekilemezse liste boş kalır, sayfa ASLA düşmez.
+   * HATA YUTULUR: katalog çekilemezse başlık DB'den kalır, sayfa ASLA düşmez.
    */
-  const seasons: SeasonWithEpisodes[] = await Promise.all(
+  await Promise.all(
     grouped.map(async (season) => {
+      const specialsInSeason = season.episodes.filter((ep) => ep.number === 0);
+      if (specialsInSeason.length === 0) return;
       const catalogMalId = season.mal_id ?? (grouped.length === 1 ? (show.mal_id ?? null) : null);
-      const specials = catalogMalId ? await fetchSeasonSpecials(catalogMalId) : [];
-      return { ...season, specials };
+      if (!catalogMalId) return;
+      try {
+        const catalog = await fetchSeasonSpecials(catalogMalId);
+        if (catalog.length === 0) return;
+        for (const special of specialsInSeason) {
+          const match = matchCatalogSpecial(special.title, catalog);
+          if (match && match.title.trim()) special.title = match.title;
+        }
+      } catch {
+        // Sessiz (bkz. yukarı): başlık DB satırından kalır.
+      }
     }),
   );
 
@@ -709,11 +643,11 @@ async function loadShowDetail(slug: string): Promise<ShowDetail | null> {
       image: urls.get(show.image_path) ?? FALLBACK_COVER,
       banner_image: urls.get(show.banner_image_path ?? "") ?? "",
       banner_video: urls.get(show.banner_video_path ?? "") ?? "",
-      episode_count: episodes.length,
-      season_count: seasons.length,
+      episode_count: visibleEpisodes.length,
+      season_count: grouped.length,
     },
-    episodes,
-    seasons,
+    episodes: visibleEpisodes,
+    seasons: grouped,
   };
 }
 
@@ -734,7 +668,7 @@ async function loadShowDetail(slug: string): Promise<ShowDetail | null> {
  * NOT: yalnızca BAŞARILI okuma saklanır; hata durumunda `loadShowDetail`'in
  * hatası önbelleğe yazılmaz (bkz. dosya başı notu, lib/server-cache.ts).
  */
-export async function fetchShowDetail(slug: string): Promise<ShowDetail | null> {
+async function fetchShowDetail(slug: string): Promise<ShowDetail | null> {
   return cachedRead(`show-detail:${slug}`, TTL_DETAIL_SECONDS, () => loadShowDetail(slug));
 }
 

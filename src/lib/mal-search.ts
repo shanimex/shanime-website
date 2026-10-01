@@ -25,7 +25,7 @@
  * ═══════════════════════════════════════════════════════════════════════════
  */
 
-export const ANILIST_ENDPOINT = "https://graphql.anilist.co";
+const ANILIST_ENDPOINT = "https://graphql.anilist.co";
 
 /** AniList yanıtındaki tek kayıt — yalnızca kullandığımız alanlar. */
 type AniListMedia = {
@@ -193,7 +193,14 @@ export async function searchMal(opts: {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(gql),
   });
-  if (!res.ok) throw new Error(`AniList ${res.status}`);
+  if (!res.ok) {
+    // HATA GÖVDESİ KORUNUR. Önceden yalnızca durum kodu atılıyordu
+    // (`AniList 404`) ve 404'ün SEBEBİ görünmüyordu: AniList'te eşleme yok mu,
+    // yoksa sorgu mu reddedildi? Gövde loglara düşsün diye metne eklenir;
+    // yanıt gövdesi okunamazsa hata yine durum koduyla fırlatılır.
+    const detail = await res.text().catch(() => "");
+    throw new Error(`AniList ${res.status}${detail ? ` — ${detail.slice(0, 300)}` : ""}`);
+  }
   const json = (await res.json()) as {
     data?: { Media?: AniListMedia | null; Page?: { media?: AniListMedia[] | null } | null } | null;
   };

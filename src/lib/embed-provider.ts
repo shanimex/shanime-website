@@ -159,10 +159,10 @@ function fillTemplate(template: string, request: EmbedProviderRequest): string |
  * ⚠️ Şablonlar burada ÜRETİLMEZ, yalnızca doğrulanır: hangi adresin oynadığına
  * sunucu rotası karar verir (bkz. `src/routes/api.embed.ts`).
  */
-export const MEGAPLAY_MAL_TEMPLATE = "https://megaplay.buzz/stream/mal/{mal}/{ep}/{lang}";
+const MEGAPLAY_MAL_TEMPLATE = "https://megaplay.buzz/stream/mal/{mal}/{ep}/{lang}";
 
 /** Yedek şablon — AniList kimliğiyle (bkz. yukarıdaki not). */
-export const MEGAPLAY_ANI_TEMPLATE = "https://megaplay.buzz/stream/ani/{ani}/{ep}/{lang}";
+const MEGAPLAY_ANI_TEMPLATE = "https://megaplay.buzz/stream/ani/{ani}/{ep}/{lang}";
 
 export const EMBED_PROVIDERS: Record<EmbedProviderId, EmbedProvider> = {
   /**
@@ -438,7 +438,7 @@ function isPositiveInt(value: number | null | undefined): value is number {
  * (ölçüm 29.09.2026: `/stream/mal/45576/1/tr` → `Error - MegaPlay`). Bilinmeyen/
  * eksik değer güvenli varsayılan olan `sub`'a düşer.
  */
-export function normalizeEmbedLanguage(language: "sub" | "dub" | undefined | null): "sub" | "dub" {
+function normalizeEmbedLanguage(language: "sub" | "dub" | undefined | null): "sub" | "dub" {
   return language === "dub" ? "dub" : "sub";
 }
 

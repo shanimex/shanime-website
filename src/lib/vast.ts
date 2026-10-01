@@ -184,9 +184,8 @@ export async function fetchVastAds(
     // Aynı yanıtta birden fazla <Ad> olabilir: MyBid'in "Number of video(s)"
     // ayarı bu şekilde tek yanıtta birden fazla reklam döndürür (ad-pod).
     for (const inLine of childrenByLocalName(doc, "InLine")) {
-      const parent = inLine.parentElement;
       const ad = parseAd(inLine, inheritedImpressions);
-      if (ad) ads.push({ ...ad, ...(parent ? {} : {}) });
+      if (ad) ads.push(ad);
     }
 
     const wrapper = childrenByLocalName(doc, "Wrapper")[0];

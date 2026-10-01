@@ -76,6 +76,15 @@ import {
   type CatalogEpisode,
   type RelatedRecord,
 } from "@/lib/admin-anizip";
+import {
+  anizipStoreKey,
+  isRunActive,
+  markRunActive,
+  markRunInactive,
+  useAnizipField,
+  type RowState,
+} from "@/lib/anizip-sync-store";
+import { useAnizipSyncStore } from "@/lib/anizip-sync-context";
 
 type Existing = {
   /**
@@ -484,6 +493,16 @@ export type PanelActivity = {
   done: number;
   total: number;
   fail: number;
+  /**
+   * KOŞUNUN BAŞLANGIÇ ANI (ms) — küçültülmüş rozet canlı "kalan ~Ns" tahminini
+   * bundan hesaplar. 0 ise koşu yok.
+   */
+  startedAt: number;
+  /**
+   * İŞ YARIDA KALDI (yarıda kesilmiş / sayfa yenilenmiş). Üst panel rozeti bunu
+   * "devam et" vurgusuyla gösterebilir.
+   */
+  interrupted: boolean;
 };
 
 export function AnizipSyncPanel({
@@ -647,12 +666,55 @@ export function AnizipSyncPanel({
    */
   onActivity?: ((activity: PanelActivity) => void) | undefined;
 }) {
-  const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
-  const [problem, setProblem] = useState<string | null>(null);
+  /**
+   * ═══════════════════════════════════════════════════════════════════════════
+   * KALICI DURUM — PANELDEN BAĞIMSIZ (bkz. `lib/anizip-sync-store.ts`).
+   *
+   * ── NEDEN (kullanıcı şikâyeti, 30.09.2026) ──────────────────────────────────
+   * "Başka yere dokundum, indirdiğim bazı şeyler sıfırlandı … Ekranı kapatsam bile
+   *  yüklediğim kısma kadar kalsın. Her panel açtığımda tek tek yüklemeyim, nerede
+   *  kaldıysam oradan devam etmeli."
+   *
+   * Çekilen liste, seçim, her bölümün durumu ve ilerleme artık bu bileşenin
+   * `useState`'lerinde DEĞİL, `show + sezon` anahtarıyla bir MODÜL store'unda
+   * tutulur. Panel kapansa/minimize edilse/DOM'dan kalksa da store yaşar; sayfa
+   * yenilense (F5) bile `localStorage`'tan geri yüklenir. Süren yazma koşusu da
+   * (JS async döngüsü) bu store üzerinden ilerler → panel kapalıyken sayaç akar,
+   * panel geri açılınca aynı seçim/liste/ilerleme görünür.
+   * ═══════════════════════════════════════════════════════════════════════════
+   */
+  const storeKey = anizipStoreKey(showId, seasonNumber);
+  const store = useAnizipSyncStore(showId, seasonNumber, () => ({
+    status: "loading",
+    problem: null,
+    list: [],
+    showMalId: null,
+    seasonMalId: null,
+    showSlug: "",
+    picked: PICK_ORDER.reduce<Record<string, boolean>>((acc, item) => {
+      acc[item.id] = true;
+      return acc;
+    }, {}),
+    progress: null,
+    runStartedAt: 0,
+    rowProgress: {},
+    rangeFrom: "",
+    rangeTo: "",
+    selected: [],
+    busy: false,
+    runLog: [],
+    unresolved: [],
+    notes: [],
+    advanced: false,
+    interrupted: false,
+  }));
+
+  const [status, setStatus] = useAnizipField<"loading" | "ready" | "error">(store, "status");
+  const [problem, setProblem] = useAnizipField<string | null>(store, "problem");
   /** Hedef sezonun bölümleri (katalogdan; başka sezon karışmaz). */
-  const [list, setList] = useState<CatalogEpisode[]>([]);
+  const [list, setList] = useAnizipField<CatalogEpisode[]>(store, "list");
   /** Serinin kayıtlı MAL kimliği (bilgi amaçlı gösterilir). */
-  const [showMalId, setShowMalId] = useState<number | null>(null);
+  const [showMalId, setShowMalId] = useAnizipField<number | null>(store, "showMalId");
   /**
    * HEDEF SEZONUN KENDİ MAL KİMLİĞİ — başlıkta gösterilen sayı budur.
    *
@@ -662,9 +724,9 @@ export function AnizipSyncPanel({
    * kaydın kimliği gösterilir; her sezon yüklenişinde sıfırlanır ki eski sezonun
    * kimliği yanlışlıkla yeni sezonunmuş gibi görünmesin.
    */
-  const [seasonMalId, setSeasonMalId] = useState<number | null>(null);
+  const [seasonMalId, setSeasonMalId] = useAnizipField<number | null>(store, "seasonMalId");
   /** Serinin KENDİ slug'ı (`re-zero`) — Türkçe bölüm adlarının adres merdiveni bunu ister. */
-  const [showSlug, setShowSlug] = useState("");
+  const [showSlug, setShowSlug] = useAnizipField<string>(store, "showSlug");
   /**
    * İşaretli KAYNAK KUTULARI — sözlük, sağlayıcı kimliğiyle anahtarlanır.
    *
@@ -680,21 +742,18 @@ export function AnizipSyncPanel({
    * elle işaretlemek zorunda kalıyordu. Liste `PICK_ORDER`'dan türetilir, yani
    * ileride bir kaynak eklenirse kendiliğinden seçili gelir.
    */
-  const [picked, setPicked] = useState<Record<string, boolean>>(() =>
-    PICK_ORDER.reduce<Record<string, boolean>>((acc, item) => {
-      acc[item.id] = true;
-      return acc;
-    }, {}),
-  );
+  const [picked, setPicked] = useAnizipField<Record<string, boolean>>(store, "picked");
   /** Yazma ilerlemesi (bölüm bölüm raporlanır). */
-  const [progress, setProgress] = useState<{ done: number; total: number; fail: string[] } | null>(
-    null,
-  );
+  const [progress, setProgress] = useAnizipField<{
+    done: number;
+    total: number;
+    fail: string[];
+  } | null>(store, "progress");
   /**
    * KOŞUNUN BAŞLANGIÇ ANI (ms) — canlı hız/geçen süre ölçümü için.
    * Yazma başlarken bir kez yazılır; `RunRate` buradan geçen süreyi hesaplar.
    */
-  const [runStartedAt, setRunStartedAt] = useState(0);
+  const [runStartedAt, setRunStartedAt] = useAnizipField<number>(store, "runStartedAt");
 
   /**
    * BÖLÜM BÖLÜM YAZMA DURUMU — "hangi bölüm yazılıyor, hangisi bitti?"
@@ -707,20 +766,10 @@ export function AnizipSyncPanel({
    * Yüzde, bölümün KENDİ kaynakları üzerinden hesaplanır (3 kaynak seçiliyse
    * 33 → 66 → 100) — yani uydurma bir zamanlayıcı değil, GERÇEK ilerleme.
    */
-  const [rowProgress, setRowProgress] = useState<
-    Map<
-      number,
-      {
-        pct: number;
-        status: "writing" | "done" | "error";
-        step?: string | undefined;
-        /** Bir SONRAKİ gerçek kilometre taşı — yumuşak doldurma bunu AŞMAZ. */
-        cap: number;
-        /** Bu adımın başladığı an (ms) — doldurma hızı buradan hesaplanır. */
-        at: number;
-      }
-    >
-  >(new Map());
+  const [rowProgress, setRowProgress] = useAnizipField<Record<string, RowState>>(
+    store,
+    "rowProgress",
+  );
 
   /**
    * Tek bölümün çubuk durumunu yazar (fonksiyonel güncelleme → eşzamanlılık güvenli).
@@ -747,9 +796,10 @@ export function AnizipSyncPanel({
     step?: string | undefined,
     cap?: number,
   ) => {
-    setRowProgress((prev) =>
-      new Map(prev).set(number, { pct, status, step, cap: cap ?? pct, at: Date.now() }),
-    );
+    setRowProgress((prev) => ({
+      ...prev,
+      [number]: { pct, status, step, cap: cap ?? pct, at: Date.now() },
+    }));
   };
 
   /**
@@ -761,8 +811,8 @@ export function AnizipSyncPanel({
    * verildiğinde yalnızca o bölümler işlenir; iki alan da boşsa TÜMÜ yazılır —
    * yani varsayılan davranış değişmedi.
    */
-  const [rangeFrom, setRangeFrom] = useState("");
-  const [rangeTo, setRangeTo] = useState("");
+  const [rangeFrom, setRangeFrom] = useAnizipField<string>(store, "rangeFrom");
+  const [rangeTo, setRangeTo] = useAnizipField<string>(store, "rangeTo");
 
   /**
    * SATIR SEÇİMİ — yalnızca seçilen bölümleri yaz.
@@ -773,15 +823,12 @@ export function AnizipSyncPanel({
    * kalabalıklaşıyordu). Artık satırlar seçilebilir; HİÇBİR satır seçilmezse eski
    * davranış (aralık → tümü) aynen sürer, yani kimse zorlanmaz.
    */
-  const [selected, setSelected] = useState<Set<number>>(new Set());
+  const [selected, setSelected] = useAnizipField<number[]>(store, "selected");
 
   const toggleSelected = (number: number) => {
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (next.has(number)) next.delete(number);
-      else next.add(number);
-      return next;
-    });
+    setSelected((prev) =>
+      prev.includes(number) ? prev.filter((item) => item !== number) : [...prev, number],
+    );
   };
 
   /**
@@ -1004,7 +1051,7 @@ export function AnizipSyncPanel({
    * Geri alınamaz → SİTEYE ÖZEL onay penceresi (`confirmAction`); native kutu YOK.
    */
   async function deleteSelectedEpisodes() {
-    const numbers = [...selected];
+    const numbers = selected;
     if (numbers.length === 0 || busy) return;
     const ok = await confirmAction({
       title: `Seçili ${numbers.length} bölüm tamamen silinsin mi?`,
@@ -1020,7 +1067,7 @@ export function AnizipSyncPanel({
     try {
       // 1) KAYNAKLAR — yalnızca kimliği bilinen satırlar için.
       for (const item of existing) {
-        if (!item.id || !selected.has(item.number)) continue;
+        if (!item.id || !selected.includes(item.number)) continue;
         try {
           await replaceEpisodeSources(item.id, []);
           removedSources += 1;
@@ -1042,7 +1089,7 @@ export function AnizipSyncPanel({
         bolum: numbers.length,
         kaynakTemizlenen: removedSources,
       });
-      setSelected(new Set());
+      setSelected([]);
       await onDone(`S${seasonNumber}: ${numbers.length} bölüm silindi.`);
     } catch (error) {
       toast.error(
@@ -1177,7 +1224,7 @@ export function AnizipSyncPanel({
   };
 
   const baseTargets = (): CatalogEpisode[] =>
-    selected.size > 0 ? list.filter((ep) => selected.has(ep.number)) : rangedList(list);
+    selected.length > 0 ? list.filter((ep) => selected.includes(ep.number)) : rangedList(list);
 
   const targetList = (wanted?: PickItem[]): CatalogEpisode[] => {
     const base = baseTargets();
@@ -1197,7 +1244,9 @@ export function AnizipSyncPanel({
         ep.number <= (Number.isFinite(hi) ? hi : Number.POSITIVE_INFINITY),
     );
   };
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useAnizipField<boolean>(store, "busy");
+  /** İş yarıda kaldı mı (yeniden açılışta "devam et" gösterilir). */
+  const [interrupted, setInterrupted] = useAnizipField<boolean>(store, "interrupted");
   /**
    * CANLI DURUM ÇIKIŞI — küçültülmüş hap beslenir.
    * `busy`/`progress` her değiştiğinde üst bileşene bildirilir; üst bileşen
@@ -1209,8 +1258,32 @@ export function AnizipSyncPanel({
       done: progress?.done ?? 0,
       total: progress?.total ?? 0,
       fail: progress?.fail.length ?? 0,
+      startedAt: runStartedAt,
+      interrupted,
     });
-  }, [busy, progress, onActivity]);
+  }, [busy, progress, runStartedAt, interrupted, onActivity]);
+
+  /**
+   * ═══════════════════════════════════════════════════════════════════════════
+   * YARIDA KALAN İŞ TESPİTİ — "kaldığı yerden devam et" (30.09.2026)
+   * ═══════════════════════════════════════════════════════════════════════════
+   * Sekme kapanınca/JS durunca yazma döngüsü FİZİKSEL olarak sonlanır; `busy`
+   * kalıcılıkta `true` kalır ama çalışan bir koşu yoktur. Panel yeniden açıldığında
+   * bunu ayırt ederiz: gerçek koşu yoksa `busy=false` yapılır, `interrupted`
+   * işaretlenir ve kullanıcıya "kaldığı yerden devam et" gösterilir. Devam
+   * edildiğinde VERİTABANINDA kaynağı olan bölümler zaten "yüklü" okunur →
+   * tekrar yazılmaz (mevcut `targetList`/`fullyLoadedNumbers` mantığı).
+   *
+   * Yalnızca MOUNT'ta çalışır: panel kapalıyken süren koşu (isRunActive=true) bu
+   * kontrolü tetiklemez, dolayısıyla yanlış "yarıda kaldı" gösterilmez.
+   * ═══════════════════════════════════════════════════════════════════════════
+   */
+  useEffect(() => {
+    const snapshot = store.getState();
+    if (snapshot.busy && !isRunActive(storeKey)) {
+      store.patch({ busy: false, interrupted: true });
+    }
+  }, [store, storeKey]);
 
   // NOT: Yumuşak ilerleme saati ARTIK BURADA DEĞİL — `RowProgress` bileşeninin
   // içinde. Gerekçe o bileşenin başında yazılı (kullanıcı bildirimi, 29.09.2026:
@@ -1262,15 +1335,15 @@ export function AnizipSyncPanel({
    * eklenmedi" sorusunu çoğu zaman sonradan soruyor. Rapor bu yüzden panelde
    * DURUR ve bir sonraki yazmaya kadar silinmez.
    */
-  const [unresolved, setUnresolved] = useState<string[]>([]);
+  const [unresolved, setUnresolved] = useAnizipField<string[]>(store, "unresolved");
   /**
    * YÜKLEME KAYDI — son koşunun bölüm→kaynak kırılımı (kullanıcı isteği: "hangi
    * bölümlerin/kaynakların başarılı, hangilerinin başarısız olduğunu panelde liste
    * olarak göster ki nerede tıkandığını görebileyim"). Toast kaybolur, bu liste KALIR.
    */
-  const [runLog, setRunLog] = useState<ImportLogEntry[]>([]);
+  const [runLog, setRunLog] = useAnizipField<ImportLogEntry[]>(store, "runLog");
   /** Hata olmayan bilgi satırları (ör. kullanılan puffytr adresi otomatik düzeltildi). */
-  const [notes, setNotes] = useState<string[]>([]);
+  const [notes, setNotes] = useAnizipField<string[]>(store, "notes");
   /**
    * "Gelişmiş" bölümü açık mı — VARSAYILAN KAPALI.
    *
@@ -1278,7 +1351,7 @@ export function AnizipSyncPanel({
    * (puffytr adresi, adres kontrolü, animecix eşlemesi) bu başlığın altına taşındı;
    * hiçbiri SİLİNMEDİ, açıldığında eskisi gibi çalışır.
    */
-  const [advanced, setAdvanced] = useState(false);
+  const [advanced, setAdvanced] = useAnizipField<boolean>(store, "advanced");
 
   /**
    * ANIMECIX eşlemesi — kullanıcı kararı: SESSİZ otomatik eşleme.
@@ -1559,10 +1632,7 @@ export function AnizipSyncPanel({
       title: (row.title ?? "").trim(),
       animecixId: Number.isFinite(animecix) && animecix > 0 ? animecix : null,
       /**
-       * `slug`: serinin KENDİ adresi (`re-zero` gibi). NEDEN BURADA OKUNUYOR:
-       * Türkçe bölüm adları kaynağın adresini bizim slug'dan türetiyor
-       * (`routes/api.tr-titles.ts`). `puffySlug` prop'u puffytr eşlemesi taşıdığı
-       * için bizim slug'ı YERİNE KOYAMAZ; kolon zaten var, ek sorgu gerekmez.
+       * `slug`: serinin KENDİ adresi (`re-zero` gibi). Kolon zaten var, ek sorgu gerekmez.
        */
       slug: (row.slug ?? "").trim(),
     };
@@ -2097,6 +2167,15 @@ export function AnizipSyncPanel({
     showMalId,
     partContinuation,
     seasonOwnMalId,
+    // @typescript-eslint / react-hooks: bu ayarlayıcılar artık store tabanlı
+    // (`useAnizipField`) ve kimlikleri kararlıdır; yine de bağımlılık listesinde
+    // açıkça yer alırlar ki kural uyarısı olmasın.
+    setList,
+    setProblem,
+    setSeasonMalId,
+    setShowMalId,
+    setShowSlug,
+    setStatus,
   ]);
 
   /**
@@ -2359,7 +2438,31 @@ export function AnizipSyncPanel({
         .eq("number", seasonNumber)
         .limit(1);
       if (error) throw error;
-      if ((data ?? []).length > 0) return;
+      if ((data ?? []).length > 0) {
+        // ── VAR OLAN SEZONA MAL KİMLİĞİNİ İŞLE (30.09.2026) ──────────────────
+        // Önceden burada doğrudan `return` ediliyordu: sezon kaydı bir kez
+        // oluştuktan sonra MAL kimliği ASLA güncellenemiyordu. Kullanıcı
+        // bildirimi: "panelde sadece 1 tane MAL id yazma yeri var" — hedef sezonu
+        // S2'ye alıp kimliği yazsa bile var olan S2 kaydına işlenmiyordu. Bu
+        // yüzden çok sezonlu serilerin sonraki sezonları (ör. Jujutsu Kaisen
+        // S2/S3) KAPAKSIZ kalıyordu; kapak araması sezonun KENDİ kimliğine bakar
+        // (`anizipCoverForSeason`).
+        // Kutuda kimlik VARSA yazılır; BOŞSA mevcut değere dokunulmaz.
+        const next = malIdRef.current ?? null;
+        if (next) {
+          const { error: updateError } = await db
+            .from("show_seasons")
+            .update({ mal_id: next })
+            .eq("show_id", showId)
+            .eq("number", seasonNumber);
+          devMark(updateError ? "sezon MAL kimliği yazılamadı" : "sezon MAL kimliği güncellendi", {
+            sezon: seasonNumber,
+            malId: next,
+            ...(updateError ? { hata: updateError.message } : {}),
+          });
+        }
+        return;
+      }
       const base = {
         show_id: showId,
         number: seasonNumber,
@@ -2471,7 +2574,7 @@ export function AnizipSyncPanel({
     setBusy(true);
     setProgress({ done: 0, total: targets.length, fail: [] });
     // Yeni yazma başlıyor: önceki turun çubukları listede kalmasın.
-    setRowProgress(new Map());
+    setRowProgress({});
     try {
       const fail: string[] = [];
       /**
@@ -2763,9 +2866,10 @@ export function AnizipSyncPanel({
        * etiket "atlandı" olur.
        */
       setRowProgress((prev) => {
-        const next = new Map(prev);
-        for (const [number, state] of next) {
-          if (state.status === "writing") next.set(number, { ...state, status: "error" });
+        const next: Record<string, RowState> = { ...prev };
+        for (const number of Object.keys(next)) {
+          const state = next[number];
+          if (state && state.status === "writing") next[number] = { ...state, status: "error" };
         }
         return next;
       });
@@ -2783,6 +2887,12 @@ export function AnizipSyncPanel({
   async function writeSelected() {
     const wanted = PICK_ORDER.filter((item) => isPicked(item.id));
     if (list.length === 0 || wanted.length === 0) return;
+    /**
+     * ÇİFT KOŞU ENGELİ — bu anahtar için zaten koşan bir yazma varsa ikincisi
+     * başlatılmaz (aynı bölüme çift yazma olmasın). `busy` kalıcılıktan geri
+     * yüklendiği için panel kapalıyken süren koşu da burada sayılır.
+     */
+    if (isRunActive(storeKey)) return;
     // Kimlik yoksa UYDURULMAZ: yanlış animecix kaydı yanlış bölüme video yazardı.
     if (isPicked(ANIMECIX_SOURCE_ID) && !animecixId) {
       toast.error("TauVideo kaydı eşlenmedi — numarayı yaz ya da TauVideo kutusunu kaldır.");
@@ -2792,6 +2902,15 @@ export function AnizipSyncPanel({
       toast.error("Anizm için puffytr adresi gerekli (Gelişmiş → puffytr adresi).");
       return;
     }
+
+    /**
+     * KOŞUYU "AKTİF" İŞARETLE: panel DOM'dan kalksa bile (`resolveAndWrite`
+     * içindeki async döngü sürer) `isRunActive` true kalır → yeniden açılışta
+     * "yarıda kaldı" yanlış alarmı verilmez. İş bitince `markRunInactive` ile
+     * temizlenir.
+     */
+    markRunActive(storeKey);
+    setInterrupted(false);
 
     setUnresolved([]);
     setNotes([]);
@@ -2933,6 +3052,8 @@ export function AnizipSyncPanel({
       preIssues,
       preNotes,
     );
+    // Koşu bitti (ya da güvenle kapandı) → "aktif" işareti temizlenir.
+    markRunInactive(storeKey);
   }
 
   /**
@@ -2947,6 +3068,12 @@ export function AnizipSyncPanel({
    * hiç yüklü bölüm yokken gösterilmez.
    */
   const loadedInList = list.filter((ep) => loadedByNumber.has(ep.number)).length;
+  /**
+   * BU OTURUMDA/KOŞUDA TAMAMLANAN BÖLÜM SAYISI — "yarıda kaldı" şeridinde
+   * "N/M bölüm yazıldı" demek için. `rowProgress` artık kalıcı (store) olduğu için
+   * sayfa yenilense bile bu sayı korunur.
+   */
+  const rowProgressDone = Object.values(rowProgress).filter((row) => row.status === "done").length;
   /**
    * PART ARALIĞI İÇİN SAYIM — 0. BÖLÜM (özel) HARİÇ.
    * Özel bölüm her zaman listenin başında ve `number: 0`; part aralığı gösterimi
@@ -3500,11 +3627,9 @@ export function AnizipSyncPanel({
                 disabled={busy}
                 onClick={() =>
                   setSelected(
-                    new Set(
-                      missingBySource
-                        .flatMap((entry) => entry.numbers)
-                        .filter((n) => list.some((ep) => ep.number === n)),
-                    ),
+                    missingBySource
+                      .flatMap((entry) => entry.numbers)
+                      .filter((n) => list.some((ep) => ep.number === n)),
                   )
                 }
                 className="rounded-full border border-amber-500/50 px-2 py-0.5 text-[11px] font-bold text-amber-200 hover:bg-amber-500/15 disabled:cursor-not-allowed disabled:opacity-50"
@@ -3569,13 +3694,13 @@ export function AnizipSyncPanel({
                   anlam `title` + `aria-label` ile veriliyor ve elle yazılmış
                   "kapsül düğme" yerine panelin diğer ikon düğmeleriyle (popover
                   başlığı, Kapat) aynı 24 px geometri kullanılıyor. */}
-              {selected.size > 0 ? (
-                <span className="font-bold text-emerald-600">{selected.size} bölüm seçili</span>
+              {selected.length > 0 ? (
+                <span className="font-bold text-emerald-600">{selected.length} bölüm seçili</span>
               ) : null}
-              {selected.size < selectableNumbers.length ? (
+              {selected.length < selectableNumbers.length ? (
                 <button
                   type="button"
-                  onClick={() => setSelected(new Set(selectableNumbers))}
+                  onClick={() => setSelected(selectableNumbers)}
                   title={
                     list.length > selectableNumbers.length
                       ? "Tümünü seç (0. bölüm/özel bölüm hariç — onu satırından işaretle)"
@@ -3587,10 +3712,10 @@ export function AnizipSyncPanel({
                   <CheckCheck size={13} />
                 </button>
               ) : null}
-              {selected.size > 0 ? (
+              {selected.length > 0 ? (
                 <button
                   type="button"
-                  onClick={() => setSelected(new Set())}
+                  onClick={() => setSelected([])}
                   title="Seçimi temizle"
                   aria-label="Seçimi temizle"
                   className="grid size-6 place-items-center rounded-full border border-border text-muted-foreground transition-all hover:scale-105 hover:border-foreground/30 hover:text-foreground active:scale-90"
@@ -3607,12 +3732,12 @@ export function AnizipSyncPanel({
                   ikonlarının yanı), yani silmek için yeni bir yer uydurmaya gerek
                   yok. Sağ tık menüsü yalnızca TEK bölümü siliyordu.
                   Yalnızca SEÇİM VARSA görünür — boşken panelde durmaz. */}
-              {selected.size > 0 ? (
+              {selected.length > 0 ? (
                 <button
                   type="button"
                   onClick={() => void deleteSelectedEpisodes()}
                   disabled={busy}
-                  title={`Seçili ${selected.size} bölümü tamamen sil`}
+                  title={`Seçili ${selected.length} bölümü tamamen sil`}
                   aria-label="Seçili bölümleri sil"
                   className="grid size-6 place-items-center rounded-full border border-destructive/40 text-destructive transition-all hover:scale-105 hover:bg-destructive/10 active:scale-90 disabled:opacity-50"
                 >
@@ -3628,7 +3753,7 @@ export function AnizipSyncPanel({
             {pageList.map((ep) => {
               const exists = taken.has(ep.number);
               /** Satırın yazma durumu — ilerleme çubuğuna prop olarak geçer. */
-              const row = rowProgress.get(ep.number);
+              const row = rowProgress[ep.number];
               // (Burada eskiden `rename` bayrağı hesaplanıyordu; hem satır rozeti
               //  hem "Adları İngilizce'ye çevir" özelliği kaldırıldı — artık gerek yok.)
               return (
@@ -3644,7 +3769,7 @@ export function AnizipSyncPanel({
                   }}
                   title="Sağ tık: embed adresi gir / düzenle"
                   className={`flex items-center gap-2 rounded-lg px-2 py-0.5 text-xs text-foreground transition-colors hover:bg-foreground/[0.04] ${
-                    selected.has(ep.number) ? "bg-foreground/[0.06]" : ""
+                    selected.includes(ep.number) ? "bg-foreground/[0.06]" : ""
                   } ${
                     // ARAMA VURGUSU: yazılan bölüm bulununca satır kısa süre
                     // çerçevelenir (bkz. `jumpToEpisode`) — ulaştığın bölümü
@@ -3663,14 +3788,14 @@ export function AnizipSyncPanel({
                   >
                     <input
                       type="checkbox"
-                      checked={selected.has(ep.number)}
+                      checked={selected.includes(ep.number)}
                       onChange={() => toggleSelected(ep.number)}
                       className="sr-only"
                     />
                     <span
                       aria-hidden="true"
                       className={`grid size-3.5 place-items-center rounded-[4px] border transition-colors ${
-                        selected.has(ep.number)
+                        selected.includes(ep.number)
                           ? "border-emerald-500 text-emerald-400"
                           : "border-muted-foreground/40 text-transparent"
                       }`}
@@ -3844,6 +3969,45 @@ export function AnizipSyncPanel({
              temiz dursun. Sticky denenip beğenilmedi — normal akışta, liste
              kısaltıldığı için düğmeye kayırmadan ulaşılır.
           */}
+          {/*
+            ═══════════════════════════════════════════════════════════════════
+            YARIDA KALDI — "kaldığı yerden devam et" (kullanıcı isteği, 30.09.2026)
+            ═══════════════════════════════════════════════════════════════════
+            Sayfa yenilenince (F5) ya da sekme/panel kapanınca yazma döngüsü
+            fiziksel olarak durur; ama durum (liste/seçim/ilerleme) KALIR. Bu şerit
+            nerede kalındığını söyler ve tek tıkla devam ettirir. Devam ederken
+            VERİTABANINDA kaynağı olan bölümler zaten "yüklü" sayıldığı için
+            ATLANIR — tamamlanmış bölüm tekrar yazılmaz.
+          */}
+          {interrupted ? (
+            <div className="mt-2 flex flex-wrap items-center gap-2 rounded-xl border border-amber-500/50 bg-amber-500/10 px-2.5 py-1.5 text-[11px] font-bold text-amber-500">
+              <AlertTriangle size={13} className="shrink-0" />
+              <span>
+                İş yarıda kaldı
+                {rowProgressDone > 0
+                  ? ` — ${rowProgressDone}/${list.length || rowProgressDone} bölüm yazıldı`
+                  : ""}
+                . Kaldığı yerden devam edebilirsin; tamamlananlar tekrar yazılmaz.
+              </span>
+              <Button
+                size="sm"
+                className="ml-auto h-6 rounded-full px-2.5 text-[11px] font-bold"
+                onClick={() => {
+                  setInterrupted(false);
+                  void writeSelected();
+                }}
+                disabled={busy || list.length === 0}
+              >
+                {busy ? (
+                  <Loader2 size={12} className="animate-spin" />
+                ) : (
+                  <CloudDownload size={12} />
+                )}{" "}
+                Devam et
+              </Button>
+            </div>
+          ) : null}
+
           <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-xl border border-border/70 bg-card/40 px-2 py-1">
             <span className="flex items-center gap-1 text-[11px] font-bold text-muted-foreground">
               Aralık
@@ -3900,7 +4064,7 @@ export function AnizipSyncPanel({
                       .join(" + ")} → ${targetList(pickedItems).length} bölüme yaz${
                       targetList(pickedItems).length === list.length
                         ? ""
-                        : selected.size > 0
+                        : selected.length > 0
                           ? ` (seçili)`
                           : ` (aralık)`
                     }${
@@ -3967,6 +4131,17 @@ export function AnizipSyncPanel({
             <div className="mt-2 rounded-xl border border-amber-500/40 bg-amber-500/10 p-2.5">
               <p className="flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-wider text-amber-500">
                 <AlertTriangle size={13} /> Yazılamayan kaynaklar
+                {/* KULLANICI KAPATANA KADAR DURUR (istek, 30.09.2026): özet artık
+                    kalıcı — sayfa yenilense bile burada kalır. Kapatmak için X. */}
+                <button
+                  type="button"
+                  onClick={() => setUnresolved([])}
+                  title="Özeti kapat"
+                  aria-label="Özeti kapat"
+                  className="ml-auto grid size-5 place-items-center rounded-full text-amber-500/80 transition-colors hover:bg-amber-500/20 hover:text-amber-400"
+                >
+                  <X size={12} />
+                </button>
               </p>
               <ul className="mt-1 space-y-1 text-[11px] leading-4 text-foreground">
                 {unresolved.map((line) => (

@@ -31,7 +31,7 @@ export const ADSTERRA_HOSTS = {
 } as const;
 
 /** Slot → hangi tür varsayılan birim. */
-export const DEFAULT_AD_UNITS: Record<string, "leaderboard" | "native" | "vast"> = {
+const DEFAULT_AD_UNITS: Record<string, "leaderboard" | "native" | "vast"> = {
   ad_home: "leaderboard",
   ad_detail_top: "leaderboard",
   ad_detail_bottom: "native",

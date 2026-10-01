@@ -23,7 +23,7 @@ import { QueryClient } from "@tanstack/react-query";
  * DİKKAT: bu değerleri düşürmek doğrudan okuma (egress) sayısını artırır.
  */
 export const QUERY_STALE_MS = 5 * 60_000; // 5 dakika
-export const QUERY_GC_MS = 30 * 60_000; // 30 dakika
+const QUERY_GC_MS = 30 * 60_000; // 30 dakika
 
 /**
  * Uygulamanın TEK `QueryClient`ı (bkz. `src/router.tsx`).

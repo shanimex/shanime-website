@@ -1,5 +1,8 @@
-﻿// / — Ana sayfa: vitrin bandı, trend seriler ve tüm animelerin listelendiği ızgara.
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+// / — Ana sayfa: vitrin bandı, trend seriler ve tüm animelerin listelendiği ızgara.
+// NOT (01.10.2026): başlık şeridi artık BURADA DEĞİL — `SiteHeader` tek yerde
+// (`__root.tsx`) çizilir ve her sayfada aynıdır. Bu yüzden `useNavigate`,
+// arama paneli ve arama durumu bu dosyadan kaldırıldı.
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import {
   ArrowRight,
@@ -8,10 +11,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Layers,
-  Menu,
   Play,
-  Search,
-  Shuffle,
   Tag,
   Tv,
   X,
@@ -30,13 +30,22 @@ import {
 } from "react";
 import ANIME_LOGO_FILES from "@/data/anime-logo-files.json";
 import { heroVideoSource } from "@/lib/hero-video";
-import { Button } from "@/components/ui/button";
 import { AdSlot, useAdCode } from "@/components/site/AdSlot";
 import { AdsterraLeaderboard } from "@/components/site/AdsterraUnit";
 import { EpisodeCover } from "@/components/site/EpisodeCover";
+import { FaSolid } from "@/components/site/FaSolid";
+import { QuickAccessGlyph, RandomGlyph } from "@/components/site/HeaderGlyphs";
 import { LanguageToggle } from "@/components/site/LanguageToggle";
 import { supabase } from "@/integrations/supabase/client";
-import { fetchShows, showSlug, type ShowWithImage } from "@/lib/content";
+import { fetchShows, localCoverPath, showSlug, type ShowWithImage } from "@/lib/content";
+// Bölüm kapağı çözümü — "İzlemeye devam et" kartı, bölüm listesiyle AYNI
+// zinciri kullanır (kullanıcı isteği: "kaldığım bölümün kapağı olsun daima").
+import {
+  anizipCover,
+  anizipCoverForSeason,
+  anizipCoverFromChain,
+  resolveSeasonMalId,
+} from "@/lib/anizip-covers";
 import { cachedRead, TTL_CATALOG_SECONDS, TTL_LATEST_SECONDS } from "@/lib/server-cache";
 import {
   plural,
@@ -46,7 +55,8 @@ import {
   type I18nKey,
   type Translate,
 } from "@/lib/i18n";
-import { getLastEpisode, getProgress, getResumeFrame } from "@/lib/watch-progress";
+import { forgetShow, getLastEpisode, getProgress, getResumeFrame } from "@/lib/watch-progress";
+import { BRAND_LOGO_HEIGHT, BRAND_LOGO_SRC, BRAND_LOGO_WIDTH } from "@/lib/brand";
 
 /**
  * Statik dosya düzeni (public/static/anime-data/<slug>/):
@@ -558,6 +568,99 @@ function useLatestEpisodes(shows: ShowWithImage[]) {
 }
 
 /**
+ * KULLANICI İSTEĞİ (01.10.2026): "bendeki de bu sitedeki gibi day week month
+ * olmalı" (referans: reanime.to/home "Top Trending" → DAY / WEEK / MONTH).
+ *
+ * ÖLÇÜT DÜRÜSTLÜĞÜ — kaynak sitede bu sekmeler GÖRÜNTÜLENME sayısına göre
+ * sıralar. Bizde görüntülenme verisi YOK: `shows` tablosunda puan/görüntülenme
+ * kolonu bulunmuyor ve analitik tablosu da yok (01.10.2026'da doğrulandı).
+ * Uydurma bir "popülerlik" yerine ELDEKİ gerçek sinyal kullanılır:
+ * **o pencerede eklenen bölüm sayısı** (`show_episodes.created_at`).
+ * Etiketler bu yüzden kısa tutuldu (GÜN / HAFTA / AY); ölçüt ipucu balonunda
+ * açıkça yazar. Veri büyüdükçe sekmeler kendiliğinden anlam kazanır.
+ */
+type RankTab = "day" | "week" | "month";
+
+/** Sekme → pencere uzunluğu (gün). Sıralama anahtarı sekme kimliğiyle AYNI. */
+const TREND_WINDOWS: Record<RankTab, number> = { day: 1, week: 7, month: 30 };
+
+/** Pencere hesabı için okunacak bölüm satırı üst sınırı (katalog ~350 satır). */
+const TREND_QUERY_LIMIT = 1000;
+
+/** Seri başına pencere sayaçları. `newest` = seriye en son eklenen bölümün tarihi. */
+type TrendActivity = { day: number; week: number; month: number; newest: string };
+
+const TREND_ACTIVITY_QUERY_KEY = ["home", "trend-activity"] as const;
+
+/**
+ * Sorgu düşerse kullanılacak SABİT boş nesne. Her render'da yeni `{}` üretmek
+ * `useMemo` bağımlılığını sürekli değiştirip sıralamayı gereksiz yeniden
+ * hesaplatırdı; bu yüzden referansı sabit tek bir nesne tutulur.
+ */
+const EMPTY_TREND_ACTIVITY: Record<string, TrendActivity> = {};
+
+/**
+ * Trend sekmeleri için seri başına pencere sayaçlarını TEK sorguda toplar.
+ *
+ * NEDEN TEK SORGU: üç pencere de aynı satırlardan türetilir; pencere başına ayrı
+ * istek atmak egress'i üçe katlardı. Sorgu yalnızca iki küçük kolon okur
+ * (`show_id`, `created_at`) ve `TTL_LATEST_SECONDS` boyunca sunucuda hatırlanır
+ * (bkz. lib/server-cache.ts) → ziyaretçi başına ek maliyet yok.
+ */
+async function readTrendActivity(): Promise<Record<string, TrendActivity>> {
+  try {
+    return await cachedRead<Record<string, TrendActivity>>(
+      "public:home:trend-activity",
+      TTL_LATEST_SECONDS,
+      async () => {
+        const { data, error } = await supabase
+          .from("show_episodes")
+          .select("show_id, created_at")
+          .order("created_at", { ascending: false })
+          .limit(TREND_QUERY_LIMIT);
+        if (error) throw error;
+        const now = Date.now();
+        const out: Record<string, TrendActivity> = {};
+        for (const row of data ?? []) {
+          const id = row.show_id ? String(row.show_id) : "";
+          const at = typeof row.created_at === "string" ? row.created_at : "";
+          if (!id || !at) continue;
+          const ts = Date.parse(at);
+          if (Number.isNaN(ts)) continue;
+          const ageDays = (now - ts) / 86_400_000;
+          const entry = out[id] ?? (out[id] = { day: 0, week: 0, month: 0, newest: "" });
+          if (ageDays <= TREND_WINDOWS.day) entry.day += 1;
+          if (ageDays <= TREND_WINDOWS.week) entry.week += 1;
+          if (ageDays <= TREND_WINDOWS.month) entry.month += 1;
+          // Satırlar yeniden eskiye sıralı geldiği için ilk görülen EN YENİdir.
+          if (!entry.newest) entry.newest = at;
+        }
+        return out;
+      },
+    );
+  } catch {
+    // Sorgu patlarsa sekmeler boş sayaçla çalışır; ana sayfa bozulmaz.
+    return {};
+  }
+}
+
+function useTrendActivity() {
+  return useQuery({ queryKey: TREND_ACTIVITY_QUERY_KEY, queryFn: readTrendActivity });
+}
+
+/**
+ * Aktivite kaydından istenen pencerenin sayacını okur.
+ * Kayıt yoksa 0 döner — seri hiç bölüm almamış demektir, listeden DÜŞMEZ
+ * (küme tüm sekmelerde aynı kalır; yalnızca sıra değişir).
+ */
+function trendWindowCount(activity: TrendActivity | undefined, windowDays: number): number {
+  if (!activity) return 0;
+  if (windowDays === TREND_WINDOWS.day) return activity.day;
+  if (windowDays === TREND_WINDOWS.week) return activity.week;
+  return activity.month;
+}
+
+/**
  * En yeni bölüm listesini SERİ BAŞINA TEK (en yeni) bölüme indirir.
  *
  * NEDEN: yeni eklenmiş 30 bölümü olan bir seri tek başına listeyi doldurup keşif
@@ -582,11 +685,12 @@ function latestPerShowItems(items: LatestEpisode[]): LatestEpisode[] {
 const RANKED_LIMIT = 6;
 
 /**
- * Kenar çubuğu sıralama sekmeleri. ÜÇÜ DE DÜRÜST: projede görüntülenme/puan/trend
- * verisi YOK, bu yüzden her sekme ELDEKİ bir alana göre yeniden sıralar. Sıralama
- * tamamen istemcide yapılır — yeni bir sorgu atılmaz (liste zaten `shows` içinde).
- */
-type RankTab = "episode" | "season" | "new";
+ * Kenar çubuğu sıralama sekmeleri (GÜN / HAFTA / AY).
+ *
+ * `RankTab` tipi ve `TREND_WINDOWS` ölçütü YUKARIDA, `useLatestEpisodes`ın
+ * hemen altında tanımlıdır (tek kaynak: pencere uzunlukları hem sorguda hem
+ * sıralamada aynı sabitten okunur). Sıralamanın kendisi istemcide yapılır;
+ * veriyi besleyen TEK sorgu `readTrendActivity`dir.
 
 /**
  * Sekme tanımları: sekme etiketi + sekmeyi açıklayan tek satırlık ipucu.
@@ -598,9 +702,9 @@ type RankTab = "episode" | "season" | "new";
  * görsel öğe eklenmez.
  */
 const RANK_TABS: { id: RankTab; labelKey: I18nKey; hintKey: I18nKey }[] = [
-  { id: "episode", labelKey: "home.rankEpisode", hintKey: "home.rankEpisodeHint" },
-  { id: "season", labelKey: "home.rankSeason", hintKey: "home.rankSeasonHint" },
-  { id: "new", labelKey: "home.rankNew", hintKey: "home.rankNewHint" },
+  { id: "day", labelKey: "home.rankDay", hintKey: "home.rankDayHint" },
+  { id: "week", labelKey: "home.rankWeek", hintKey: "home.rankWeekHint" },
+  { id: "month", labelKey: "home.rankMonth", hintKey: "home.rankMonthHint" },
 ];
 
 /**
@@ -972,100 +1076,6 @@ function SeriesCard({ show }: { show: HeroCard }) {
 }
 
 /**
- * Öneri panelinde gösterilen en fazla satır sayısı. YAKLAŞIK bir seçimdir
- * (ölçülmüş bir referans değeri DEĞİL): kutu genişliği ~320 px olduğu için
- * uzun liste kutuyu ekrandan taşırırdı; 5 satır kısa ve tıklanabilir kalır.
- */
-const SEARCH_SUGGESTION_LIMIT = 5;
-
-/**
- * ARAMA ÖNERİ PANELİ — arama kutusunun altında açılan küçük koyu kart
- * (masaüstü VE mobil AYNI bileşenden çizilir).
- *
- * ÜST SATIR: büyüteç ikonu + kullanıcının yazdığı metin (ör. `juju`).
- * ALTINDAKİ SATIRLAR: eşleşen her seri için POSTER görseli (küçük kare),
- * seri BAŞLIĞI ve soluk bir meta satırı (`home.resultKind` → "Anime · Seri").
- * Her satır `/anime/<slug>` adresine gider ve projedeki diğer kartların AYNI
- * `Link` kalıbı kullanılır (`preload={false}` — gerekçe: `PosterCard` notu:
- * yoğun listede hover ön çekmesi boşa Supabase okuması yakar).
- *
- * BOŞ KART ÇİZİLMEZ: yazı boşsa ya da eşleşme yoksa bileşen `null` döner.
- * Ölçüler YAKLAŞIKTIR (bu panel için referanstan ölçüm yapılmadı): köşe 16 px,
- * iç dolgu 6 px, satır dolgusu 8 px, poster 40×56 px, başlık 14 px, meta 11 px.
- */
-function SearchSuggestionPanel({
-  query,
-  items,
-  className,
-}: {
-  /** Kutudaki ham yazı — panelin üst satırında AYNEN gösterilir. */
-  query: string;
-  /** Eşleşen seriler (çağıran `filtered`ten yalnızca ilk birkaçını verir). */
-  items: HeroCard[];
-  /** Konumlandırma: masaüstünde uçan (absolute), mobilde akış içinde. */
-  className?: string | undefined;
-}) {
-  const { t } = useLang();
-  // Eşleşme yoksa ya da yazı boşsa panel HİÇ çizilmez: boş kart bırakılmaz.
-  if (!query.trim() || items.length === 0) return null;
-  // Satır sınıfı iki dalda da AYNI tutulur: değişen tek şey gezinme öğesidir.
-  const rowClassName =
-    "group flex items-center gap-2.5 rounded-xl p-2 transition-colors hover:bg-secondary";
-  return (
-    <div
-      className={`overflow-hidden rounded-2xl border border-border bg-popover shadow-2xl ${
-        className ?? ""
-      }`}
-    >
-      {/* Üst satır: büyüteç + yazılan metin (kullanıcının gördüğü satır). */}
-      <div className="flex items-center gap-2 border-b border-border px-3 py-2">
-        <Search size={15} aria-hidden="true" className="shrink-0 text-muted-foreground" />
-        <span className="truncate text-sm text-muted-foreground">{query}</span>
-      </div>
-      <ul className="p-1.5">
-        {items.map((show) => {
-          const slug = cardSlug(show);
-          const body = (
-            <>
-              <img
-                src={show.image}
-                alt=""
-                width={40}
-                height={56}
-                loading="lazy"
-                className="h-14 w-10 shrink-0 rounded-[3px] object-cover"
-              />
-              <span className="min-w-0">
-                {/* show.title VERİTABANI içeriğidir → bilerek ÇEVRİLMEZ. */}
-                <strong className="block truncate text-sm font-medium text-foreground transition-colors group-hover:text-primary">
-                  {show.title}
-                </strong>
-                <span className="block truncate text-[11px] text-muted-foreground">
-                  {t("home.resultKind")}
-                </span>
-              </span>
-            </>
-          );
-          return (
-            <li key={show.slug ?? show.title}>
-              {/* Veritabanı kaydı olmayan yedek içerikte gidilecek sayfa yoktur:
-                  bugünkü kartlarla (bkz. `SeriesCard`) aynı davranış — bağlantısız. */}
-              {show.id ? (
-                <Link to="/anime/$slug" params={{ slug }} preload={false} className={rowClassName}>
-                  {body}
-                </Link>
-              ) : (
-                <span className={rowClassName}>{body}</span>
-              )}
-            </li>
-          );
-        })}
-      </ul>
-    </div>
-  );
-}
-
-/**
  * "KALDIĞIN YERDEN DEVAM ET" SATIRININ VERİSİ (cihazda tutulur).
  *
  * NEDEN `frame` VE `fraction` AYRI: ikisi farklı kaynaklardan gelir ve farklı
@@ -1085,23 +1095,43 @@ type ContinueItem = {
   frame: string;
   /** 0..1 arası ilerleme; konum kaydı yoksa `null` (çubuk hiç çizilmez). */
   fraction: number | null;
+  /** Kayıtlı son saniye (0 = kayıt yok) → zaman damgası "0:55 / 23:40". */
+  position: number;
+  /** Toplam süre saniye (0 = bilinmiyor) → "23 dk kaldı". */
+  duration: number;
+  /** Serinin toplam bölüm sayısı (0 = bilinmiyor). */
+  total: number;
+  /** Serinin MAL kimliği; bölüm kapağını çözmek için (yoksa zincir boş döner). */
+  malId: number | null;
 };
 
+/** Saat biçimi: 143 → "2:23", 1423 → "23:43", 3700 → "1:01:40". */
+function formatClock(totalSeconds: number): string {
+  const s = Math.max(0, Math.floor(totalSeconds));
+  const hours = Math.floor(s / 3600);
+  const minutes = Math.floor((s % 3600) / 60);
+  const seconds = s % 60;
+  const pad = (value: number) => String(value).padStart(2, "0");
+  return hours > 0 ? `${hours}:${pad(minutes)}:${pad(seconds)}` : `${minutes}:${pad(seconds)}`;
+}
+
 /**
- * DEVAM SATIRI — GENİŞ YATAY SATIR (poster kartı DEĞİL).
+ * "İZLEMEYE DEVAM ET" KARTI — referans (animex.one `#continue-watching`) düzeni.
  *
- * Kullanıcı geri bildirimi: eskiden bu bölüm poster kartlarıyla çiziliyordu ve
- * "kocaman, yer kaplıyor"du. Yeni düzen seri sayfasındaki bölüm satırıyla AYNI
- * mimaridir: solda yatay (ekran görüntüsü oranında) kapak, ortada başlık ve
- * bölüm etiketi, altında ince ilerleme çubuğu. Tek satır, kompakt.
+ * KULLANICI İSTEĞİ (01.10.2026): "animex.one/home bu sitedeki gibi continue
+ * watching bizde de böyle olsun, aynı şekilde olsun; bizimki çok kötü, bak tam
+ * kaldığı yerin çizgisi süresi bile var".
  *
- * ÖLÇÜLER YAKLAŞIKTIR (bir referanstan ölçülmedi): kapak 16:9 kutu, 112 px
- * genişlik; satır dolgusu 10 px; köşe 12 px; çubuk yüksekliği 4 px. Amaç tek
- * satırda kalmak ve poster yüksekliğini ortadan kaldırmak.
+ * REFERANS DÜZENİ (ekran görüntüsünden ölçüldü):
+ *   · 16:9 görsel; zaman damgası görselin SAĞ ALTINDA ("0:55 / 23:40")
+ *   · ilerleme çubuğu görselin EN ALT KENARINDA, tam genişlikte
+ *   · görselin altında: kalan süre ("23 dk kaldı")
+ *   · sonra "Seri Adı | Bölüm 1"
+ *   · en altta "Bölüm 1 / 19"
  *
- * ÇUBUK HİÇ ÇİZİLMEZ EĞER gerçek konum kaydı yoksa: "%0" gibi uydurma bir
- * dolgu gösterilmez. Bağlantı yine durur, çünkü satırın varlık sebebi
- * "kalınan bölüme dönüş"tür ve o kayıt (izlenen bölüm) mevcuttur.
+ * DÜRÜSTLÜK: zaman damgası ve kalan süre YALNIZCA gerçek konum kaydı varsa
+ * yazılır. Kayıt yoksa (ör. hiç başlatılmamış bölüm) bu satırlar hiç çizilmez —
+ * uydurma "%0" ya da "0:00" gösterilmez.
  */
 function ContinueRow({
   slug,
@@ -1111,6 +1141,12 @@ function ContinueRow({
   image,
   frame,
   fraction,
+  position,
+  duration,
+  total,
+  malId,
+  editing,
+  onRemove,
 }: {
   /** Hedef serinin slug'ı; boşsa (veritabanı kaydı olmayan yedek içerik) bağlantı çizilmez. */
   slug?: string | undefined;
@@ -1123,34 +1159,62 @@ function ContinueRow({
   frame: string;
   /** 0..1 ilerleme; `null` ise çubuk çizilmez. */
   fraction: number | null;
+  /** Kayıtlı son saniye (0 = kayıt yok). */
+  position: number;
+  /** Toplam süre saniye (0 = bilinmiyor). */
+  duration: number;
+  /** Serinin toplam bölüm sayısı (0 = bilinmiyor). */
+  total: number;
+  /** Serinin MAL kimliği — bölüm kapağını çözer (yoksa zincir boş döner). */
+  malId: number | null;
+  /** Düzenleme kipi: kart bağlantı olmaz, köşede "çıkar" düğmesi çıkar. */
+  editing: boolean;
+  onRemove: (slug: string) => void;
 }) {
   const { t } = useLang();
-  // Satır sınıfı iki dalda da AYNI: değişen tek şey gezinme öğesidir.
-  const rowClassName =
-    "group flex items-center gap-3 rounded-xl bg-card p-2.5 transition-colors hover:bg-secondary";
   const percent = fraction === null ? 0 : Math.round(Math.min(1, Math.max(0, fraction)) * 100);
+  // Kalan süre YALNIZCA iki değer de biliniyorsa ve anlamlıysa yazılır.
+  const remainingMinutes =
+    position > 0 && duration > position
+      ? Math.max(1, Math.round((duration - position) / 60))
+      : null;
+
+  /**
+   * KAPAK ZİNCİRİ — kullanıcı isteği (01.10.2026): "kaldığım bölümün kapağı
+   * olsun daima". Sıra bölüm listesiyle AYNIDIR: önce sezonun kendi MAL kaydı,
+   * sonra seri kaydı, sonra zincirdeki kardeş kayıt, sonra üretilmiş yerel kare.
+   *
+   * ESKİDEN NEYDİ: yalnızca `[fra, image]` deneniyordu; yakalanmış kare yoksa
+   * doğrudan SERİ POSTERİNE düşüyordu — bu yüzden kart "hep aynı görsel" gibi
+   * görünüyordu. Poster artık EN SON çaredir.
+   */
+  const seasonMalId = resolveSeasonMalId(malId, season, null);
+  const coverCandidates = [
+    anizipCoverForSeason(seasonMalId, season, episode),
+    anizipCover(malId, season, episode),
+    anizipCoverFromChain(malId, season, episode, seasonMalId),
+    localCoverPath(slug ?? "", season, episode),
+    frame,
+    image,
+  ];
+
   const body = (
-    <>
-      {/* KAPAK: kare varsa GERÇEK kare, yoksa poster. `EpisodeCover` zinciri
-          kırık görselde bir sonraki adaya, o da yoksa nötr numara kutusuna düşer
-          — hiçbir durumda kırık görsel gösterilmez. */}
-      <span className="relative aspect-video w-28 shrink-0 overflow-hidden rounded-lg bg-secondary">
+    <div className="flex min-w-0 flex-col">
+      <span className="relative block aspect-video w-full overflow-hidden rounded-lg bg-secondary">
         <EpisodeCover
           number={episode}
-          numberClassName="font-display text-xl text-foreground/70"
-          candidates={[frame, image]}
+          numberClassName="font-display text-2xl text-foreground/70"
+          candidates={coverCandidates}
         />
-      </span>
-      <span className="flex min-w-0 flex-1 flex-col gap-1">
-        {/* show.title VERİTABANI içeriğidir → bilerek ÇEVRİLMEZ. */}
-        <strong className="truncate text-sm font-bold text-foreground">{title}</strong>
-        <span className="text-[11px] font-bold text-primary">
-          {/* SEZON ARTIK HER ZAMAN YAZILIR. Kullanıcı isteği (28.09.2026):
-              "her zaman sezon yazsın" — eskiden sezon yalnızca 1'den büyükken
-              eklenirdi ("5. Bölüm · 2. Sezon"), tek sezonlu dizide hiç görünmezdi. */}
-          {t("series.seasonEpisodeLabel", { season, number: episode })}
-        </span>
-        {/* İNCE İLERLEME ÇUBUĞU — yalnızca gerçek konum kaydı varsa. */}
+        {/* ZAMAN DAMGASI — görselin sağ altı (referans ölçüsü: 11 px, yarı saydam
+            siyah zemin). `tabular-nums` rakam genişliğini sabitler ki sayaç
+            oynarken metin zıplamasın. */}
+        {duration > 0 && (
+          <span className="absolute bottom-2.5 right-2 rounded bg-black/75 px-1.5 py-0.5 text-[11px] font-semibold tabular-nums text-white">
+            {formatClock(position)} / {formatClock(duration)}
+          </span>
+        )}
+        {/* İLERLEME ÇUBUĞU — görselin en alt kenarında, tam genişlikte. */}
         {fraction !== null && (
           <span
             role="progressbar"
@@ -1158,26 +1222,57 @@ function ContinueRow({
             aria-valuemin={0}
             aria-valuemax={100}
             aria-valuenow={percent}
-            className="mt-0.5 block h-1 w-full overflow-hidden rounded-full bg-foreground/10"
+            className="absolute inset-x-0 bottom-0 block h-1 bg-white/25"
           >
-            <span
-              className="block h-full rounded-full bg-primary"
-              style={{ width: `${percent}%` }}
-            />
+            <span className="block h-full bg-primary" style={{ width: `${percent}%` }} />
           </span>
         )}
       </span>
-    </>
+
+      <span className="mt-2 flex min-w-0 flex-col">
+        {remainingMinutes !== null && (
+          <span className="text-[13px] font-semibold text-primary">
+            {t("home.minLeft", { min: remainingMinutes })}
+          </span>
+        )}
+        {/* show.title VERİTABANI içeriğidir → bilerek ÇEVRİLMEZ. */}
+        <strong className="mt-0.5 truncate text-sm font-bold text-foreground">{title}</strong>
+        {/* KULLANICI İSTEĞİ (01.10.2026): "1. Sezon 1. Bölüm" yazacak —
+            "Bölüm 1 / 85" gibi bir sayaç DEĞİL. */}
+        <span className="mt-0.5 text-xs text-muted-foreground">
+          {t("common.seasonEpisode", { season, n: episode })}
+        </span>
+      </span>
+    </div>
   );
+
+  // DÜZENLEME KİPİ: kart bağlantı DEĞİL (iç içe etkileşimli öğe geçersiz olurdu)
+  // ve çıkarma düğmesi çizilir.
+  if (editing) {
+    return (
+      <div className="group relative">
+        {body}
+        <button
+          type="button"
+          onClick={() => slug && onRemove(slug)}
+          aria-label={t("home.continueRemove", { title })}
+          className="absolute right-2 top-2 grid size-7 place-items-center rounded-full bg-black/80 text-white transition-colors hover:bg-primary"
+        >
+          <X size={14} aria-hidden="true" />
+        </button>
+      </div>
+    );
+  }
+
   // Hedef yoksa (yedek içerik) bağlantı çizilmez: bugünkü davranış korunur.
-  if (!slug) return <a className={rowClassName}>{body}</a>;
-  // Yoğun satır listesi → `preload={false}` (gerekçe: PosterCard notu).
+  if (!slug) return <div className="group">{body}</div>;
+  // Yoğun kart listesi → `preload={false}` (gerekçe: PosterCard notu).
   return (
     <Link
       to="/anime/$slug/season/$season/episode/$episode"
       params={{ slug, season: String(season), episode: String(episode) }}
       preload={false}
-      className={rowClassName}
+      className="group"
     >
       {body}
     </Link>
@@ -2422,12 +2517,21 @@ function HomeCompactBand({ shows }: { shows: ShowWithImage[] }) {
 function HomeSections({
   shows,
   continueItems,
+  onContinueRemove,
 }: {
   shows: ShowWithImage[];
   /** Cihazdaki izleme ilerlemesi (localStorage). Boşsa "devam et" satırı yoktur. */
   continueItems: ContinueItem[];
+  /**
+   * "İzlemeye devam et" kartını listeden çıkarır (referans: animex.one "Edit").
+   * Liste verisi `Index`te tutulduğu için silme işi oraya devredilir — burada
+   * yalnızca düzenleme kipi ve düğme çizilir.
+   */
+  onContinueRemove: (slug: string) => void;
 }) {
   const { t } = useLang();
+  /** "Düzenle" kipi: açıkken kartlar bağlantı olmaz, köşede "çıkar" düğmesi çıkar. */
+  const [continueEditing, setContinueEditing] = useState(false);
   // NOT: "Yeni eklenenler" (`shows.created_at`) listesi BURADA DEĞİL, kompakt
   // banttadır (`HomeCompactBand`) — bant kullanıcı isteğiyle ana içeriğin SONUNA
   // taşındı. Liste tek yerde (bantta) hesaplanır ki iki yerde tutulup zamanla
@@ -2435,18 +2539,25 @@ function HomeSections({
   // NOT: tür çip şeridi KULLANICI İSTEĞİYLE TÜMÜYLE SİLİNDİ (bkz. `Index`
   // içindeki (a) notu): bu bileşende tür filtresiyle ilgili hiçbir şey çizilmez.
 
-  // Kenar çubuğu sıralama sekmeleri. Sekmeler yalnızca SIRAYI değiştirir; yeni
-  // sorgu atılmaz, liste zaten `shows` içinde geliyor.
-  const [rankTab, setRankTab] = useState<RankTab>("episode");
+  // Kenar çubuğu sıralama sekmeleri (GÜN / HAFTA / AY). Sekmeler yalnızca SIRAYI
+  // değiştirir; ek ağ isteği doğmaz — pencere sayaçları TEK sorgudan
+  // (`useTrendActivity`) gelir ve React Query önbelleğinde paylaşılır.
+  const [rankTab, setRankTab] = useState<RankTab>("day");
+
+  // Seri başına pencere sayaçları. Sorgu düşerse sabit boş nesne kullanılır:
+  // sekmeler yine çalışır, liste özgün sıraya düşer ve sayfa bozulmaz.
+  const trendQuery = useTrendActivity();
+  const trendActivity = trendQuery.data ?? EMPTY_TREND_ACTIVITY;
 
   // Kenar çubuğunun ANA KÜMESİ: bölümü olan seriler.
   //
-  // NEDEN "En Çok Bölüm" DEĞİL DE "SIRALAMA": projede görüntülenme ya da puan
-  // verisi YOK; "en popüler/trend" demek uydurma olurdu. Sıralama, var olan
-  // alanlarla (bölüm / sezon / eklenme tarihi) yapılır ve ölçütü sekme etiketi
-  // yazar. Bölümü olmayan seriler listeye girmez (hiçbiri bölümlü değilse panel
-  // hiç çizilmez). KÜME TÜM SEKMELERDE AYNIDIR: sekme yalnızca sırayı değiştirir,
-  // böylece liste sekme değişiminde bir seriyi kaybedip kazanmaz.
+  // NEDEN "En Çok Bölüm" DEĞİL DE PENCERE: projede görüntülenme ya da puan
+  // verisi YOK (bkz. `readTrendActivity`); "en popüler" demek uydurma olurdu.
+  // Sıralama, GERÇEK olan tek zaman sinyaliyle yapılır: seriye seçili pencerede
+  // eklenen bölüm sayısı. Bölümü olmayan seriler listeye girmez (hiçbiri bölümlü
+  // değilse panel hiç çizilmez). KÜME TÜM SEKMELERDE AYNIDIR: sekme yalnızca
+  // sırayı değiştirir, böylece liste sekme değişiminde bir seriyi kaybedip
+  // kazanmaz.
   const rankable = useMemo(
     () =>
       shows
@@ -2455,33 +2566,31 @@ function HomeSections({
     [shows],
   );
 
-  // Sekmeye göre yeniden sıralama (istemcide, ek istek yok):
-  //   BÖLÜM  → bölüm sayısı (çok → az)
-  //   SEZON  → sezon sayısı (çok → az), eşitlikte bölüm sayısı
-  //   YENİ   → `shows.created_at` (yeni → eski)
-  // Eşitlikte listenin özgün sırası korunur (kararlı, zıplamayan liste).
+  // Sekmeye göre yeniden sıralama — tamamen istemcide, ek istek yok.
+  //
+  // ÖLÇÜT: seçili PENCEREDE (gün / hafta / ay) seriye eklenen bölüm sayısı
+  // (çok → az). Eşitlikte seriye EN SON eklenen bölümün tarihi (yeni → eski),
+  // o da eşitse listenin özgün sırası korunur (kararlı, zıplamayan liste).
+  //
+  // NEDEN BU ÖLÇÜT: referans sitede bu sekmeler görüntülenmeye göre sıralar;
+  // bizde görüntülenme/puan verisi yok (bkz. `readTrendActivity` notu). Uydurma
+  // popülerlik yerine gerçek "siteye ne eklendi" sinyali kullanılır.
   const ranked = useMemo(() => {
+    const window = TREND_WINDOWS[rankTab];
     const rows = [...rankable];
-    if (rankTab === "season") {
-      rows.sort(
-        (a, b) =>
-          b.show.season_count - a.show.season_count ||
-          b.show.episode_count - a.show.episode_count ||
-          a.index - b.index,
-      );
-    } else if (rankTab === "new") {
-      rows.sort((a, b) => {
-        const aAt = seriesCreatedAt(a.show);
-        const bAt = seriesCreatedAt(b.show);
-        if (aAt === bAt) return a.index - b.index;
-        // Tarihi olmayan (boş metin) seriler listenin sonuna düşer.
-        return aAt < bAt ? 1 : -1;
-      });
-    } else {
-      rows.sort((a, b) => b.show.episode_count - a.show.episode_count || a.index - b.index);
-    }
+    rows.sort((a, b) => {
+      const aAct = trendActivity[a.show.id];
+      const bAct = trendActivity[b.show.id];
+      const aCount = trendWindowCount(aAct, window);
+      const bCount = trendWindowCount(bAct, window);
+      if (aCount !== bCount) return bCount - aCount;
+      const aNewest = aAct?.newest ?? "";
+      const bNewest = bAct?.newest ?? "";
+      if (aNewest !== bNewest) return aNewest < bNewest ? 1 : -1;
+      return a.index - b.index;
+    });
     return rows.slice(0, RANKED_LIMIT);
-  }, [rankable, rankTab]);
+  }, [rankable, rankTab, trendActivity]);
 
   // "Son Bölümler" ızgarası ile bandın "YENİ ÇIKANLAR" kolonu AYNI sorguya bakar
   // (bkz. `useLatestEpisodes` / `readLatestEpisodes`): `queryKey` aynı olduğu için
@@ -2579,28 +2688,47 @@ function HomeSections({
                 <p className="text-[15px] font-semibold text-primary">{t("home.continueTag")}</p>
                 <h2 className={`mt-1 ${HEAD_ROW}`}>{t("home.continueHeading")}</h2>
               </div>
-              <ArrowRight size={20} aria-hidden="true" className="shrink-0 text-primary" />
+              {/* "DÜZENLE" — referans (animex.one) başlığın sağına bu düğmeyi
+                  koyar. Gerçek işlev verir: düzenleme kipinde her kartın
+                  köşesinde "listeden çıkar" düğmesi belirir (veri
+                  `watch-progress`ten silinir). Boş bir düğme DEĞİLDİR. */}
+              <button
+                type="button"
+                onClick={() => setContinueEditing((open) => !open)}
+                className="shrink-0 rounded-md border border-border px-2.5 py-1 text-xs font-semibold text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+              >
+                {continueEditing ? t("home.continueDone") : t("home.continueEdit")}
+              </button>
             </div>
             {/* GENİŞ SATIRLAR (poster ızgarası DEĞİL): her satır tek bir bölümü
                 temsil eder ve doğrudan o bölümün izleme adresine gider. Alan
                 kompakt kalsın diye sütun düzeni yerine dikey liste kullanılır;
                 satırlar arası boşluk 12 px (YAKLAŞIK). */}
-            <div className="flex flex-col gap-3">
-              {continueItems.map(({ show, season, episode, frame, fraction }) => (
-                <ContinueRow
-                  key={show.slug ?? show.title}
-                  // Doğrudan kaldığı bölümün izleme sayfasına gider
-                  // (`/anime/<slug>/season/<n>/episode/<n>`); satır bunu `Link` ile kurar.
-                  slug={cardSlug(show)}
-                  season={season}
-                  episode={episode}
-                  title={show.title}
-                  image={show.image}
-                  // Cihazda yakalanmış gerçek kare (varsa) — yoksa poster.
-                  frame={frame}
-                  fraction={fraction}
-                />
-              ))}
+            {/* IZGARA (referans düzeni): kartlar yan yana 16:9 görsellerle
+                dizilir; telefonda 2, masaüstünde 5 sütun. */}
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+              {continueItems.map(
+                ({ show, season, episode, frame, fraction, position, duration, total, malId }) => (
+                  <ContinueRow
+                    key={show.slug ?? show.title}
+                    // Doğrudan kaldığı bölümün izleme sayfasına gider
+                    // (`/anime/<slug>/season/<n>/episode/<n>`); kart bunu `Link` ile kurar.
+                    slug={cardSlug(show)}
+                    season={season}
+                    episode={episode}
+                    title={show.title}
+                    image={show.image}
+                    frame={frame}
+                    fraction={fraction}
+                    position={position}
+                    duration={duration}
+                    total={total}
+                    malId={malId}
+                    editing={continueEditing}
+                    onRemove={onContinueRemove}
+                  />
+                ),
+              )}
             </div>
           </section>
         )}
@@ -2966,30 +3094,11 @@ function Index() {
   const { t } = useLang();
   // Sekme başlığı aktif dili izler (rota `head()`i sunucuda bir kez üretilir).
   useDocumentTitle(t("meta.homeTitle"));
-  const [menuOpen, setMenuOpen] = useState(false);
-  const [searchOpen, setSearchOpen] = useState(false);
-  const navigate = useNavigate();
-  /**
-   * RASTGELE SERİ (anikoto başlığındaki zar gibi).
-   *
-   * Yalnızca adresi olan (slug) kayıtlar havuzdadır; geri kalan (taslak/kayıtsız)
-   * eleme dışı kalır ki ölü adrese düşülmesin. Menü açıksa kapatılır.
-   */
-  const goRandom = () => {
-    const pool = shows.filter((show): show is HeroCard & { slug: string } => Boolean(show.slug));
-    if (pool.length === 0) return;
-    const pick = pool[Math.floor(Math.random() * pool.length)] as { slug: string };
-    setMenuOpen(false);
-    navigate({ to: "/anime/$slug", params: { slug: pick.slug } });
-  };
   // Anasayfa reklamı: panelde `ad_home` kodu varsa PANEL kazanır, boşsa
   // koddaki Adsterra birimi çalışır (slot vardı ama içi boştu → reklam yoktu).
   const adHome = useAdCode("ad_home");
   const [query, setQuery] = useState("");
   const [genre, setGenre] = useState(ALL_GENRES);
-  const searchRef = useRef<HTMLInputElement>(null);
-  const desktopSearchRef = useRef<HTMLDivElement>(null);
-  const mobileSearchRef = useRef<HTMLDivElement>(null);
   // Veri loader'dan gelir (sunucuda çekilmiş) — "yükleniyor" ara durumu yok.
   const dbShows = Route.useLoaderData();
   const shows: HeroCard[] = dbShows && dbShows.length > 0 ? dbShows : fallbackShows;
@@ -3046,7 +3155,23 @@ function Index() {
         // Kare YALNIZCA kendi oynatıcımızda yakalanmışsa vardır; embed/iframe
         // durumunda boş gelir ve satır postere düşer (bkz. lib/watch-progress.ts).
         const frame = getResumeFrame(showKey, last.season, last.episode);
-        next.push({ show, season: last.season, episode: last.episode, frame, fraction });
+        next.push({
+          show,
+          season: last.season,
+          episode: last.episode,
+          frame,
+          fraction,
+          // Referans düzeni (animex.one) için gereken ÜÇ ek değer. Hepsi GERÇEK
+          // kayıtlardan gelir; eksikse 0 kalır ve ilgili satır hiç çizilmez
+          // (uydurma "0:00" / "%0" gösterilmez).
+          position: progress?.position ?? 0,
+          duration: progress?.duration ?? 0,
+          total:
+            "episode_count" in show && typeof show.episode_count === "number"
+              ? show.episode_count
+              : 0,
+          malId: (show as { mal_id?: number | null }).mal_id ?? null,
+        });
       }
       setContinueItems(next);
     } catch {
@@ -3054,6 +3179,21 @@ function Index() {
       setContinueItems([]);
     }
   }, [shows]);
+
+  /**
+   * "İzlemeye devam et" kartını listeden çıkarır (referans: animex.one "Edit").
+   *
+   * İKİ İŞ BİRDEN YAPILIR: (1) cihaz deposundan o serinin TÜM ilerleme kaydı
+   * silinir, (2) ekrandaki liste anında güncellenir. Yalnızca listeden çıkarmak
+   * YETMEZDİ — kayıt depoda kaldığı sürece sayfa yenilendiğinde kart geri gelir.
+   *
+   * `useCallback`: `MemoHomeSections` memo'lu; her render'da yeni bir fonksiyon
+   * üretilse memoizasyon bozulur ve bölümler gereksiz yeniden çizilirdi.
+   */
+  const handleContinueRemove = useCallback((slug: string) => {
+    forgetShow(slug);
+    setContinueItems((prev) => prev.filter((item) => cardSlug(item.show) !== slug));
+  }, []);
 
   const [heroIndex, setHeroIndex] = useState(0);
   // Sürükleme sırasında slaytların yatay kayması (yüzde) ve tutma durumu.
@@ -3646,281 +3786,28 @@ function Index() {
   // tek tüketen yer o şeritti. Tür süzme zinciri (`genre` → `filtered`) korunur;
   // sıralama/büyük-küçük harf yardımcılarına (`localeCompare`) bu yüzden gerek yok.
 
-  const filtered = shows.filter((show) => {
-    const matchesQuery = show.title.toLocaleLowerCase("tr").includes(query.toLocaleLowerCase("tr"));
-    const matchesGenre =
-      genre === ALL_GENRES ||
-      (show.genre ?? "")
-        .split(",")
-        .map((part) => part.trim())
-        .includes(genre);
-    return matchesQuery && matchesGenre;
-  });
+  // Arama/tür süzmesi: sonuç useMemo ile hatırlanır. Vitrin durumu (slayt,
+  // sürükleme, video) değiştiğinde aynı sorgu baştan hesaplanmaz; sonuç ve
+  // zamanlama AYNI kalır, sadece gereksiz tekrar önlenir. Harf çipleri (AzList)
+  // ayrı devredir, bu değişiklikten etkilenmez.
+  const filtered = useMemo(() => {
+    const needle = query.toLocaleLowerCase("tr");
+    return shows.filter((show) => {
+      const matchesQuery = show.title.toLocaleLowerCase("tr").includes(needle);
+      const matchesGenre =
+        genre === ALL_GENRES ||
+        (show.genre ?? "")
+          .split(",")
+          .map((part) => part.trim())
+          .includes(genre);
+      return matchesQuery && matchesGenre;
+    });
+  }, [shows, query, genre]);
 
   const isFiltering = query.trim().length > 0 || genre !== ALL_GENRES;
 
-  /**
-   * ARAMA ÖNERİ PANELİNİN SATIRLARI (bkz. `SearchSuggestionPanel`).
-   *
-   * KAYNAK: sayfada ZATEN yüklü ve süzülmüş liste `filtered` — ızgarayı çizen
-   * listenin TA KENDİSİ (`(isFiltering ? filtered : shows)`). Yalnızca ilk
-   * `SEARCH_SUGGESTION_LIMIT` eşleşme alınır ve `filtered` her render'da zaten
-   * hesaplandığı için burada `useMemo` AÇILMAZ (gereksiz önbellek olurdu).
-   * EK SORGU YOK: Supabase'e hiçbir yeni istek gitmez.
-   * Yazı boşken liste boştur; panel o durumda hiç çizilmez.
-   */
-  const searchSuggestions = query.trim() ? filtered.slice(0, SEARCH_SUGGESTION_LIMIT) : [];
-
-  const openSearch = () => {
-    setSearchOpen(true);
-    // Panel açılır açılmaz odağı kutuya ver (mobil klavye de açılır).
-    requestAnimationFrame(() => searchRef.current?.focus());
-  };
-
-  // Arama açıkken ESC ile kapat + dışarı tıklayınca kapat.
-  useEffect(() => {
-    if (!searchOpen) return;
-    function onKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") setSearchOpen(false);
-    }
-    function onPointerDown(event: PointerEvent) {
-      const target = event.target as Node | null;
-      if (!target) return;
-      const inDesktop = desktopSearchRef.current?.contains(target) ?? false;
-      const inMobile = mobileSearchRef.current?.contains(target) ?? false;
-      if (!inDesktop && !inMobile) setSearchOpen(false);
-    }
-    document.addEventListener("keydown", onKeyDown);
-    document.addEventListener("pointerdown", onPointerDown);
-    return () => {
-      document.removeEventListener("keydown", onKeyDown);
-      document.removeEventListener("pointerdown", onPointerDown);
-    };
-  }, [searchOpen]);
-
   return (
     <div className="min-h-screen bg-background">
-      {/* Üst şerit: içerik üstünden kayan buzlu cam (kullanıcı isteği, 30.09.2026:
-          "daha güzel hale getir"). Düz opak zemin + sert çizgi yerine yarı saydam
-          + bulanıklık: vitrin görseli altından yumuşak geçiş yapar. Renk kapkara
-          değil lacivert-siyam (anikoto tarzı): temanın mor alt tonuyla uyumlu,
-          kırmızı logoyu öne çıkarır. */}
-      <header className="sticky top-0 z-50 border-b border-white/[0.07] bg-[#141724]/85 backdrop-blur-md supports-[backdrop-filter]:bg-[#141724]/65">
-        {/* Başlık şeridi de sayfanın geri kalanıyla AYNI kabı kullanır (referansta
-            header, içerik ve footer tek `.container` içindedir); yoksa içerik
-            genişlerken header dar kalıp sayfa kopuk görünürdü. */}
-        <div className={`${PAGE_CONTAINER} flex h-16 items-center gap-2 sm:gap-3`}>
-          {/* Hamburger HER boyutta (anikoto gibi): bağlantılar açılır paneldedir. */}
-          <Button
-            variant="ghost"
-            size="icon"
-            className="icon-btn shrink-0"
-            aria-label={menuOpen ? t("common.closeMenu") : t("common.openMenu")}
-            aria-expanded={menuOpen}
-            onClick={() => setMenuOpen((open) => !open)}
-          >
-            <span
-              key={menuOpen ? "close" : "menu"}
-              className="grid place-items-center motion-safe:animate-[icon-swap_200ms_cubic-bezier(0.22,1,0.36,1)_both]"
-            >
-              {menuOpen ? (
-                <X size={21} aria-hidden="true" />
-              ) : (
-                <Menu size={21} aria-hidden="true" />
-              )}
-            </span>
-          </Button>
-          <a
-            href="#top"
-            onClick={scrollToTop}
-            aria-label={t("common.homeAria")}
-            className="ui-hover flex items-center gap-2 rounded-full px-1 py-1"
-          >
-            <img
-              src="/shanime-logo.png?v=6"
-              alt={t("common.logoAlt")}
-              width={1060}
-              height={856}
-              loading="eager"
-              decoding="async"
-              className="h-10 w-auto object-contain drop-shadow-[0_2px_12px_rgba(0,0,0,0.45)] sm:h-11"
-            />
-            <span className="sr-only">shanime</span>
-          </a>
-          {/* ── DİL DEĞİŞİMİNDE SIFIR KAYMA ──────────────────────────────────
-              KULLANICI GERİ BİLDİRİMİ: "TR|EN düğmesi neden kayıyor? Basınca kutu
-              kayıyor, sanki sayfa yeniden çizilmiş gibi."
-              ÖLÇÜM (viewport 1552×900): dil değişince YALNIZCA düğme değil, yanındaki
-              çevrilen etiketler de genişlik değiştiriyordu — nav bağlantı grubu
-              240,5 px → 226,9 px, "Keşfet" düğmesi 130,7 px → 138 px. Üst şerit
-              `justify-between` bir flex olduğu için bu toplam fark düğmeyi x 1032,1 →
-              1022,8 (9,3 px) kaydırıyordu.
-              ÇÖZÜM: her çevrilen etiketin kutusunu dile bağlı olmaktan çıkarıyoruz.
-              Her bağlantıya İKİ dilden GENİŞ olanına göre `min-w` rezerve edilir ve
-              etiket `text-center` ile kutunun ortasına oturur; böylece kutu genişliği
-              `tr` ve `en` için birebir aynı kalır ve 9,3 px'lik kayma tamamen biter.
-              (Ölçüler: "Ana sayfa" ≈ 66,7 px / "Home" ≈ 39,1 px → 70; "Seriler" ≈
-              48,9 px / "Series" ≈ 44,6 px → 51; "Bu sezon" ≈ 60,5 px / "This season"
-              ≈ 81,8 px → 84.) */}
-          {/* Bağlantılar hamburger menüdedir (anikoto başlığı gibi); çift menü olmaz. */}
-          {/* Dil değiştirici: arama ile menü arasında; mobilde de görünür. */}
-          <LanguageToggle />
-          {/* HIZLI ERİŞİM (anikoto başlığındaki zar gibi): rastgele seri açar.
-              Ölü düğme değildir — gerçekten gezinir (bkz. `goRandom`). */}
-          <Button
-            variant="ghost"
-            size="icon"
-            className="icon-btn hidden shrink-0 md:grid"
-            aria-label={t("common.random")}
-            title={t("common.random")}
-            onClick={goRandom}
-          >
-            <Shuffle size={18} aria-hidden="true" />
-          </Button>
-          {/* Dışarı tıklamayı denetleyen effect, tıklamanın panelin İÇİNDE olup
-              olmadığını bu kapsayıcının ref'i üzerinden anlıyor. Ref buraya
-              bağlanmazsa `desktopSearchRef.current` her zaman null kalır, açılır
-              panelin ve kutunun içine yapılan tıklama da "dışarı" sayılır; panel
-              bağlantının tıklaması işlenmeden kapanır ve seri sayfasına hiç
-              gidilmez. */}
-          <div
-            ref={desktopSearchRef}
-            className="relative hidden min-w-0 flex-1 items-center justify-center px-2 md:flex"
-          >
-            {/* Ortada arama hapı (anikoto `#search` gibi): tıklayınca aynı açılır
-                kart belirir; ayrı büyüteç düğmesi kalmadı. */}
-            <button
-              type="button"
-              onClick={() => setSearchOpen(true)}
-              aria-label={t("common.search")}
-              className="flex h-10 w-full max-w-xl min-w-0 items-center gap-2.5 rounded-full border border-white/10 bg-white/5 px-4 text-sm text-muted-foreground transition-all hover:border-white/20 hover:text-foreground active:scale-[0.99]"
-            >
-              <Search size={16} aria-hidden="true" className="shrink-0" />
-              <span className="truncate">{t("common.searchPlaceholder")}</span>
-            </button>
-            {/*
-              "Keşfet / Explore" DÜĞMESİ KALDIRILDI (kullanıcı, 28.09.2026:
-              "explore keşfet butonunu gereksiz, kaldırsana onu sil").
-
-              NEDEN GEREKSİZDİ: düğme yalnızca sayfayı AŞAĞI KAYDIRIYORDU
-              (`#series` bölümüne). Yani kullanıcıya yeni bir şey açmıyordu —
-              aynı sayfada zaten görünen içeriğe atlıyordu.
-
-              YAN FAYDA: bu düğme, dil düğmesinin yanındaki en büyük metin
-              genişliği kaynağıydı ("Keşfet" ≈ 39 px ↔ "Explore" ≈ 47 px). Düğme
-              gidince dil değiştiricinin etrafındaki yerleşim bir olasılığı daha
-              kayboldu; çip genişlikleri zaten sabit (`w-8`) olduğu için kayma yok.
-            */}
-            {searchOpen && (
-              <div className="absolute left-1/2 top-full z-50 mt-2 w-[min(26rem,92vw)] -translate-x-1/2 rounded-3xl border border-border bg-popover p-4 shadow-2xl motion-safe:animate-pop-in motion-reduce:animate-none">
-                <div className="flex items-center gap-2 rounded-full border-2 border-primary px-4">
-                  <Search size={17} className="text-muted-foreground" />
-                  <label className="sr-only" htmlFor="search">
-                    {t("common.search")}
-                  </label>
-                  <input
-                    id="search"
-                    autoFocus
-                    value={query}
-                    onChange={(event) => setQuery(event.target.value)}
-                    placeholder={t("common.searchPlaceholder")}
-                    className="h-11 min-w-0 flex-1 bg-transparent text-sm outline-none"
-                  />
-                </div>
-                {/* ÖNERİ PANELİ — kutunun ALTINDA uçan kart olarak geri getirildi
-                    (bkz. `SearchSuggestionPanel` ve üstündeki geri getirme notu).
-                    Panel, kutuyu taşıyan kartın İÇİNDE durur ama `inset-x-0
-                    top-full mt-2` ile kartın DIŞINA, hemen altına yerleşir: kart
-                    `absolute` olduğu için panelin konumlanma kutusu karttır, bu
-                    yüzden genişlik kutununkiyle birebir aynı olur. Konum ve
-                    ölçüler YAKLAŞIKTIR — bu panel için referanstan ölçüm
-                    yapılmadı. Yalnızca arama AÇIKKEN ve yazı doluyken çizilir;
-                    eşleşme yoksa bileşen kendini çizmez (boş kart kalmaz). */}
-                <SearchSuggestionPanel
-                  query={query}
-                  items={searchSuggestions}
-                  className="absolute inset-x-0 top-full z-40 mt-2 motion-safe:animate-pop-in motion-reduce:animate-none"
-                />
-              </div>
-            )}
-          </div>
-        </div>
-        {menuOpen && (
-          <nav
-            ref={mobileSearchRef}
-            aria-label={t("common.mainNav")}
-            className="flex flex-col border-t border-border px-5 py-2 motion-safe:animate-pop-in motion-reduce:animate-none md:absolute md:inset-x-auto md:left-4 md:top-full md:z-50 md:mt-2 md:w-72 md:rounded-2xl md:border md:bg-popover md:p-2 md:shadow-2xl"
-          >
-            <a
-              className="rounded-xl py-3 font-bold text-primary transition-colors hover:bg-secondary md:px-3 md:py-2.5 md:text-sm"
-              href="#top"
-              onClick={(event) => {
-                scrollToTop(event);
-                setMenuOpen(false);
-              }}
-            >
-              {t("common.home")}
-            </a>
-            <a
-              className="rounded-xl py-3 font-bold transition-colors hover:bg-secondary md:px-3 md:py-2.5 md:text-sm"
-              href="#series"
-              onClick={() => setMenuOpen(false)}
-            >
-              {t("common.series")}
-            </a>
-            <a
-              className="rounded-xl py-3 font-bold transition-colors hover:bg-secondary md:px-3 md:py-2.5 md:text-sm"
-              href="#season"
-              onClick={() => setMenuOpen(false)}
-            >
-              {t("common.thisSeason")}
-            </a>
-            <button
-              type="button"
-              onClick={goRandom}
-              className="flex items-center gap-2.5 rounded-xl py-3 text-left font-bold transition-colors hover:bg-secondary md:px-3 md:py-2.5 md:text-sm"
-            >
-              <Shuffle size={16} aria-hidden="true" className="text-muted-foreground" />
-              {t("common.random")}
-            </button>
-
-            {/* Mobil arama menüdedir (masaüstü hapı `md` altında gizlidir).
-                Kutu, yazdıkça ana sayfadaki seri ızgarasını süzer. */}
-            <div className="md:hidden">
-              <div className="mt-2 flex items-center gap-2 rounded-full border-2 border-primary px-4">
-                <Search size={17} className="text-muted-foreground" />
-                <label className="sr-only" htmlFor="search-mobile">
-                  {t("common.search")}
-                </label>
-                <input
-                  id="search-mobile"
-                  value={query}
-                  onChange={(event) => setQuery(event.target.value)}
-                  placeholder={t("common.searchPlaceholder")}
-                  className="h-11 min-w-0 flex-1 bg-transparent text-sm outline-none"
-                />
-                {query ? (
-                  <button
-                    type="button"
-                    aria-label={t("common.clearSearch")}
-                    onClick={() => setQuery("")}
-                    className="icon-btn shrink-0 text-muted-foreground"
-                  >
-                    <X size={16} aria-hidden="true" />
-                  </button>
-                ) : null}
-              </div>
-              {/* ÖNERİ PANELİ (MOBİL) — masaüstüyle AYNI bileşen, kutunun hemen
-                  altında ve AKIŞ İÇİNDE durur (menü zaten açılır bir panel; burada
-                  absolute konum dar ekranda sayfa içeriğinin üstüne binerdi).
-                  Menü açık olduğu için görünürlük kapısı yalnızca yazıdır;
-                  eşleşme yoksa bileşen kendini çizmez (`SearchSuggestionPanel`). */}
-              <SearchSuggestionPanel query={query} items={searchSuggestions} className="mt-2" />
-            </div>
-          </nav>
-        )}
-      </header>
-
       <main id="top">
         <section
           ref={heroRef}
@@ -4238,7 +4125,11 @@ function Index() {
             İSTEĞİYLE bu alanın DIŞINA çıkarıldı: ana içeriğin EN SONUNDA,
             footer'ın hemen üstünde ve "Bu sezon" bölümünün hemen altında çizilir
             (bkz. `Index()` sonundaki yerleşim). */}
-        <MemoHomeSections shows={dbShows ?? EMPTY_SHOWS} continueItems={continueItems} />
+        <MemoHomeSections
+          shows={dbShows ?? EMPTY_SHOWS}
+          continueItems={continueItems}
+          onContinueRemove={handleContinueRemove}
+        />
 
         {/* ══ REFERANSTA KARŞILIĞI OLMAYAN BÖLÜMLER (biri silindi, biri TAŞINDI) ══
             Aşağıdaki bölümler referansta YOKTUR. Tür çip şeridi KULLANICI
@@ -4369,10 +4260,10 @@ function Index() {
           <div>
             <p className="font-display text-2xl">
               <img
-                src="/shanime-logo.png?v=6"
+                src={BRAND_LOGO_SRC}
                 alt={t("common.logoAlt")}
-                width={1060}
-                height={856}
+                width={BRAND_LOGO_WIDTH}
+                height={BRAND_LOGO_HEIGHT}
                 loading="lazy"
                 decoding="async"
                 className="h-12 w-auto object-contain"

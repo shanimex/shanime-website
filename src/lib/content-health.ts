@@ -15,7 +15,7 @@
 const KNOWN_PROVIDERS = ["none", "megaplay", "vidsrc", "videasy", "anizm", "animecix"];
 
 /** Sorun yoksa `null`, varsa kısa sebep döner. */
-export function watchUrlProblem(value: string | null | undefined): string | null {
+function watchUrlProblem(value: string | null | undefined): string | null {
   const raw = String(value ?? "").trim();
   if (raw === "") return "boş";
   if (raw.startsWith("@")) {

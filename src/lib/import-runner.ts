@@ -137,7 +137,7 @@ export function asArray<T = unknown>(value: unknown): T[] {
 }
 
 /** Metne çevirir; metin değilse `fallback` (varsayılan `""`). */
-export function asString(value: unknown, fallback = ""): string {
+function asString(value: unknown, fallback = ""): string {
   if (typeof value === "string") return value;
   if (typeof value === "number" && Number.isFinite(value)) return String(value);
   return fallback;
@@ -154,14 +154,14 @@ export function asNumber(value: unknown, fallback = 0): number {
 }
 
 /** Düz nesneye çevirir; değilse boş nesne (iç içe okumalarda çökme olmasın). */
-export function asRecord(value: unknown): Record<string, unknown> {
+function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value)
     ? (value as Record<string, unknown>)
     : {};
 }
 
 /** İlk BOŞ OLMAYAN metni verir (`data?.title ?? data?.name ?? …` deseninin kısası). */
-export function firstText(...values: unknown[]): string {
+function firstText(...values: unknown[]): string {
   for (const value of values) {
     const text = asString(value, "").trim();
     if (text) return text;
