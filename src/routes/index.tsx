@@ -28,7 +28,8 @@ import {
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from "react";
-import ANIME_LOGO_FILES from "@/data/anime-logo-files.json";
+import { ShowLogo } from "@/components/home/heroStatic";
+import { cardSlug, fallbackShows, heroBackdrop, heroVideo, type HeroCard } from "@/lib/home-static";
 import { heroVideoSource } from "@/lib/hero-video";
 import { AdSlot, useAdCode } from "@/components/site/AdSlot";
 import { AdsterraLeaderboard } from "@/components/site/AdsterraUnit";
@@ -59,19 +60,6 @@ import { forgetShow, getLastEpisode, getProgress, getResumeFrame } from "@/lib/w
 import { BRAND_LOGO_HEIGHT, BRAND_LOGO_SRC, BRAND_LOGO_WIDTH } from "@/lib/brand";
 
 /**
- * Statik dosya düzeni (public/static/anime-data/<slug>/):
- *   anime-cover.jpg   → grid kartı kapağı (veritabanındaki image_path ile aynı)
- *   anime-header.jpg  → vitrin arka planı (geniş, dikey kapak hero'da kırpılır)
- *   anime-header.mp4  → vitrin arka plan videosu (varsa)
- *   anime-logo.<ext>  → vitrin başlığı; yalnızca MANİFEST'te kayıtlı olan
- *                       uzantılar denenir (bkz. ANIME_LOGO_FILES). Hiçbiri
- *                       yoksa düz yazı başlık çizilir.
- * Klasör adı her zaman seri slug'ıdır; logo listesi `npm run logos:manifest`
- * ile üretilen `src/data/anime-logo-files.json` dosyasından gelir.
- */
-const STATIC_DIR = "/static/anime-data";
-
-/**
  * Vitrinde her slaytın ekranda kalma süresi.
  *
  * Süre dağılımı: ilk 6 sn fotoğraf + yazı (HERO_VIDEO_DELAY), sonrasında video
@@ -96,118 +84,6 @@ function scrollToTop(event?: { preventDefault: () => void }) {
   event?.preventDefault();
   if (typeof window === "undefined") return;
   window.scrollTo({ top: 0, behavior: "smooth" });
-}
-
-const LOGO_RESOLVED = new Map<string, string>();
-
-/**
- * Vitrinin koyu zemininde HARFLERİ KAYBOLAN logolar. Beyaz kontur yalnızca
- * bunlara uygulanır; renkli/aydınlık logolarda kontur görüntüyü bozuyordu.
- * Yeni bir koyu logo eklenirse slug'ını buraya yazmak yeterli.
- */
-const LOGO_NEEDS_OUTLINE = new Set(["mushoku-tensei"]);
-
-/**
- * GERÇEKTEN var olan vitrin logosu yolları.
- *
- * `scripts/generate-anime-logo-manifest.mjs` (`npm run logos:manifest`)
- * `public/static/anime-data/<slug>/` klasörlerini tarayıp
- * `src/data/anime-logo-files.json` dosyasını üretir; liste derleme zamanında
- * gömülür. Manifest, `episode-cover-files.json` deseninin aynısıdır.
- */
-const LOGO_FILES = new Set<string>(ANIME_LOGO_FILES as string[]);
-
-/**
- * Vitrin başlığı adayları — YALNIZCA manifest'te kayıtlı yollar.
- *
- * ── NEDEN MANİFEST (düzeltme, 29.09.2026) ────────────────────────────────────
- * Eskiden sıra KÖRLEMESİNE kuruluyordu (`anime-logo.png` sonra `.svg`). Bazı
- * serilerde yalnız `.svg` vardır (ör. `mushoku-tensei`); o seride tarayıcı önce
- * `anime-logo.png`e ister ve %100 **404** alırdı (ana sayfada görülen tek 404
- * isteğinin kaynağı buydu). Artık var olmayan uzantı hiç denenmez → 0 404, logo
- * yine görünür.
- *
- * Tercih sırası korunur: önce `.png`, sonra `.svg`.
- */
-function logoCandidates(slug: string | null | undefined): string[] {
-  if (!slug) return [];
-  return [".png", ".svg"]
-    .map((ext) => `${STATIC_DIR}/${slug}/anime-logo${ext}`)
-    .filter((path) => LOGO_FILES.has(path));
-}
-
-/** Vitrin başlığı: manifest'teki ilk uygun logo → yoksa düz yazı. */
-function ShowLogo({
-  slug,
-  title,
-  className,
-}: {
-  slug?: string | null;
-  title: string;
-  className?: string;
-}) {
-  const { t } = useLang();
-  // Sıra tek yerde tutulur, seri listesi tutulmaz. Yalnızca MANİFEST'teki yollar
-  // döner; var olmayan bir uzantı hiç istenmez (bkz. logoCandidates).
-  const sources = useMemo(() => logoCandidates(slug), [slug]);
-  // Kaçıncı kaynakta olduğumuz: 0 = ilk mevcut logo, sonrası sıradaki; kaynak
-  // kalmayınca düz yazı başlık çizilir.
-  // Daha önce bulunmuşsa doğrudan oradan başlanır; boşa istek gitmez.
-  const [step, setStep] = useState(() => {
-    const known = slug ? LOGO_RESOLVED.get(slug) : undefined;
-    const index = known ? sources.indexOf(known) : -1;
-    return index > 0 ? index : 0;
-  });
-
-  const source = sources[step];
-  const imgRef = useRef<HTMLImageElement>(null);
-  // SSR'da sunucu HTML'e ilk kaynağı (manifest'teki ilk uzantı, ör. .png) koyar.
-  // O dosya yoksa tarayıcı hatayı React hidrasyondan ÖNCE alır ve `onError` hiç
-  // çalışmaz → ekranda kırık resim simgesi + alt metin kalır (nadiren, tamamen
-  // yarışa bağlı). Bu yüzden kaynak her değiştiğinde durum elle de kontrol edilir.
-  useEffect(() => {
-    const node = imgRef.current;
-    if (node && node.complete && node.naturalWidth === 0) {
-      setStep((value) => value + 1);
-    }
-  }, [source]);
-
-  if (!source) {
-    // Logosu olmayan seri: beyaz, kalın ve gölgeli düz yazı başlık.
-    // (Sayfanın tek h1'i kendisine ait; bu yüzden burada başlık değil metin.)
-    return <span className="hero-title">{title.toLocaleUpperCase("tr")}</span>;
-  }
-  return (
-    <img
-      // Kaynak değişince <img> yeniden kurulsun; yoksa tarayıcı hatayı taşır.
-      key={source}
-      ref={imgRef}
-      src={source}
-      alt={t("home.logoAlt", { title })}
-      width={800}
-      height={187}
-      loading="eager"
-      decoding="async"
-      onLoad={() => {
-        if (slug) LOGO_RESOLVED.set(slug, source);
-      }}
-      onError={() => setStep((value) => value + 1)}
-      className={`${className ?? ""}${
-        slug && LOGO_NEEDS_OUTLINE.has(slug) ? " hero-logo--outline" : ""
-      }`}
-    />
-  );
-}
-
-/** Vitrin arka planı: dikey kapaklar hero'da kötü kırpılıyor, geniş header'lar kullanılır. */
-function heroBackdrop(slug: string | null | undefined, fallback: string): string {
-  return slug ? `${STATIC_DIR}/${slug}/anime-header.jpg` : fallback;
-}
-
-/** Vitrin arka plan videoları: eski sitede hero'da video oynatıyordu.
- *  Sadece aktif slaytın videosu indirilir/oynatılır; dosya yoksa jpg kalır. */
-function heroVideo(slug: string | null | undefined): string | undefined {
-  return slug ? `${STATIC_DIR}/${slug}/anime-header.mp4` : undefined;
 }
 
 // No head() here: the home route inherits title/description/og/twitter from
@@ -277,84 +153,6 @@ export const Route = createFileRoute("/")({
   }),
   component: Index,
 });
-
-// Veritabanı boşsa veya yüklenemediyse gösterilen yedek içerik.
-// slug'lar gerçek seri slug'larıyla aynı tutulur ki hero logosu ve
-// seri bağlantıları yedek modda da çalışsın. Görseller demo değil, sitenin
-// kendi static dosyalarıdır (veritabanındaki yollarla birebir aynı).
-const fallbackHero = {
-  id: undefined,
-  slug: "jujutsu-kaisen",
-  title: "Jujutsu Kaisen",
-  subtitle: "Lanetler, büyücüler ve büyük bir hesaplaşma",
-  image: `${STATIC_DIR}/jujutsu-kaisen/anime-cover.jpg`,
-  banner_image: undefined,
-  is_featured: false,
-  episode_count: 0,
-  year: "2020",
-  genre: "Aksiyon, Shounen, Korku, Doğaüstü, Fantastik",
-  description:
-    "Lanetli enerjiyle örülü bir dünyada, genç bir büyücü her savaştan sonra kendine biraz daha yaklaşır.",
-};
-
-const fallbackShows = [
-  fallbackHero,
-  {
-    id: undefined,
-    slug: "re-zero",
-    title: "Re:Zero",
-    subtitle: "Başka bir dünyada sıfırdan başlamak",
-    image: `${STATIC_DIR}/re-zero/anime-cover.jpg`,
-    banner_image: undefined,
-    episode_count: 0,
-    is_featured: false,
-    year: "2016",
-    genre: "Başka Dünya, Drama, Psikolojik, Fantastik, Gerilim",
-    description:
-      "Öldükçe aynı güne dönen Subaru, sevdiklerini kurtarmak için zaman döngüsünün acı gerçeğini çözmek zorundadır.",
-  },
-  {
-    id: undefined,
-    slug: "mushoku-tensei",
-    title: "Mushoku Tensei",
-    subtitle: "İkinci bir hayat, sınırsız bir dünya",
-    image: `${STATIC_DIR}/mushoku-tensei/anime-cover.jpg`,
-    banner_image: undefined,
-    episode_count: 0,
-    is_featured: false,
-    year: "2021",
-    genre: "Başka Dünya, Drama, Aksiyon, Macera, Fantastik",
-    description:
-      "İşsiz, umutsuz bir adam yeni bir dünyada bebek olarak doğar; bu kez hatalarını telafi etmeye kararlıdır.",
-  },
-  {
-    id: undefined,
-    slug: "erased",
-    title: "Erased",
-    subtitle: "Geçmişe uzanan karanlık bir gizem",
-    image: `${STATIC_DIR}/erased/anime-cover.jpg`,
-    banner_image: undefined,
-    episode_count: 0,
-    is_featured: false,
-    year: "2016",
-    genre: "Drama, Psikolojik, Gerilim",
-    description:
-      "Geçmişe dönebilen bir manga yazarı, çocukluğunda yaşanan bir faciayı önlemek için zamana karşı yarışır.",
-  },
-];
-
-/** Vitrinde gösterilen kart: veritabanından gelen seri ya da yedek içerik. */
-type HeroCard = ShowWithImage | typeof fallbackHero;
-
-/**
- * Kart için adres kimliği. `showSlug` ile aynı kuralı uygular, fakat HeroCard
- * birleşiminde `id` tanımsız olabildiği için doğrudan `showSlug` çağrısı tip
- * hatası veriyordu; bu yardımcı o dar geçişi tolere eder.
- */
-function cardSlug(show: HeroCard): string {
-  const slug = show.slug;
-  return slug && slug.trim() ? slug : (show.id ?? "");
-}
 
 /** Tür filtresinin "hepsi" etiketi. */
 const ALL_GENRES = "Tümü";
