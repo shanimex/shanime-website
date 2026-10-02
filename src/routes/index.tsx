@@ -28,7 +28,6 @@ import {
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from "react";
-import { ShowLogo } from "@/components/home/heroStatic";
 import { SeasonGrid, SiteFooter } from "@/components/home/azList";
 import {
   DiscoveryRowHeader,
@@ -1288,7 +1287,10 @@ function Index() {
                     slaytın parçası olduğu için resimle AYNI anda soluyor. */}
                 <div className={`hero-content ${contentCollapsed ? "is-video-playing" : ""}`}>
                   <span className="hero-featured-badge">{t("home.heroBadge")}</span>
-                  <ShowLogo slug={show.slug} title={show.title} className="hero-logo" />
+                  {/* Logo RESMİ KALDIRILDI (02.10.2026, kullanıcı isteği):
+                      başlık her zaman DÜZ YAZI çizilir — referans hissi, 404
+                      riski yok, hangi seride logo dosyası eksikse sorun olmaz. */}
+                  <span className="hero-title">{show.title}</span>
                   <div className="hero-details">
                     <div className="hero-details-inner">
                       {/* sonanime'deki "yıl · bölüm sayısı" satırının karşılığı. */}
