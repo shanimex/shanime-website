@@ -905,7 +905,7 @@
      düğmenin altında noktalar için pay kalır. */
   @media (max-width: 767px) {
     .hero-content {
-      padding: 0 6% 100px;
+      padding: 0 6% 72px;
       align-items: center;
       justify-content: flex-end;
       text-align: center;
@@ -995,6 +995,12 @@
       body {
         padding-bottom: calc(64px + env(safe-area-inset-bottom));
       }
+    }
+
+    /* Noktalar mobilde YOK: vitrin parmakla kaydırılıyor, nokta kalabalığı
+       ve kırmızı leke istenmiyor (kullanıcı isteği). */
+    .hero-indicators {
+      display: none;
     }
 
     /* Noktalarin dokunma alani mobilde buyutulur (34x34). Aralik da genis
