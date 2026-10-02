@@ -914,6 +914,42 @@
       text-align: center;
     }
 
+    /* Referans ölçeği: başlık ve rozetler telefonda küçük tutulur. */
+    .hero-title {
+      font-size: clamp(1.5rem, 7vw, 2.2rem);
+      letter-spacing: 0;
+    }
+
+    .hero-meta {
+      font-size: 0.85rem;
+      margin-bottom: 0.4rem;
+    }
+
+    .hero-genre-chip,
+    .hero-kind-chip {
+      font-size: 0.7rem;
+      padding: 0.2rem 0.6rem;
+    }
+
+    .hero-genres {
+      margin-bottom: 0.8rem;
+    }
+
+    .hero-description {
+      font-size: 0.95rem;
+      margin-bottom: 1.25rem;
+    }
+
+    .hero-cta-row .home-cta-pill {
+      padding: 0.6rem 1.6rem;
+      font-size: 0.85rem;
+    }
+
+    .hero-featured-badge {
+      font-size: 0.65rem;
+      margin-bottom: 0.6rem;
+    }
+
     .hero-logo {
       width: min(100%, 340px);
       object-position: center;
