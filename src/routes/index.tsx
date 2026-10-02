@@ -1392,7 +1392,7 @@ function Index() {
               // Mobilde aralik genis: noktalarin dokunma alanlari (padding ile
               // buyutulmus) 8px aralikta ust uste biniyordu ve yanlis slayta
               // gidiliyordu. Masaustunde aralik eskisi gibi 8px kaliyor.
-              className="absolute bottom-[30px] left-1/2 z-10 flex -translate-x-1/2 items-center gap-7 md:gap-2"
+              className="hero-indicators absolute bottom-[30px] left-1/2 z-10 flex -translate-x-1/2 items-center gap-7 md:gap-2"
               role="tablist"
               aria-label={t("home.slideSelect")}
             >
