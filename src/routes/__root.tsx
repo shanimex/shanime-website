@@ -13,6 +13,7 @@ import { useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { LanguageToggle } from "@/components/site/LanguageToggle";
+import { MobileTabBar } from "@/components/site/MobileTabBar";
 import { SiteHeader } from "@/components/site/SiteHeader";
 // `translate`: modül seviyesindeki `t`nin takma adı — kök `<head>` meta'sı
 // bileşen dışında (rota `head()` içinde) üretildiği için orada hook çağrılamaz.
@@ -283,6 +284,8 @@ function RootComponent() {
       {showHeader && <SiteHeader />}
       {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
       <Outlet />
+      {/* Mobil alt sekme çubuğu: yönetim/giriş ekranlarında çizilmez. */}
+      {showHeader && <MobileTabBar pathname={pathname} />}
     </QueryClientProvider>
   );
 }

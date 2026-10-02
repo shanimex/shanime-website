@@ -1294,6 +1294,11 @@ function Index() {
                       {/* sonanime'deki "yıl · bölüm sayısı" satırının karşılığı. */}
                       <div className="hero-meta">
                         {show.year && <span>{show.year}</span>}
+                        <span className="hero-kind-chip">
+                          {"kind" in show && show.kind === "movie"
+                            ? t("common.movieKind")
+                            : t("common.tvKind")}
+                        </span>
                         {show.id && show.episode_count > 0 && (
                           <span>
                             {plural(
@@ -1333,7 +1338,7 @@ function Index() {
                       (bkz. RankedRow notu), izleme hedefinde ise rota
                       yükleyicisi YOK — yani önden çekmenin kazancı ölçülemez,
                       riski ise gerçek. Tek satır gezinme yine anındadır. */}
-                  <div className="flex flex-wrap items-center gap-4">
+                  <div className="hero-cta-row flex flex-wrap items-center gap-4">
                     {show.id ? (
                       /* Vitrin kartında sezon/bölüm bilgisi YOK; izleme yolu
                           parametresiz olamadığı için 1/1 verilir. İzleme sayfası bu

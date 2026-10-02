@@ -236,7 +236,11 @@ export function HomeSections({
       {/* SAĞ: DAR KENAR ÇUBUĞU. Panel DIŞ kart kabuğu YOKTUR (referansta da yok).
           `self-start` sayesinde ana kolonun boyuna UZAMAZ. STICKY DEĞİL. */}
       {hasSidebar && (
-        <aside aria-label={t("home.rankingAria")} className="min-w-0 lg:col-span-1 lg:self-start">
+        <aside
+          id="schedule"
+          aria-label={t("home.rankingAria")}
+          className="min-w-0 scroll-mt-24 lg:col-span-1 lg:self-start"
+        >
           <div>
             <div>
               {/* BAŞLIK ŞERİDİ: 27 px başlık + "pill" sekme grubu, tek satır. */}

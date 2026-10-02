@@ -783,6 +783,17 @@
     font-size: 0.78rem;
   }
 
+  /* Tür rozeti (TV/Film): kırmızı tema çizgili, puan uydurulmaz — yalnızca
+     veritabanındaki gerçek `kind` alanı yazılır. */
+  .hero-kind-chip {
+    border: 1px solid #ff3c6480;
+    color: #ff8ba0;
+    padding: 0.26rem 0.72rem;
+    border-radius: 999px;
+    font-size: 0.78rem;
+    font-weight: 700;
+  }
+
   .hero-description {
     font-size: 1.1rem;
     max-width: 600px;
@@ -897,17 +908,38 @@
   @media (max-width: 767px) {
     .hero-content {
       padding: 0 6% 5vh;
-      align-items: flex-start;
-      text-align: left;
+      align-items: center;
+      text-align: center;
     }
 
     .hero-logo {
       width: min(100%, 340px);
-      object-position: left;
+      object-position: center;
     }
 
+    /* Tür rozeti ortada kalır (logo ortalandı, rozet solda sarkmasın). */
     .hero-featured-badge {
       align-self: center;
+    }
+
+    /* Açıklama mobilde 2 satır: vitrin kısa ve ferah durur. */
+    .hero-description {
+      -webkit-line-clamp: 2;
+      margin-bottom: 1.5rem;
+    }
+
+    /* Çağrı düğmeleri ortalanır. */
+    .hero-cta-row {
+      justify-content: center;
+    }
+
+    /* Eğik düğme (referans hissi): yalnızca mobilde, köşeler kesik paralelkenar.
+       Masaüstü hap görünümü korunur. */
+    .hero-cta-row .home-cta-pill {
+      border-radius: 6px;
+      clip-path: polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0 100%);
+      padding-left: 2rem;
+      padding-right: 2rem;
     }
 
     .hero-genres,
@@ -920,6 +952,14 @@
        Slayt degistirme mobilde parmakla surukleme ve noktalarla yapiliyor. */
     .hero-nav {
       display: none;
+    }
+
+    /* Mobil alt sekme çubuğu (~60 px + güvenli alan) içeriğin üstüne binmesin:
+     footer/telif satırı çubuğun altında kalmasın diye alt boşluk. */
+    @media (max-width: 767px) {
+      body {
+        padding-bottom: calc(64px + env(safe-area-inset-bottom));
+      }
     }
 
     /* Noktalarin dokunma alani mobilde buyutulur (34x34). Aralik da genis
@@ -1202,14 +1242,7 @@
   border-radius: 0;
   background: none;
   /* Referanstaki "HUD" hissi: köşelerden 8 px kesik altıgen. */
-  clip-path: polygon(
-    8px 0,
-    100% 0,
-    100% calc(100% - 8px),
-    calc(100% - 8px) 100%,
-    0 100%,
-    0 8px
-  );
+  clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
   color: var(--muted-foreground);
   transition:
     color 0.2s ease,
@@ -1326,7 +1359,7 @@
   flex: 0 0 auto;
   width: 23rem;
   min-width: 0;
-   /* KULLANICI GERİ BİLDİRİMİ (01.10.2026): "arama kutusu çok kalın sanki ve çok
+  /* KULLANICI GERİ BİLDİRİMİ (01.10.2026): "arama kutusu çok kalın sanki ve çok
       uzun". Kutu `flex-grow:1` ile `.sh-start` kolonunun TÜM artan genişliğini
       yiyordu ve şeridin yarısına yakınını kaplıyordu. Artık bir üst sınır var;
       kutu bu genişliğe kadar büyür, sonrasında büyümez.
@@ -1342,16 +1375,16 @@
      orantısız kalıyordu; kutu ve yazı birlikte bir kademe küçültüldü.
      01.10.2026: "çok kalın" geri bildirimiyle bir kademe daha inceltildi
      (34 → 31 px) ve yazı 1rem → 0.9375rem indi. */
-   height: 31px;
-   line-height: 31px;
-   padding: 0 10px;
-   border-radius: 0.5rem;
-   /* Siyah zemine uyarlandı: referansın laciverti `#101925`. */
-   background-color: #17181d;
-   /* KULLANICI GERİ BİLDİRİMİ (01.10.2026): "arama barının içindeki yazı ve
+  height: 31px;
+  line-height: 31px;
+  padding: 0 10px;
+  border-radius: 0.5rem;
+  /* Siyah zemine uyarlandı: referansın laciverti `#101925`. */
+  background-color: #17181d;
+  /* KULLANICI GERİ BİLDİRİMİ (01.10.2026): "arama barının içindeki yazı ve
       büyüteç simgesi kutuya göre çok kalın duruyor, daraltman lazım".
       Yazı bir kademe daha indi: 0.9375rem (15 px) → 0.875rem (14 px). */
-   font-size: 0.875rem;
+  font-size: 0.875rem;
   /* Öneri paneli açıldığında alt köşeler düzleşir ve iki parça TEK kart gibi
      birleşir (bkz. `.sh-search.has-panel form`). Yumuşak geçiş için. */
   transition: border-radius 0.15s ease;
@@ -1675,20 +1708,20 @@
     flex-grow: 0;
   }
 
-   .sh-toggler {
-     margin-left: 0;
-   }
+  .sh-toggler {
+    margin-left: 0;
+  }
 
-   /* RESPONSIVE DÜZELTME (01.10.2026): mobilde `#sh-header` 48 px'e iniyor
+  /* RESPONSIVE DÜZELTME (01.10.2026): mobilde `#sh-header` 48 px'e iniyor
       (bkz. aynı blok) ama `.sh-logo` masaüstü değeri olan 3rem (48 px) ile
       kalıyordu — logo şeridin TAMAMINI kaplıyor, üstten/alttan taşıyordu.
       Mobilde 2.25rem (36 px): 48 px'lik şeritte 6 px nefes payı kalır. */
-    .sh-logo {
-      height: 2.25rem;
-      margin-right: 1rem;
-    }
+  .sh-logo {
+    height: 2.25rem;
+    margin-right: 1rem;
+  }
 
-    /* RESPONSIVE (01.10.2026) — ÖLÇÜMLE DOĞRULANDI:
+  /* RESPONSIVE (01.10.2026) — ÖLÇÜMLE DOĞRULANDI:
        Masaüstü değerleri (2rem boşluk + 1.75rem dış boşluk) dar şeritte çok yer
        yiyordu. Daha önemlisi `.sh-quick` BÜYÜMEYE çalışırken içeriği
        daralamıyordu; dil çipi komşusu arama düğmesinin üzerine biniyordu
@@ -1696,36 +1729,36 @@
        ÇÖZÜM: grup artık BÜYÜMEZ (yalnız içeriği kadar yer kaplar), `.sh-end`
        içinde bütün olarak SAĞA yaslanır ve arama düğmesiyle arasında boşluk
        kalır. */
-     .sh-quick {
-       /* `flex: 0 0 auto` — NE büyür NE küçülür: grup daima İÇERİĞİ kadar yer
+  .sh-quick {
+    /* `flex: 0 0 auto` — NE büyür NE küçülür: grup daima İÇERİĞİ kadar yer
           kaplar. Küçülmesine izin verilince içeriği daralamıyor ve komşusunun
           üzerine biniyordu (ölçülen çakışmanın kök nedeni). */
-       flex: 0 0 auto;
-       gap: 1rem;
-       margin-left: 0;
-     }
+    flex: 0 0 auto;
+    gap: 1rem;
+    margin-left: 0;
+  }
 
-     .sh-end {
-       /* Grup sağa yaslanır ve arama düğmesiyle arasında 4 px nefes payı kalır.
+  .sh-end {
+    /* Grup sağa yaslanır ve arama düğmesiyle arasında 4 px nefes payı kalır.
           Ölçüm: bu boşluk olmadan dil çipi ile düğme TAM TEMAS ediyordu
           (0 px) — teknik olarak çakışma değil ama iki ayrı kontrol tek blok
           gibi görünüyordu. 4 px, 320 px'lik en dar ekranda bile taşmadan
           sığan en büyük değerdir (ölçülerek seçildi). */
-       justify-content: flex-end;
-       gap: 0.25rem;
-     }
+    justify-content: flex-end;
+    gap: 0.25rem;
+  }
 
-   .sh-search {
-     display: none;
-     position: absolute;
-     top: 100%;
-     left: -10px;
-     right: -10px;
-     z-index: 40;
-     /* Masaüstündeki genişlik üst sınırı burada GEÇERSİZ: mobilde kutu
+  .sh-search {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: -10px;
+    right: -10px;
+    z-index: 40;
+    /* Masaüstündeki genişlik üst sınırı burada GEÇERSİZ: mobilde kutu
         başlığın altına tam genişlikte iner. */
-     max-width: none;
-   }
+    max-width: none;
+  }
 
   .sh-search.is-open {
     display: block;
@@ -1768,34 +1801,34 @@
     color: var(--primary);
   }
 
-   .sh-search-toggler {
-     display: flex;
-     /* RESPONSIVE (01.10.2026): masaüstündeki 15 px sağ boşluk, kapsayıcının
+  .sh-search-toggler {
+    display: flex;
+    /* RESPONSIVE (01.10.2026): masaüstündeki 15 px sağ boşluk, kapsayıcının
         kenar dolgusu (10 px) ile birlikte dar şeritte 25 px ölü alan bırakıyor
         ve içerik taşıyordu. Mobilde kaldırıldı. */
-     margin-right: 0;
-   }
+    margin-right: 0;
+  }
 
   /* Menü paneli referansın mobil hâli: başlığın altında yüzen kart. */
-    .sh-menu {
-      top: calc(100% + 5px);
-      /* KULLANICI GERİ BİLDİRİMİ (01.10.2026): "çok kalın olmuş genişliği".
+  .sh-menu {
+    top: calc(100% + 5px);
+    /* KULLANICI GERİ BİLDİRİMİ (01.10.2026): "çok kalın olmuş genişliği".
          Mobilde panel 260 px sabitti; 360 px'lik ekranda şeridin %72'sini
          kaplıyordu → 220 px'e indi. Üstteki `top` zaten 5 px boşluk veriyor,
          masaüstünden gelen `margin` sıfırlandı. */
-      width: 220px;
-      min-width: 0;
-      margin: 0;
-      padding: 0;
-     /* TEMA TOKENI (01.10.2026): mobilde panel hâlâ referansın LACİVERTİNİ
+    width: 220px;
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    /* TEMA TOKENI (01.10.2026): mobilde panel hâlâ referansın LACİVERTİNİ
         (`#142030`) kullanıyordu — masaüstü düzeltilmiş olsa da asıl görünen
         panel buydu. Kullanıcı geri bildirimi: "bastığında çıkan şeylerin
         arka planı bizim temaya uygun değil". */
-     background: var(--popover);
-     border: 1px solid var(--border);
-      border-radius: 10px;
-      overflow: hidden;
-    }
+    background: var(--popover);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+  }
 }
 
 /* ── Çok dar ekran: "Rastgele" düğmesi menüye taşınır ─────────────────────── */

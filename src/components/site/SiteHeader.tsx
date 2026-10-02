@@ -28,6 +28,7 @@ import { Search } from "lucide-react";
 import { FaSolid } from "@/components/site/FaSolid";
 import { QuickAccessGlyph, RandomGlyph } from "@/components/site/HeaderGlyphs";
 import { LanguageToggle } from "@/components/site/LanguageToggle";
+import { MOBILE_TABBAR_EVENT } from "@/components/site/MobileTabBar";
 import { fetchShows } from "@/lib/content";
 import { useLang } from "@/lib/i18n";
 import { useQuery } from "@tanstack/react-query";
@@ -283,6 +284,9 @@ export function SiteHeader() {
    * Şerit KÖK düzeyde durduğu için sayfa değişince unmount OLMAZ; açık kalan
    * menü/panel yeni sayfaya taşınırdı. Gezinmede ikisi de kapanır.
    * (Bağımlılık yok: yalnızca bir kez bağlanır, kapanış `popstate`te de çalışır.)
+   *
+   * ALT SEKMEDEN ARAMA: mobil çubuktaki "Ara" sekmesi bu olayı gönderir;
+   * kutu açılıp odaklanır (hangi sayfada olursa olsun).
    */
   useEffect(() => {
     const close = () => {
@@ -290,8 +294,13 @@ export function SiteHeader() {
       setSearchOpen(false);
       setQuery("");
     };
+    const openFromTab = () => openSearch();
     window.addEventListener("popstate", close);
-    return () => window.removeEventListener("popstate", close);
+    window.addEventListener(MOBILE_TABBAR_EVENT, openFromTab);
+    return () => {
+      window.removeEventListener("popstate", close);
+      window.removeEventListener(MOBILE_TABBAR_EVENT, openFromTab);
+    };
   }, []);
 
   /** Logoya/menüye basınca yukarı kaydır — `preventDefault` YOK (gezinme bozulmasın). */
