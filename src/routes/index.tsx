@@ -1286,7 +1286,6 @@ function Index() {
                     solarken yeni yazı eski sahnenin üstünde beliriyordu. Artık
                     slaytın parçası olduğu için resimle AYNI anda soluyor. */}
                 <div className={`hero-content ${contentCollapsed ? "is-video-playing" : ""}`}>
-                  <span className="hero-featured-badge">{t("home.heroBadge")}</span>
                   {/* Logo RESMİ KALDIRILDI (02.10.2026, kullanıcı isteği):
                       başlık her zaman DÜZ YAZI çizilir — referans hissi, 404
                       riski yok, hangi seride logo dosyası eksikse sorun olmaz. */}

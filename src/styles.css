@@ -897,10 +897,7 @@
   }
 
   .hero-dot.active {
-    width: 26px;
-    /* DİKKAT: `background` kısayolu background-clip'i border-box'a sıfırlar;
-       o yüzden burada sadece rengi değiştiriyoruz. Yoksa aktif nokta 44x28'lik
-       pembe bir bloğa dönüşür. */
+    /* Aktif nokta büyümez: tüm noktalar aynı boyda kalır. */
     background-color: #ff3c64;
   }
 
@@ -908,7 +905,7 @@
      düğmenin altında noktalar için pay kalır. */
   @media (max-width: 767px) {
     .hero-content {
-      padding: 0 6% 88px;
+      padding: 0 6% 100px;
       align-items: center;
       justify-content: flex-end;
       text-align: center;
@@ -960,9 +957,9 @@
       align-self: center;
     }
 
-    /* Açıklama mobilde 2 satır: vitrin kısa ve ferah durur. */
+    /* Açıklama mobilde 3 satır: kısa kesilmesin. */
     .hero-description {
-      -webkit-line-clamp: 2;
+      -webkit-line-clamp: 3;
       margin-bottom: 1.5rem;
     }
 
