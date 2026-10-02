@@ -1360,23 +1360,6 @@ function Index() {
                         <Play size={17} fill="currentColor" /> {t("common.watchNow")}
                       </a>
                     )}
-                    {show.id ? (
-                      <Link
-                        to="/anime/$slug"
-                        params={{ slug: showSlug(show) }}
-                        preload={false}
-                        className="ui-hover rounded-full border border-border bg-secondary px-5 py-3 text-sm font-bold text-foreground hover:border-accent hover:text-accent"
-                      >
-                        {t("common.seriesDetails")}
-                      </Link>
-                    ) : (
-                      <a
-                        href="#series"
-                        className="ui-hover rounded-full border border-border bg-secondary px-5 py-3 text-sm font-bold text-foreground hover:border-accent hover:text-accent"
-                      >
-                        {t("common.seriesDetails")}
-                      </a>
-                    )}
                   </div>
                 </div>
               </div>

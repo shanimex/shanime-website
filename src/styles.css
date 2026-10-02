@@ -904,11 +904,13 @@
     background-color: #ff3c64;
   }
 
-  /* Mobilde icerik ortalanir, logo biraz kuculur. */
+  /* Mobilde icerik ALTTA durur (referans hissi): yazı alta yaslanır,
+     düğmenin altında noktalar için pay kalır. */
   @media (max-width: 767px) {
     .hero-content {
-      padding: 0 6% 5vh;
+      padding: 0 6% 88px;
       align-items: center;
+      justify-content: flex-end;
       text-align: center;
     }
 
