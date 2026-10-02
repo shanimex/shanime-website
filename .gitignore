@@ -49,7 +49,3 @@ test-artifacts/
 # Canli hata gunlugu (gelistirme araci) - repoya girmesin
 .dev-log.jsonl
 .dev-server.log
-
-# Plasmic codegen: token icerir (plasmic.json), repoya girmez
-plasmic.json
-plasmic.lock

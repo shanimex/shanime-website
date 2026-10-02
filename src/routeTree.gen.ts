@@ -12,7 +12,6 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as AuthRouteImport } from './routes/auth'
-import { Route as PlasmicTestRouteImport } from './routes/plasmic-test'
 import { Route as ApiAnilistRouteImport } from './routes/api.anilist'
 import { Route as ApiAnilistCoverRouteImport } from './routes/api.anilist-cover'
 import { Route as ApiAnimecixRouteImport } from './routes/api.animecix'
@@ -39,11 +38,6 @@ const AdminRoute = AdminRouteImport.update({
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
   path: '/auth',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const PlasmicTestRoute = PlasmicTestRouteImport.update({
-  id: '/plasmic-test',
-  path: '/plasmic-test',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiAnilistRoute = ApiAnilistRouteImport.update({
@@ -112,7 +106,6 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
   '/auth': typeof AuthRoute
-  '/plasmic-test': typeof PlasmicTestRoute
   '/api/anilist': typeof ApiAnilistRoute
   '/api/anilist-cover': typeof ApiAnilistCoverRoute
   '/api/animecix': typeof ApiAnimecixRoute
@@ -130,7 +123,6 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
   '/auth': typeof AuthRoute
-  '/plasmic-test': typeof PlasmicTestRoute
   '/api/anilist': typeof ApiAnilistRoute
   '/api/anilist-cover': typeof ApiAnilistCoverRoute
   '/api/animecix': typeof ApiAnimecixRoute
@@ -149,7 +141,6 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
   '/auth': typeof AuthRoute
-  '/plasmic-test': typeof PlasmicTestRoute
   '/api/anilist': typeof ApiAnilistRoute
   '/api/anilist-cover': typeof ApiAnilistCoverRoute
   '/api/animecix': typeof ApiAnimecixRoute
@@ -169,7 +160,6 @@ export interface FileRouteTypes {
     | '/'
     | '/admin'
     | '/auth'
-    | '/plasmic-test'
     | '/api/anilist'
     | '/api/anilist-cover'
     | '/api/animecix'
@@ -187,7 +177,6 @@ export interface FileRouteTypes {
     | '/'
     | '/admin'
     | '/auth'
-    | '/plasmic-test'
     | '/api/anilist'
     | '/api/anilist-cover'
     | '/api/animecix'
@@ -205,7 +194,6 @@ export interface FileRouteTypes {
     | '/'
     | '/admin'
     | '/auth'
-    | '/plasmic-test'
     | '/api/anilist'
     | '/api/anilist-cover'
     | '/api/animecix'
@@ -224,7 +212,6 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AdminRoute: typeof AdminRoute
   AuthRoute: typeof AuthRoute
-  PlasmicTestRoute: typeof PlasmicTestRoute
   ApiAnilistRoute: typeof ApiAnilistRoute
   ApiAnilistCoverRoute: typeof ApiAnilistCoverRoute
   ApiAnimecixRoute: typeof ApiAnimecixRoute
@@ -260,13 +247,6 @@ declare module '@tanstack/react-router' {
       path: '/auth'
       fullPath: '/auth'
       preLoaderRoute: typeof AuthRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/plasmic-test': {
-      id: '/plasmic-test'
-      path: '/plasmic-test'
-      fullPath: '/plasmic-test'
-      preLoaderRoute: typeof PlasmicTestRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/anilist': {
@@ -360,7 +340,6 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AdminRoute: AdminRoute,
   AuthRoute: AuthRoute,
-  PlasmicTestRoute: PlasmicTestRoute,
   ApiAnilistRoute: ApiAnilistRoute,
   ApiAnilistCoverRoute: ApiAnilistCoverRoute,
   ApiAnimecixRoute: ApiAnimecixRoute,
