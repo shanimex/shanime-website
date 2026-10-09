@@ -1,0 +1,2414 @@
+﻿@import "tailwindcss" source(none);
+@source "../src";
+
+/*
+ * Design system definition.
+ *
+ * The @theme inline block maps CSS custom properties to Tailwind utility
+ * classes (e.g. --color-primary -> bg-primary, text-primary).
+ *
+ * The :root block defines the actual color values using oklch; the site is
+ * dark-only, so there is no separate light/dark switch.
+ *
+ * To add a new semantic color:
+ * 1. Add the variable to :root
+ * 2. Register it in @theme inline as --color-<name>: var(--<name>)
+ */
+
+@theme inline {
+  --font-sans: "Manrope", system-ui, sans-serif;
+  --font-display: "Manrope", system-ui, sans-serif;
+  /* Arayüz/okuma yazı tipi. Önce animecix ile aynı aile (Inter) denendi; kullanıcı
+     ağır/"kaba" buldu (30.09.2026) → daha sade olan Manrope'a geçildi. `font-ui`
+     sınıfını üretir; bölüm satırlarında kullanılır
+     (bkz. routes/anime.$slug.index.tsx). */
+  --font-ui: "Manrope", system-ui, sans-serif;
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --radius-3xl: calc(var(--radius) + 12px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-ring-offset-background: var(--background);
+}
+
+:root {
+  /* Renk şeması koyu. Tarayıcı, içerik yüklenmeden önce koyu tuval boyar ve
+     yerleşik alanları (iframe zemini, kaydırma çubuğu) koyu gösterir. Bu kural
+     olmadan iOS Safari, cross-origin oynatıcı iframe'ini önce BEYAZ boyuyor;
+     kullanıcı bunu "arkaplan beyaz, videoyu sonradan beyaza sığdırmışız" gibi
+     görüyordu (beyaz kenar/çerçeve hissi). */
+  color-scheme: dark;
+  --radius: 1rem;
+  --background: oklch(0.075 0.006 270);
+  --foreground: oklch(0.97 0.004 90);
+  --card: oklch(0.115 0.007 270);
+  --card-foreground: oklch(0.97 0.004 90);
+  --popover: oklch(0.105 0.006 270);
+  --popover-foreground: oklch(0.97 0.004 90);
+  --primary: oklch(0.58 0.23 23);
+  --primary-foreground: oklch(0.98 0.004 90);
+  --secondary: oklch(0.135 0.008 270);
+  --secondary-foreground: oklch(0.94 0.004 90);
+  --muted: oklch(0.145 0.008 270);
+  --muted-foreground: oklch(0.62 0.012 270);
+  --accent: oklch(0.79 0.165 92);
+  --accent-foreground: oklch(0.1 0.006 270);
+  --destructive: oklch(0.577 0.245 27.325);
+  --destructive-foreground: oklch(0.984 0.003 247.858);
+  --border: oklch(0.24 0.008 270);
+  --input: oklch(0.22 0.008 270);
+  --ring: oklch(0.58 0.23 23);
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+
+  /* ═══════════════════════════════════════════════════════════════════════════
+     TÜM ETKİLEŞİM ÖĞELERİNDE AKICILIK — TEK YERDEN
+     (kullanıcı isteği, 28.09.2026: "bütün tuşlar, iletişim geldiği şeylerde
+     animasyonlu olsun, tamamen akıcı olsun; admin paneli de fareyle etkileşime
+     göre animasyonlu olsun, çok akıcı olsun.")
+
+     NEDEN GLOBAL: düğmelerin bir kısmı `transition` sınıfı taşıyor, bir kısmı
+     taşımıyordu; sonuç tutarsız bir his (bazıları akıyor, bazıları zıplıyordu).
+     Bileşen bileşen dolaşmak yerine TEK kural yazıldı: her düğme, bağlantı ve
+     rol=button öğesi aynı süre ve eğriyle tepki verir.
+
+     MALİYET: `transition` yalnızca DEĞİŞİM ANINDA iş yapar; boşta hiçbir
+     maliyeti yoktur (performans turunda kaldırılan `will-change`in aksine,
+     kalıcı katman ayırmaz). Yine de yalnızca ucuz özellikler geçişe alındı —
+     `width`/`height`/`top` gibi düzeni oynatan özellikler DIŞARIDA bırakıldı,
+     çünkü onlar her karede yeniden yerleşim hesaplatır.
+  */
+  button,
+  a,
+  [role="button"],
+  summary,
+  input[type="checkbox"],
+  input[type="radio"],
+  select,
+  textarea,
+  input {
+    transition:
+      color 140ms ease,
+      background-color 140ms ease,
+      border-color 140ms ease,
+      box-shadow 140ms ease,
+      opacity 140ms ease,
+      transform 140ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  /* Basılı tutma geri bildirimi: her düğmede aynı hafif küçülme. */
+  button:not(:disabled):active,
+  a:active,
+  [role="button"]:active {
+    transform: scale(0.97);
+  }
+
+  /* Klavye kullanıcısı için görünür odak halkası (erişilebilirlik). */
+  button:focus-visible,
+  a:focus-visible,
+  [role="button"]:focus-visible,
+  input:focus-visible,
+  select:focus-visible,
+  textarea:focus-visible {
+    outline: 2px solid var(--color-ring, var(--color-border));
+    outline-offset: 2px;
+  }
+
+  /* Hareket hassasiyeti olan kullanıcılar için tüm mikro hareketler kapanır. */
+  @media (prefers-reduced-motion: reduce) {
+    button,
+    a,
+    [role="button"],
+    summary,
+    input,
+    select,
+    textarea {
+      transition:
+        color 100ms linear,
+        background-color 100ms linear;
+    }
+    button:not(:disabled):active,
+    a:active,
+    [role="button"]:active {
+      transform: none;
+    }
+  }
+
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+    letter-spacing: 0;
+  }
+
+  /* Sayfa tipografisi: vitrin başlığındaki Manrope oranları bütün yüzeylerde
+     aynı hiyerarşiyle kullanılır. Tailwind sınıfları gerekli yerlerde boyutu
+     özelleştirebilir; aile ve varsayılan ağırlık burada tek merkezden gelir. */
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-family: var(--font-display);
+    font-kerning: normal;
+    text-wrap: balance;
+  }
+
+  h1 {
+    font-weight: 800;
+    letter-spacing: -0.035em;
+    line-height: 1.08;
+  }
+  h2 {
+    font-weight: 750;
+    letter-spacing: -0.025em;
+    line-height: 1.12;
+  }
+  h3 {
+    font-weight: 700;
+    letter-spacing: -0.018em;
+    line-height: 1.18;
+  }
+
+  .page-title {
+    font-family: var(--font-display);
+    font-size: clamp(1.75rem, 1.35rem + 1.2vw, 2.75rem);
+    font-weight: 800;
+    letter-spacing: -0.035em;
+    line-height: 1.08;
+    text-wrap: balance;
+  }
+
+  .page-subtitle {
+    font-family: var(--font-display);
+    font-size: clamp(0.95rem, 0.86rem + 0.25vw, 1.15rem);
+    font-weight: 650;
+    letter-spacing: -0.012em;
+    line-height: 1.35;
+    color: var(--color-muted-foreground);
+    text-wrap: balance;
+  }
+
+  .page-description {
+    font-family: var(--font-display);
+    font-size: 0.9rem;
+    font-weight: 500;
+    letter-spacing: -0.005em;
+    line-height: 1.65;
+    color: color-mix(in oklab, var(--color-foreground) 86%, transparent);
+  }
+
+  /* Site yalnızca koyu temadır: tarayıcı kaydırma çubuğu dahil tüm
+     arayüz öğelerini koyu çizsin (açık klasik çubuk gelmesin). */
+  html {
+    color-scheme: dark;
+  }
+
+  /* Kaydırma çubuğu — referansla birebir (02.10.2026, kodlarından alındı):
+     6 px, iz zemin rengi, başparmak kenarlık rengi, tam yuvarlak. */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  /* Ok düğmeleri YOK (referansta da yok): sadece ince çubuk. */
+  ::-webkit-scrollbar-button {
+    display: none;
+  }
+
+  ::-webkit-scrollbar-track {
+    /* İz görünmez: çubuk sağ kenara bitişik durur, arada çizgi kalmaz. */
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: var(--color-border);
+    border-radius: 99px;
+  }
+
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-border) transparent;
+  }
+
+  /* Yönetim panelindeki başlıklar da vitrindeki Manrope ailesiyle eşleşir. */
+  .admin-root h1,
+  .admin-root h2,
+  .admin-root h4,
+  .admin-root h5,
+  .admin-root h6 {
+    font-family: var(--font-display);
+    font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+
+  .admin-root h1 {
+    font-weight: 800;
+  }
+
+  .admin-root h2 {
+    font-weight: 750;
+  }
+
+  .admin-root h3 {
+    font-family: var(--font-display);
+    font-weight: 700;
+    letter-spacing: -0.005em;
+  }
+}
+
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@utility animate-pop-in {
+  animation: pop-in 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  transform-origin: top right;
+}
+
+/* Mobil menu ikon gecisi (hamburger <-> carpi).
+   index.tsx bu animasyonu "motion-safe:animate-[icon-swap_...]" ile cagiriyor; ancak
+   keyframe tanimi projede hic yoktu — sinif eklendiginden (20.09.2026) beri animasyon
+   hic oynamiyordu, ikon aniden degisiyordu. Eksik tanim buraya eklendi. */
+@keyframes icon-swap {
+  from {
+    opacity: 0;
+    transform: rotate(-90deg) scale(0.6);
+  }
+  to {
+    opacity: 1;
+    transform: rotate(0deg) scale(1);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   MODAL / POPUP AÇILIŞ-KAPANIŞ ANİMASYONU
+   (kullanıcı isteği, 28.09.2026: "animasyonlu açılsın kapansın")
+
+   Arka plan yumuşakça kararır, panel hafifçe yukarıdan büyüyerek gelir. Panel
+   için yukarıdaki `animate-pop-in` yeterli; buradaki ek olan YALNIZCA karartma
+   katmanı ve ortadan büyüme (pop-in `top right` kökenli olduğu için modalda
+   köşeden açılıyormuş gibi görünürdü).
+
+   `prefers-reduced-motion` açıkken animasyon KAPATILIR: hareket hassasiyeti olan
+   kullanıcılar için erişilebilirlik gereği.
+   ═══════════════════════════════════════════════════════════════════════════ */
+@keyframes modal-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes modal-panel-in {
+  from {
+    opacity: 0;
+    transform: translateY(-10px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@utility animate-modal-fade {
+  animation: modal-fade-in 150ms ease-out both;
+}
+
+@utility animate-modal-fade-out {
+  animation: modal-fade-out 160ms ease-in both;
+}
+
+@keyframes modal-fade-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@utility animate-modal-panel {
+  animation: modal-panel-in 200ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  transform-origin: center top;
+}
+
+@utility animate-modal-panel-out {
+  animation: modal-panel-out 160ms ease-in both;
+  transform-origin: center top;
+}
+
+@keyframes modal-panel-out {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-modal-fade,
+  .animate-modal-fade-out,
+  .animate-modal-panel,
+  .animate-modal-panel-out {
+    animation: none;
+  }
+}
+
+/* Basinca ACILAN icerik (sonuc listesi, uyari, durum satiri): yumusak yukselme.
+   Kullanici bildirimi (29.09.2026): "butonlara basinca animasyonsuz aciliyor". */
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@utility animate-rise-in {
+  animation: rise-in 200ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-rise-in {
+    animation: none;
+  }
+}
+
+/* Vitrin geçişi fade: slayt içeriği kaymadan belirir (sonanime.com ile aynı). */
+@utility animate-hero-fade-in {
+  animation: hero-fade-in 1200ms ease-out both;
+}
+
+/* Slayt geçişi: kayma yok, yumuşak fade. */
+@keyframes hero-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Genel mikro etkileşimler: hover'da akıcı büyüme + parıltı.
+   Sadece transform/opacity kullanır, layout'u oynatmaz (kasma yapmaz).
+
+   ═══════════════════════════════════════════════════════════════════════════
+   `will-change: transform` KALDIRILDI (kullanıcı, 28.09.2026: "her şey kasıyor,
+   sanki 20fps gibi").
+
+   NEDEN KALDIRILDI — ÖLÇÜM: bu sınıflar (.ui-hover, .card-hover, .icon-btn,
+   .hero-btn) onlarca öğeye birlikte uygulanıyor: ana sayfada 60+ poster kartı,
+   her düğme, her ikon. `will-change` KALICI yazıldığında tarayıcı bu öğelerin
+   HEPSİ için ayrı bir GPU katmanı ayırır ve önbelleğe alır — sayfa başına 60-100
+   katman. Sonuç: GPU belleği şişer, kaydırma sırasında birleştirme (compositing)
+   maliyeti patlar ve kare hızı düşer. MDN'in kuralı da budur: `will-change`
+   yalnızca YAKINDA değişecek özellik için ve AZ sayıda öğede kullanılır;
+   "her zaman açık" bırakılması kazandırdığından çok kaybettirir.
+
+   NEDEN KAYIPSIZ: hover'da `transform` değiştiğinde tarayıcı öğeyi zaten
+   kendisi katmana alır. Yani animasyon sırasında aynı hız elde edilir; kazanç,
+   animasyon YOKKEN o katmanların hiç ayrılmamasıdır.
+   ═══════════════════════════════════════════════════════════════════════════ */
+@layer components {
+  .ui-hover {
+    transition:
+      transform 250ms cubic-bezier(0.22, 1, 0.36, 1),
+      box-shadow 250ms ease-out,
+      border-color 250ms ease-out,
+      background-color 250ms ease-out,
+      color 200ms ease-out;
+  }
+
+  @media (hover: hover) {
+    a.ui-hover:hover,
+    button.ui-hover:hover {
+      transform: translateY(-2px);
+    }
+
+    a.ui-hover:active,
+    button.ui-hover:active {
+      transform: translateY(0) scale(0.98);
+    }
+  }
+
+  .card-hover {
+    transition:
+      transform 350ms cubic-bezier(0.22, 1, 0.36, 1),
+      box-shadow 350ms ease-out,
+      border-color 350ms ease-out;
+  }
+
+  @media (hover: hover) {
+    .card-hover:hover {
+      transform: translateY(-6px);
+      box-shadow: 0 18px 40px -18px rgba(0, 0, 0, 0.7);
+    }
+  }
+
+  .link-hover {
+    position: relative;
+    transition: color 200ms ease-out;
+  }
+
+  @media (hover: hover) {
+    .link-hover::after {
+      content: "";
+      position: absolute;
+      left: 0;
+      bottom: -4px;
+      height: 2px;
+      width: 100%;
+      border-radius: 999px;
+      background: currentColor;
+      transform: scaleX(0);
+      transform-origin: left;
+      transition: transform 280ms cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    .link-hover:hover::after {
+      transform: scaleX(1);
+    }
+  }
+
+  /* İkon butonları: büyüteç, menü, kapatma... Hepsi aynı dilde konuşsun. */
+  .icon-btn {
+    transition:
+      transform 220ms cubic-bezier(0.22, 1, 0.36, 1),
+      background-color 220ms ease-out,
+      color 200ms ease-out,
+      border-color 220ms ease-out;
+  }
+
+  @media (hover: hover) {
+    .icon-btn:hover {
+      transform: translateY(-2px) scale(1.06);
+    }
+  }
+
+  .icon-btn:active {
+    transform: scale(0.94);
+  }
+
+  /* Hero butonları: parlama ile birlikte yükselme. */
+  .hero-btn {
+    transition:
+      transform 280ms cubic-bezier(0.22, 1, 0.36, 1),
+      box-shadow 280ms ease-out,
+      background-color 250ms ease-out,
+      color 200ms ease-out,
+      border-color 250ms ease-out;
+  }
+
+  @media (hover: hover) {
+    .hero-btn:hover {
+      transform: translateY(-3px) scale(1.02);
+      box-shadow: 0 14px 34px -12px rgba(0, 0, 0, 0.75);
+    }
+  }
+
+  .hero-btn:active {
+    transform: translateY(0) scale(0.98);
+  }
+
+  /* Vitrin slaytı: fare/parmakla tutup kaydırılabilir (kaydırırken el işareti). */
+  /* === SONANIME VITRIN REPLIKASI === */
+
+  /* Hero bolumu: yukseklik clamp, hero ile header arasinda bosluk yok. */
+  .hero-section {
+    position: relative;
+    width: 100%;
+    /*
+      YÜKSEKLİK — kullanıcı isteğiyle (30.09.2026) kısaltıldı:
+        "azıcık yukarı doğru daralt, yüksekliği daralt yani vitrinin."
+      Eski değer `clamp(560px, 72vh, 880px)`; yenisi yaklaşık %10 daha kısa.
+      YAN FAYDA: Ken Burns zoom'u her slaytta ekran boyu görseli yeniden
+      örnekliyor — boyanan alan küçülünce kare başına iş de azalıyor.
+      Buradaki öteki `vh` tabanlı ölçüler (logo 20vh, yazı 14vh) kendiliğinden
+      uyum sağlar; ayrıca ayar gerekmez.
+    */
+    height: clamp(500px, 65vh, 800px);
+    overflow: hidden;
+    background: #0f0f0f;
+    user-select: none;
+    touch-action: pan-y;
+  }
+
+  /* Bölüm paneli gibi kaydırılan listelerin kaydırma çubuğu.
+     Öncelik: tamamen gizlemek (kaydırma tekerlekle zaten çalışıyor). Tarayıcı
+     gizlemeyi desteklemiyorsa varsayılan BEYAZ/kalın/çerçeveli görünüm yerine
+     ince, koyu ve kenarlıksız bir çubuk gösterilir. */
+  .ince-kaydirma {
+    scrollbar-width: none; /* Firefox + Chromium 121+ */
+    -ms-overflow-style: none;
+  }
+
+  .ince-kaydirma::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  .ince-kaydirma::-webkit-scrollbar-track {
+    background: transparent;
+    border: none;
+  }
+
+  .ince-kaydirma::-webkit-scrollbar-thumb {
+    background: #4a4a52;
+    border: none;
+    border-radius: 999px;
+  }
+
+  .ince-kaydirma::-webkit-scrollbar-thumb:hover {
+    background: #5f5f68;
+  }
+
+  .ince-kaydirma::-webkit-scrollbar-button {
+    display: none;
+    width: 0;
+    height: 0;
+  }
+
+  /* Sürükleme sırasında fare hangi öğenin üstüne gelirse gelsin el (grabbing)
+     kalsın. Bağlantı ve butonların kendi `cursor: pointer` değeri ile içerik
+     öğeleri, sürükleme ortasında el simgesini değiştiriyordu. */
+  .hero-section.is-dragging,
+  .hero-section.is-dragging * {
+    cursor: grabbing !important;
+  }
+
+  /* Slayt: opacity ile yumuşak fade geçişi, 1.6s ease-in-out.
+     (Kayma yok; komşu slayt popup gibi görünmesin.)
+     overflow:hidden KRITIK: Ken Burns zoomu (scale 1.05) gorseli kendi
+     kutusundan tasiriyordu; tasan kenar komsu slayta binince "resimler
+     birbirine karisiyor" goruntusu olusuyordu. */
+  .hero-slide {
+    /* Dokunmatik kuralı burada da AÇIKÇA yazılır: kural yalnızca dış kutuda
+       olunca bazı tarayıcılar resme dokunuşta kendi kaydırmasını devreye sokup
+       `pointercancel` atıyor ve sürükleme ölüyordu (farede sorun yoktu, o yüzden
+       PC'de çalışıp telefonda tutmuyordu). `pan-y`: dikey kaydırma tarayıcıda,
+       yatay sürükleme bizde. */
+    touch-action: pan-y;
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    opacity: 0;
+    visibility: hidden;
+    transition:
+      opacity 1.6s ease-in-out,
+      visibility 1.6s ease-in-out;
+    z-index: 0;
+  }
+
+  .hero-picture,
+  .hero-image {
+    touch-action: pan-y;
+  }
+
+  .hero-slide.active {
+    opacity: 1;
+    visibility: visible;
+    z-index: 1;
+  }
+
+  /* Foto + Ken Burns zoom: aktif slaytın görseli 1.05 → 1'e 6 saniyede yaklaşır.
+     Burada ANIMATION kullanılıyor, transition DEĞİL: sayfa artık sunucuda render
+     edildiği için `active` sınıfı baştan geliyor ve transition hiç tetiklenmiyordu
+     — zoom bu yüzden durmuştu. Animasyon, sınıf baştan gelse de ilk yükte oynar. */
+  /* <picture> sarmalayicisi blok kutu olmali: icindeki .hero-image yuksekligi
+     %100 ile hesaplandigi icin sarmalayici 0 yukseklige duserse gorsel kaybolur. */
+  .hero-picture {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+
+  .hero-image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center 20%;
+    /* Doğal, hafif vitrin zoomu; görsel orijinal ölçüde tamamlanır. */
+    transform: scale(1.05);
+  }
+
+  .hero-slide.active .hero-image {
+    animation: hero-kenburns 6s ease-out forwards;
+    /*
+      ═══════════════════════════════════════════════════════════════════════════
+      GERİ ALINDI (kullanıcı bildirimi, 29.09.2026):
+        "anasayfada ne yaptın? resimlerim videolarım her şey kalitesizleşmiş,
+         eğri — geri al o yaptıklarını."
+
+      Buraya eklenen `will-change: transform` + `backface-visibility: hidden`
+      görseli kalıcı bir kompozit katmanına alıyordu. Tam ekran bir görselde bu,
+      Ken Burns zoom'u sırasında dokunun GPU'da ÖLÇEKLENMESİ anlamına gelir:
+      tarayıcı artık kaynağı hedef çözünürlükte yeniden örneklemiyor, mevcut
+      dokuyu büyütüyor — kullanıcı bunu "kalite düştü / eğri" olarak gördü.
+
+      Takılma bu satırlarla düzelmediği ve görüntüyü bozduğu için GERİ ALINDI;
+      dosya eski hâline döndü. Takılma için ölçüme dayalı ayrı bir adım gerekiyor
+      (tarayıcı performans kaydı) — tahminle ikinci tur atılmamalı.
+      ═══════════════════════════════════════════════════════════════════════════
+    */
+  }
+
+  /*
+    SÜRÜKLEMEDE ZOOM DONAR — BOYUT ATLAMAZ.
+
+    KULLANICI BİLDİRİMİ (30.09.2026): "o sitede basılı tutup geçiş yaparken resim
+    boyutu değişmiyor; bende mousela basıp geçeceğim ya, bastığım an fotoğrafın
+    boyutu farklı oluyor." Sebep: burada `animation: none` yazılıydı; animasyon
+    kaldırılınca görsel TABAN değerine (`scale(1)`) zıplıyordu — yani basma anında
+    zoom ortadan kalkıp boyut değişiyordu.
+
+    DÜZELTME: animasyon KALDIRILMAZ, DURDURULUR (`animation-play-state: paused`).
+    Duran animasyon değerini uygulamaya devam eder → zoom bulunduğu değerde donar,
+    boyut HİÇ değişmez. Sürükleme bitince animasyon kaldığı yerden devam eder.
+  */
+  .hero-section.hero-dragging .hero-image {
+    animation-play-state: paused;
+  }
+
+  /*
+    SÜRÜKLEME ANINDA GPU İPUCU (eski sitede de var — ölçüldü 30.09.2026:
+    sonanime.com'un CSS'inde `.hero-section.hero-dragging .hero-slide { will-change:
+    transform }`).
+
+    NEDEN KAPSAMLI: `will-change` KALICI yazıldığında tarayıcı her öğe için ayrı GPU
+    katmanı ayırır; sitedeki 60+ kartta bu, GPU belleğini şişirip kaydırmayı
+    bozuyordu (bkz. yukarıdaki "GERİ ALINDI" notu — ölçümle kaldırılmıştı). Burada
+    yalnızca SÜRÜKLEME SÜRESİNCE ve yalnızca birkaç slayt için açılıyor: tarayıcı
+    slaytları GPU'ya taşıyıp parmak/fare hareketini birleştiriciye (compositor)
+    bırakır, React'in işi kalmaz. Bırakınca ipucu kendiliğinden kalkar.
+  */
+  .hero-section.hero-dragging .hero-slide {
+    will-change: transform;
+  }
+
+  /*
+    ZAYIF CİHAZ: sürekli çalışan zoom kapanır.
+    NEDEN (kullanıcı isteği, 30.09.2026): "kişinin cihazı neyse otomatik o hızı
+    görsün… özellikle vitrin hiç kastırmasın." Ken Burns, görseli 6 saniye boyunca
+    her karede yeniden örnekler (GPU'ya bindirilmediği için, bkz. yukarıdaki
+    "GERİ ALINDI" notu) — zayıf makinelerde kare düşmesinin ana sebebi bu.
+    Sınıf yalnızca zayıf cihazda eklenir (`hero-lite`, JS'te ölçülür: çekirdek ≤ 2
+    veya bellek ≤ 2 GB veya veri tasarrufu). Güçlü cihazlarda görünüm DEĞİŞMEZ.
+  */
+  .hero-section.hero-lite .hero-image {
+    animation: none;
+    transform: scale(1);
+  }
+
+  @keyframes hero-kenburns {
+    from {
+      transform: scale(1.05);
+    }
+    to {
+      transform: scale(1);
+    }
+  }
+
+  /* Video: aktif slaytta oynamaya baslayinca gorunur. */
+  .hero-video {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.9s ease-in-out;
+  }
+
+  .hero-video.is-visible {
+    opacity: 1;
+  }
+
+  /* Karartma: soldan yatay + alttan yumusak gecis. */
+  .hero-gradient {
+    position: absolute;
+    inset: 0;
+    /* Slayt icinde: gorselin/videonun ustunde (z-1), yazinin altinda (z-2). */
+    z-index: 1;
+    background:
+      linear-gradient(90deg, #0f0f0ff2, #0f0f0f99, transparent 80%),
+      linear-gradient(0deg, #0f0f0f, transparent 25%);
+  }
+
+  /* Vitrin başlığı: Manrope kalın, gölge ince (tüm ekranlar aynı dil). */
+  .hero-title {
+    font-family: "Manrope", var(--font-sans);
+    color: #fff;
+    font-size: clamp(1.75rem, 4vw, 3rem);
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    line-height: 1.12;
+    text-align: left;
+    margin-bottom: 0.45rem;
+    text-shadow: 0 1px 2px rgb(0 0 0 / 40%);
+  }
+
+  /* Vitrin ikinci adı (romaji/orijinal ad): başlığın altında kalın ama daha
+     küçük; başlık → ikinci ad → açıklama araları SIKI (kullanıcı isteği,
+     05.10.2026: "metinler birbirinden kopuk duruyor"). */
+  .hero-subtitle {
+    display: block;
+    font-family: "Manrope", var(--font-sans);
+    color: #9ca4ac;
+    font-size: 1rem;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    margin-top: 0.4rem;
+    margin-bottom: 0.45rem;
+  }
+
+  /* Icerik: altta sola yaslı (mobil görünüm tüm ekranlarda). */
+  .hero-content {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    z-index: 2;
+    padding: 0 0 6vh 8%;
+    max-width: 900px;
+  }
+
+  .hero-featured-badge {
+    align-self: flex-start;
+    margin-bottom: 0.85rem;
+    padding: 0.32rem 0.85rem;
+    border-radius: 50px;
+    border: 1px solid rgba(255, 60, 100, 0.35);
+    background: #ff3c6414;
+    color: #ff7c95;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+
+  /* Detaylar: video baslarken grid satiri kapanir (yukseklik animasyonu). */
+  .hero-details {
+    display: grid;
+    grid-template-rows: 1fr;
+    transition: grid-template-rows 0.6s ease;
+  }
+
+  .hero-details-inner {
+    min-height: 0;
+    overflow: hidden;
+    transition: opacity 0.6s ease;
+  }
+
+  .hero-content.is-video-playing .hero-details {
+    grid-template-rows: 0fr;
+  }
+
+  .hero-content.is-video-playing .hero-details-inner {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  /* Yıl/TV/tür satırları (mobil görünüm tüm ekranlarda): sıra rozet yok,
+     başlık, açıklama, düğme. */
+  .hero-meta,
+  .hero-genres {
+    display: none;
+  }
+
+  .hero-score {
+    background: #ffc1071f;
+    border: 1px solid rgba(255, 193, 7, 0.35);
+    color: #ffc107;
+    border-radius: 50px;
+    padding: 0.24rem 0.7rem;
+    font-weight: 700;
+  }
+
+  .hero-genres {
+    display: none;
+  }
+
+  .hero-genre-chip {
+    background: #ffffff17;
+    padding: 0.26rem 0.72rem;
+    border-radius: 999px;
+    font-size: 0.78rem;
+  }
+
+  /* Tür rozeti (TV/Film): kırmızı tema çizgili, puan uydurulmaz — yalnızca
+     veritabanındaki gerçek `kind` alanı yazılır. */
+  .hero-kind-chip {
+    border: 1px solid #ff3c6480;
+    color: #ff8ba0;
+    padding: 0.26rem 0.72rem;
+    border-radius: 999px;
+    font-size: 0.78rem;
+    font-weight: 700;
+  }
+
+  .hero-description {
+    font-family: "Manrope", var(--font-sans);
+    font-size: 1.1rem;
+    max-width: 600px;
+    line-height: 1.6;
+    color: #d1d5db;
+    margin-bottom: 2rem;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  /* Eğik düğme (referans birebir, renk bizden): gövde eğik, yazı karşı-eğik,
+     kan kırmızısı zemin + beyaz metin. */
+  .home-cta-pill {
+    position: relative;
+    overflow: hidden;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    border-radius: 0;
+    transform: skewX(-12deg);
+    padding: 0.7rem 1.7rem;
+    font-size: 0.85rem;
+    font-weight: 900;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    background: #b30d27;
+    color: #fff;
+    box-shadow: 0 4px 18px #b30d2759;
+    transition:
+      transform 250ms ease-out,
+      box-shadow 250ms ease-out;
+  }
+
+  .home-cta-pill:hover {
+    transform: skewX(-12deg) scale(1.05);
+    box-shadow:
+      0 0 30px #00000080,
+      0 4px 18px #b30d2759;
+  }
+
+  /* Köşe kareleri: sol üst siyah %20, sağ alt beyaz %20. */
+  .home-cta-pill .cta-corner {
+    position: absolute;
+    width: 1.25rem;
+    height: 1.25rem;
+  }
+
+  .home-cta-pill .cta-corner-tl {
+    top: -0.375rem;
+    left: -0.375rem;
+    background: #00000033;
+  }
+
+  .home-cta-pill .cta-corner-br {
+    right: -0.375rem;
+    bottom: -0.375rem;
+    background: #ffffff33;
+  }
+
+  /* Parlama süpürmesi: hover'da soldan sağa kayan beyaz bant. */
+  .home-cta-pill .cta-shine {
+    pointer-events: none;
+    position: absolute;
+    inset: 0;
+    display: flex;
+    height: 100%;
+    width: 100%;
+    justify-content: center;
+    transform: translateX(-150%);
+  }
+
+  .home-cta-pill .cta-shine > span {
+    position: relative;
+    height: 100%;
+    width: 3rem;
+    background: #ffffff66;
+    filter: blur(2px);
+  }
+
+  .home-cta-pill:hover .cta-shine {
+    transition-duration: 1000ms;
+    transform: translateX(150%);
+  }
+
+  .home-cta-pill .cta-label {
+    position: relative;
+    z-index: 10;
+    display: inline-flex;
+    transform: skewX(12deg);
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  /* Vitrin oklari: 64px daire, seffaf; uzerine gelince koyu daire. */
+  .hero-nav {
+    position: absolute;
+    top: 50%;
+    z-index: 3;
+    display: inline-flex;
+    height: 64px;
+    width: 64px;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    border-radius: 50%;
+    background: transparent;
+    color: #ffffffb8;
+    cursor: pointer;
+    transform: translateY(-50%);
+    transition:
+      color 250ms ease,
+      background-color 250ms ease;
+  }
+
+  .hero-nav-prev {
+    left: 20px;
+  }
+
+  .hero-nav-next {
+    right: 20px;
+  }
+
+  .hero-nav:hover,
+  .hero-nav:focus-visible {
+    background: #0f0f0f73;
+    color: rgb(255 255 255 / 96%);
+  }
+
+  .hero-nav:focus-visible {
+    outline: 1px solid rgb(255 255 255 / 65%);
+    outline-offset: -10px;
+  }
+
+  /* Noktalar: her ekranda YOK (kullanıcı isteği, mobil görünüm esas).
+     Slayt geçişi ok + sürükleme ile yapılır. */
+  .hero-indicators {
+    display: none;
+    position: absolute;
+    bottom: 30px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 8px;
+    z-index: 3;
+  }
+
+  /* Nokta gorseli 6px kalir; tiklama alani padding ile buyutulup negatif margin
+     ile geri cekilir. Yerlesim hic degismez ama parmakla basma alani 24x28 px
+     olur (eskiden 6x6 idi ve dokunmatikte basilamiyordu). */
+  .hero-dot {
+    box-sizing: content-box;
+    width: 6px;
+    height: 6px;
+    padding: 11px 9px;
+    margin: -11px -9px;
+    border-radius: 999px;
+    background: #ffffff59;
+    background-clip: content-box;
+    border: none;
+    cursor: pointer;
+    transition: width 0.3s ease;
+  }
+
+  .hero-dot.active {
+    /* Aktif nokta büyümez: tüm noktalar aynı boyda kalır. */
+    background-color: #ff3c64;
+  }
+
+  /* Mobil vitrin — referans ölçüleriyle birebir (02.10.2026):
+     yazı altta SOLDA, başlık 28px/900, rozet satırı, açıklama
+     14px/3 satır, eğik düğme. Masaüstü görünümü korunur. */
+  @media (max-width: 767px) {
+    /* Vitrin boyu mobilde biraz uzatıldı (kullanıcı isteği). */
+    .hero-section {
+      height: 64vh;
+    }
+
+    /* Mobil alt gölge SİMSİYAH (kullanıcı isteği): alttan yukarı koyu perde. */
+    .hero-gradient {
+      background: linear-gradient(0deg, #000 0%, rgb(0 0 0 / 70%) 45%, transparent 80%);
+    }
+
+    .hero-content {
+      padding: 0 1.5rem 1.5rem;
+      align-items: flex-start;
+      justify-content: flex-end;
+      text-align: left;
+    }
+
+    .hero-title {
+      font-family: "Manrope", var(--font-sans);
+      font-size: 1.75rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      line-height: 1.12;
+      text-align: left;
+      margin-bottom: 0.45rem;
+      /* Başlık gölgesi en hafif hali: incecik derinlik, kontur gibi durmaz. */
+      text-shadow: 0 1px 2px rgb(0 0 0 / 40%);
+    }
+
+    .hero-subtitle {
+      font-size: 0.875rem;
+      margin-top: 0.4rem;
+      margin-bottom: 0.45rem;
+    }
+
+    /* Yıl/TV/bölüm ve tür satırları her ekranda YOK (yukarıdaki kural). */
+
+    .hero-genre-chip,
+    .hero-kind-chip {
+      font-size: 0.7rem;
+      padding: 0.2rem 0.6rem;
+    }
+
+    .hero-genres {
+      margin-bottom: 1rem;
+    }
+
+    .hero-description {
+      font-family: "Manrope", var(--font-sans);
+      font-size: 0.875rem;
+      line-height: 1.25rem;
+      color: #d1d5db;
+      -webkit-line-clamp: 3;
+      margin-bottom: 1rem;
+    }
+
+    .hero-cta-row {
+      justify-content: flex-start;
+    }
+
+    /* Düğme mobilde bir kademe küçük (ölçüler tabanda). */
+    .hero-cta-row .home-cta-pill {
+      padding: 0.5rem 1.25rem;
+      font-size: 0.75rem;
+    }
+
+    .hero-genres,
+    .hero-meta {
+      justify-content: flex-start;
+    }
+
+    /* Vitrin oklari mobilde gizlenir: 64x64 daireler tur ciplerinin ve ozet
+       metninin uzerine biniyordu (olculdu: ok x=20-84 ile cipler ayni satirda).
+       Slayt degistirme mobilde parmakla surukleme ve noktalarla yapiliyor. */
+    .hero-nav {
+      display: none;
+    }
+
+    /* Mobil alt sekme çubuğu (~60 px + güvenli alan) içeriğin üstüne binmesin:
+     footer/telif satırı çubuğun altında kalmasın diye alt boşluk. */
+    @media (max-width: 767px) {
+      body {
+        padding-bottom: calc(64px + env(safe-area-inset-bottom));
+      }
+    }
+
+    /* Noktalar her ekranda YOK (yukarıdaki kural); dokunma alanı
+       kuralları artık gereksizdir. */
+
+    /* iOS Safari, yazi boyutu 16 px'in ALTINDA olan bir form alanina
+       odaklaninca sayfayi otomatik yakinlastirir: duzen kayar, alandan cikinca
+       geri gelmez. Panel alanlarinin cogu 12-14 px (text-sm/text-xs) oldugu icin
+       telefonda her kutuya dokunusta sayfa zipliyordu. Mobilde form ogeleri
+       16 px'e sabitlenir; `!important` gerekli cunku Tailwind utility katmani
+       bilesen katmanindan sonra gelir. Masaustu olculeri degismez. */
+    input:not([type="checkbox"]):not([type="radio"]),
+    textarea,
+    select {
+      font-size: 16px !important;
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ui-hover,
+  .card-hover,
+  .link-hover::after,
+  .icon-btn,
+  .hero-btn {
+    transition: none;
+    transform: none;
+  }
+}
+
+@layer components {
+  .site-button:not(:disabled) {
+    transition:
+      transform 200ms ease-out,
+      background-color 200ms ease,
+      color 200ms ease;
+  }
+
+  .site-button:not(:disabled):hover {
+    transform: translateY(-2px) scale(1.05);
+  }
+
+  .site-button:not(:disabled):active {
+    transform: translateY(0) scale(0.95);
+  }
+
+  .search-button {
+    transition:
+      transform 220ms ease,
+      background-color 220ms ease,
+      color 220ms ease;
+  }
+
+  .search-button:hover {
+    transform: translateY(-2px) scale(1.08);
+    color: var(--color-primary);
+  }
+
+  .search-button:active {
+    transform: scale(0.92);
+  }
+
+  .search-button-icon {
+    transition: transform 320ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  .search-button.is-open .search-button-icon {
+    transform: rotate(90deg) scale(1.08);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .site-button:not(:disabled),
+    .search-button,
+    .search-button-icon {
+      transform: none;
+      transition: none;
+    }
+  }
+}
+
+/*
+ * Panel kategori kartlari.
+ *
+ * Cerceve (stroke) yerine her kategori kendi hafif renk tonunu alir; amac
+ * kategori ayrimini bir bakista gostermek, renkleri civitmak degil.
+ * Ton, kart renginin kategori rengiyle %12 karisimidir — tema kimligi korunur.
+ */
+.admin-card {
+  border-radius: calc(var(--radius) + 12px);
+  background: var(--card);
+  padding: 1.5rem;
+}
+
+/* iPhone genişliğinde kart iç boşlukları ve seri satırları gereksiz yere
+   ekranı büyütmesin; masaüstü ölçüleri aynen korunur. */
+@media (max-width: 767px) {
+  .admin-card {
+    border-radius: 1.5rem;
+    padding: 1rem;
+  }
+
+  .admin-show-row {
+    border-radius: 1.5rem;
+  }
+
+  /* Sağlık kartındaki uzun hata açıklamaları mobilde kartı gereksizce
+     büyütmesin; içerik yine satır satır okunabilir kalsın. */
+  #panel-health > ul > li:not(:first-child) {
+    padding: 0.625rem;
+    font-size: 0.75rem;
+    line-height: 1.35;
+  }
+
+  #panel-health > div button,
+  #panel-health > ul button {
+    min-height: 1.75rem;
+    padding: 0.25rem 0.6rem;
+    font-size: 0.6875rem;
+  }
+}
+
+@media (min-width: 768px) {
+  .admin-card {
+    padding: 2rem;
+  }
+}
+
+/* Seriler: birincil (kirmizi) ton */
+.admin-card--series {
+  background: color-mix(in oklab, var(--card) 88%, var(--primary) 12%);
+}
+
+/* Reklam kodlari: vurgu (altin) ton */
+.admin-card--ads {
+  background: color-mix(in oklab, var(--card) 88%, var(--accent) 12%);
+}
+
+/* Kategori basliginin onundeki renk cubugu */
+.admin-card-label {
+  display: inline-block;
+  height: 1.5rem;
+  width: 0.375rem;
+  border-radius: 9999px;
+  background: var(--primary);
+}
+
+.admin-card--ads .admin-card-label {
+  background: var(--accent);
+}
+
+/* Panel bildirimleri (toast): sag altta yigilir, kisa bir giris animasyonu var.
+   Animasyon kapatilabilir olsun diye prefers-reduced-motion'a saygi duyar. */
+@keyframes admin-toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.admin-toast {
+  animation: admin-toast-in 180ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .admin-toast {
+    animation: none;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════════
+   SİTE BAŞLIĞI (header) — REFERANS TASARIMI, BİREBİR
+   Kaynak: https://anikototv.to/home — `header`, `header .wrapper`, `#search`,
+   `header #menu-toggler`, `header #menu>ul`, `.main-menu`, `.title-language`
+   kuralları oradan OKUNDU; ölçü ve renkler uydurulmadı.
+
+   KULLANICI İSTEĞİ (01.10.2026): "çeviri butonu tasarımı, arama butonu tasarımı,
+   tamamen aynı olsun ve tamamen aynı yazı stili olsun ve random benimkine de koy,
+   tamamen aynı tasarım, font aynı, ikonları kullan."
+
+   NEDEN SINIF TABANLI (Tailwind ölçekleri yerine): referansın ölçüleri tamsayı
+   değil — 26,6 px hamburger çubuğu, 3,65 px çubuk boşluğu, 2 px kenarlık +
+   `content-box` yüksekliği, yarım daire uçlar için `50rem`. Bunlar Tailwind
+   ölçeğine oturmaz; keyfî değerlerle (`[26.6px]`) yazmak okunaksız olurdu.
+   Sınıflar `sh-` ön ekli ve yalnızca başlıkta kullanılır.
+
+   KAPSAM: renk/ölçü kuralları `#sh-header` altına yazılır; dil değiştirici
+   (`.sh-lang`) ise KÖK seviyede durur — o bileşen dört ayrı başlıkta ortaktır
+   (ana sayfa, seri, izleme, hata ekranı) ve diğerlerinde `#sh-header` yoktur.
+
+   KATMAN NOTU: bu blok `@layer` DIŞINDADIR. Tailwind'in katmanlı kurallarından
+   her zaman üstün gelir; yani başlıktaki `outline:0`, `border:0` gibi referans
+   değerleri preflight tarafından ezilemez.
+
+   ── REFERANSTAN BİLEREK SAPILAN YERLER (kullanıcı isteği, 01.10.2026) ─────────
+   "bizdeki çok kalın, header'ı daraltmamız lazım baya ve artık siyaha çevirsen,
+   siyahın tonuna."
+
+   1) YÜKSEKLİK: 5rem → 3.75rem (80 → 60 px). Referans 80 px'te kalıyor; mobil
+      kırılımda 55 → 48 px. Logo da aynı oranda küçültüldü (3.2rem → 2.4rem):
+      yoksa 60 px'lik şeritte logoya üstten/alttan 4 px boşluk kalıyordu.
+      Arama kutusu da 36 → 34 px (şerit kısalınca 36 px kutunun çevresinde
+      orantısız boşluk bırakıyordu).
+   2) RENK: lacivert `#142030` → siyah tonu `#0a0a0d`. Sayfanın kendi zemini de
+      çok koyu (oklch .075) ve ton 270°; siyahın içinde hafif bir mavi alt ton
+      bırakıldı ki düz `#000` gibi sert durmasın. TAM siyah istenirse tek satır.
+   3) Buna BAĞLI DÜZELTMELER: arama kutusu, menü paneli, dil çipinin kenarlığı ve
+      hover dolguları yeni zemine göre ayarlandı — eski lacivert değerler
+      siyahın üstünde neredeyse görünmez kalıyordu.
+
+   Bu üç madde dışındaki her ölçü ve renk hâlâ referansın birebir değeridir.
+   ═══════════════════════════════════════════════════════════════════════════════ */
+
+#sh-header {
+  /* Referansta `position:absolute` (kaydırınca `fixed`). Bizde şerit her zaman
+     yapışık kalır — sitenin mevcut davranışı, kaydırma deneyimi bozulmasın. */
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  width: 100%;
+  /* Simsiyah (kullanıcı isteği): tema zemininden de koyu, tek renk, oynamaz. */
+  background: #000;
+  color: #a0b1c5;
+  /* Site genelindeki Manrope ile aynı yazı ailesini kullanır. */
+  font-family: var(--font-sans);
+  font-size: 1rem;
+  font-weight: 400;
+  line-height: 1.5;
+  transition:
+    background 0.2s,
+    border-color 0.2s;
+}
+
+/* ── İskelet: referans `header .wrapper` ──────────────────────────────────── */
+.sh-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  /* İnceltildi: referans 5rem (80 px). */
+  height: 3.75rem;
+}
+
+/* Referans: `.start{width:48%}` → logo + arama sol yarıyı, `.end` sağı alır. */
+.sh-start {
+  display: flex;
+  align-items: center;
+  /* KULLANICI GERİ BİLDİRİMİ (01.10.2026): "random yazısını arama kutusunun
+     yanına yaklaştır". Eskiden bu kolon şeridin sabit %48'ini kaplıyordu; arama
+     kutusu 20rem'de bittiği hâlde kolon devam ediyor, "Rastgele" düğmesi de
+     `margin-left: auto` ile EN SAĞA itiliyordu → arada kocaman boşluk kalıyordu.
+     Artık kolon İÇERİK kadar: düğme kutunun hemen yanında başlar.
+
+     `flex: 0 0 auto` — kolon DARALAMAZ. Daralabildiği için arama kutusunu
+     sıkıştırıyordu (ölçüm: kutu 368 px olması gerekirken 336 px'e iniyordu). */
+  width: auto;
+  flex: 0 0 auto;
+  height: 100%;
+  min-width: 0;
+}
+
+.sh-end {
+  display: flex;
+  align-items: center;
+  flex-grow: 1;
+  height: 100%;
+  min-width: 0;
+}
+
+/* ── Hamburger: reanime.to'dan ÖLÇÜLEREK kopyalandı ──────────────────────── */
+/*
+ * KULLANICI İSTEĞİ (01.10.2026): "3 çizgiyi reanime sitesindeki gibi yap,
+ * animasyonunu falan da öyle yap".
+ *
+ * Tarayıcıda `getComputedStyle` ile ölçülen GERÇEK değerler (uydurma yok):
+ *   · düğme        : 40×40 px, zemin yok, kenarlık yok, içerik ortalanmış
+ *   · çubuklar     : yükseklik 2 px, aralık 4 px, eğim `skew(-18deg)`, köşe yuvarlaklığı 0
+ *   · GENİŞLİKLER FARKLI: üst 20 px · orta 13 px · alt 17 px  ← hamburgerin imzası
+ *   · üst çubuk    : marka rengi (onlarda yeşil `--primary`; bizde kırmızı)
+ *   · hover        : renk beyaza döner, ÜÇ çubuk da 20 px'e UZAR
+ *   · açık durum   : üst → `translateY(6px) rotate(45deg)`
+ *                    orta → `opacity: 0` (kaybolur)
+ *                    alt  → `translateY(-6px) rotate(-45deg)`
+ *                    (eğim açıkken düşer; saf dönüşe geçer)
+ *   · geçişler     : `width .2s ease, opacity .15s ease, transform .2s ease`
+ *
+ * ÖLÇÜ UYARLAMASI: düğme 40 → 38 px (bizim şerit 60 px, reanime'inki 80 px).
+ * Çubuk ölçüleri ve animasyon BİREBİR korundu.
+ */
+.sh-toggler {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  cursor: pointer;
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  margin-right: 13px;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  /* Referanstaki "HUD" hissi: köşelerden 8 px kesik altıgen. */
+  clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
+  color: var(--muted-foreground);
+  transition:
+    color 0.2s ease,
+    background-color 0.2s ease;
+}
+
+.sh-toggler:hover {
+  color: var(--foreground);
+  /* Referans: `#ffffff12` ≈ %7 beyaz. */
+  background-color: rgb(255 255 255 / 0.07);
+}
+
+/* Çubuk kabı: sütun + 4 px aralık (referans `gap: 4px`). */
+.sh-glyph {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 20px;
+}
+
+.sh-toggler i {
+  display: block;
+  height: 2px;
+  border-radius: 0;
+  background: currentColor;
+  pointer-events: none;
+  transform: skew(-18deg);
+  transition:
+    width 0.2s ease,
+    opacity 0.15s ease,
+    transform 0.2s ease;
+}
+
+/* Farklı uzunluklar — hamburgerin imzası. */
+.sh-toggler i:nth-child(1) {
+  width: 20px;
+  /* Üst çubuk MARKA renginde sabit kalır (hover'da da değişmez). */
+  background: var(--primary);
+}
+
+.sh-toggler i:nth-child(2) {
+  width: 13px;
+}
+
+.sh-toggler i:nth-child(3) {
+  width: 17px;
+}
+
+/* Hover: üç çubuk da tam genişliğe uzar. */
+.sh-toggler:hover i {
+  width: 20px;
+}
+
+.sh-toggler[aria-expanded="true"] {
+  color: var(--foreground);
+  background-color: color-mix(in oklab, var(--primary) 10%, transparent);
+}
+
+.sh-toggler[aria-expanded="true"] i {
+  width: 20px;
+  /* Açıkken eğim düşer; her çubuk aşağıda kendi saf dönüşünü alır. */
+  transform: none;
+}
+
+.sh-toggler[aria-expanded="true"] i:nth-child(1) {
+  transform: translateY(6px) rotate(45deg);
+}
+
+.sh-toggler[aria-expanded="true"] i:nth-child(2) {
+  opacity: 0;
+}
+
+.sh-toggler[aria-expanded="true"] i:nth-child(3) {
+  transform: translateY(-6px) rotate(-45deg);
+}
+
+/* ── Logo: referans `header .logo{margin-right:2rem;height:3.2rem}` ───────── */
+.sh-logo {
+  display: block;
+  flex-shrink: 0;
+  /* KULLANICI GERİ BİLDİRİMİ (01.10.2026): "hâlâ küçük duruyor logo".
+     Önceki 2.4rem (38,4 px) şeritte (60 px) küçük kalıyordu. Yeni logo KELİME
+     markası olduğu için yükseklik doğrudan okunurluğu belirler; referans
+     sitelerde (reanime) marka şeridin ~%75-80'ini doldurur.
+     2.4 → 3rem (48 px): şeritte 6 px nefes payı kalır. */
+  height: 3rem;
+  /* 2rem → 1.75rem (01.10.2026): hamburger küçülünce logo ile arasındaki 32 px'lik
+     boşluk ölçüsüz kalıyordu; iki öğe artık yakın durur. */
+  margin-right: 1.75rem;
+}
+
+.sh-logo img {
+  height: 100%;
+  width: auto;
+  object-fit: contain;
+}
+
+/* ── Arama: referans `#search` ────────────────────────────────────────────── */
+.sh-search {
+  position: relative;
+  display: block;
+  /* KULLANICI İSTEĞİ (01.10.2026): "arama barını biraz uzat".
+     ÖNEMLİ ÖLÇÜM NOTU: yalnızca `max-width` vermek YETMİYOR. `.sh-start` artık
+     `width: auto` olduğu için kutu İÇERİĞİ kadar kalıyor ve üst sınır hiç
+     devreye girmiyordu — tarayıcıda ölçüldü: sınır 368 px olduğu hâlde kutu
+     336 px'te kalıyordu. Genişliği gerçekten açmak için TABAN genişlik verilir:
+     `flex: 0 1 23rem` → 336 px yerine 368 px. Küçülmeye izin vardır ki dar
+     masaüstü pencerelerinde taşmasın. */
+  /* KESİN GENİŞLİK — `flex-basis` TEK BAŞINA YETMEDİ. Tarayıcıda computed
+     değerler okundu: `flexBasis: 368px` doğru uygulanıyordu ama kutunun
+     kullanılan genişliği 336 px'te kalıyordu; çünkü kapsayıcı `.sh-start` bir
+     flex öğesi olarak DARALIYOR ve kutu içerik tabanına sıkışıyordu.
+     Artık genişlik KESİN (`width`) ve kutu ne büyür ne küçülür. */
+  flex: 0 0 auto;
+  width: 23rem;
+  min-width: 0;
+  /* KULLANICI GERİ BİLDİRİMİ (01.10.2026): "arama kutusu çok kalın sanki ve çok
+      uzun". Kutu `flex-grow:1` ile `.sh-start` kolonunun TÜM artan genişliğini
+      yiyordu ve şeridin yarısına yakınını kaplıyordu. Artık bir üst sınır var;
+      kutu bu genişliğe kadar büyür, sonrasında büyümez.
+      01.10.2026 (2. tur): "arama barını biraz uzat" → 20rem → 23rem. */
+  max-width: 23rem;
+}
+
+.sh-search form {
+  position: relative;
+  display: flex;
+  align-items: center;
+  /* İnceltildi: referans 36 px / 1.1rem. Şerit 60 px'e inince 36 px'lik kutu
+     orantısız kalıyordu; kutu ve yazı birlikte bir kademe küçültüldü.
+     01.10.2026: "çok kalın" geri bildirimiyle bir kademe daha inceltildi
+     (34 → 31 px) ve yazı 1rem → 0.9375rem indi. */
+  height: 31px;
+  line-height: 31px;
+  padding: 0 10px;
+  border-radius: 0.5rem;
+  /* Siyah zemine uyarlandı: referansın laciverti `#101925`. */
+  background-color: #17181d;
+  /* KULLANICI GERİ BİLDİRİMİ (01.10.2026): "arama barının içindeki yazı ve
+      büyüteç simgesi kutuya göre çok kalın duruyor, daraltman lazım".
+      Yazı bir kademe daha indi: 0.9375rem (15 px) → 0.875rem (14 px). */
+  font-size: 0.875rem;
+  /* Öneri paneli açıldığında alt köşeler düzleşir ve iki parça TEK kart gibi
+     birleşir (bkz. `.sh-search.has-panel form`). Yumuşak geçiş için. */
+  transition: border-radius 0.15s ease;
+}
+
+.sh-search form button,
+.sh-search form input {
+  border: 0;
+  background: none;
+  color: #515f75;
+  outline: 0;
+}
+
+.sh-search form button {
+  z-index: 3;
+  flex-shrink: 0;
+  padding: 0;
+  /* Büyüteç her zaman okunur tonda başlar; hover/açıkken marka rengine döner
+     (eskiden soluk griydi, basılınca alakasız maviye dönüyordu). */
+  color: #9fb0c3;
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.sh-search form button:hover,
+.sh-search.is-open form button {
+  color: var(--primary);
+}
+
+/* Büyüteç animasyonu: panel açılınca simge 90° dönüp hafif büyür. */
+.sh-search form button svg {
+  transition: transform 0.25s ease;
+}
+
+.sh-search.is-open form button svg {
+  transform: rotate(90deg) scale(1.15);
+}
+
+/* Mobil büyüteç düğmesi de aynı dili konuşur. */
+.sh-search-toggler svg {
+  transition: transform 0.25s ease;
+}
+
+.sh-search-toggler[aria-expanded="true"] svg {
+  transform: rotate(90deg) scale(1.1);
+  color: var(--primary);
+}
+
+.sh-search form input {
+  z-index: 3;
+  flex-grow: 1;
+  min-width: 0;
+  padding: 0 10px;
+  font: inherit;
+  /* 500 → 400: kutunun "kalın" durmasının bir sebebi de yazı ağırlığıydı. */
+  font-weight: 400;
+  color: #a0b1c5;
+}
+
+.sh-search form input::placeholder {
+  color: #515f75;
+  opacity: 1;
+}
+
+/* "Hızlı Erişim" ipucu — referans `#search form .tip` */
+.sh-tip {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  color: #475366;
+  font-weight: 500;
+  white-space: nowrap;
+  transition: all 0.3s;
+}
+
+.sh-tip svg {
+  width: 1.3em;
+  height: 1.3em;
+  color: #475366;
+}
+
+.sh-tip span {
+  padding: 0 8px;
+}
+
+/* ── Arama öneri paneli: kutunun DEVAMI gibi görünür ──────────────────────── */
+/*
+ * KULLANICI GERİ BİLDİRİMİ (01.10.2026): "arama yaparken çıkan simsiyah arka
+ * plan headere uygun değil, bide boşluk var — birleşse mi, hafif transparan mı
+ * olsa". Eski hâlde panel `bg-popover` (neredeyse saf siyah) + `mt-2` (8 px
+ * boşluk) ile şeritten kopuk duruyordu. Panel artık kutunun zeminiyle aynı
+ * renk ailesindendir, hafif saydamdır ve kutuyla AYNI kartı oluşturur.
+ */
+.sh-suggest {
+  margin-top: 2px;
+  overflow: hidden;
+  /* TEMA TOKENI (01.10.2026): kullanıcı geri bildirimi — "bastığında çıkan
+     şeylerin arka planı bizim temaya uygun değil". Sabit `rgba(23,24,29,…)`
+     yerine temanın katman rengi; hafif saydamlık korunur ki altındaki içerik
+     belli belirsiz görünsün. */
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  background-color: color-mix(in oklab, var(--popover) 97%, transparent);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 18px 40px -14px rgba(0, 0, 0, 0.85);
+  /* Açılış animasyonu: panel koşullu çizildiği için her açılışta oynar —
+     yukarıdan süzülüp belirir (klasik "belirdi" yerine). */
+  animation: sh-suggest-in 0.22s ease-out;
+}
+
+@keyframes sh-suggest-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sh-suggest {
+    animation: none;
+  }
+
+  .sh-search form button svg,
+  .sh-search-toggler svg {
+    transition: none;
+  }
+}
+
+/* Panel varken kutu ile panel TEK kart olur: aradaki boşluk ve üst köşeler
+   kalkar, alt köşeler yuvarlanır. `has-panel` yalnızca GERÇEKTEN öneri
+   listelenecekken eklenir (aşağıda, `index.tsx`); yazı boşken kutu alt
+   köşeleri düzleşmiş hâlde kalmaz. */
+.sh-search.has-panel form {
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.sh-search.has-panel .sh-suggest {
+  margin-top: 0;
+  border-top: 0;
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+}
+
+/* ── Sağ taraf: referans `#quick-menu` + `.main-menu` ─────────────────────── */
+/* Referansta öğeler `justify-content:space-around` ile yayılıyor; bizde sağda
+   yalnızca Rastgele + dil anahtarı var, bu yüzden grup sağa yaslanır ve referansın
+   öğe aralığı `gap` ile korunur. */
+.sh-quick {
+  display: flex;
+  align-items: center;
+  /* KULLANICI GERİ BİLDİRİMİ (01.10.2026): "random yazısını arama kutusunun
+     yanına yaklaştır". Eskiden `margin-left: auto` + `flex-end` ile grup şeridin
+     en sağına itiliyordu. Artık kolonu doldurup SOLA yaslanır: "Rastgele"
+     arama kutusunun hemen yanında durur. Dil değiştirici ise kendi üzerindeki
+     `ml-auto` ile sağ uçta kalır (bkz. `SiteHeader.tsx`). */
+  justify-content: flex-start;
+  flex-grow: 1;
+  gap: 2rem;
+  margin-left: 1.75rem;
+  min-width: 0;
+}
+
+.sh-main-menu {
+  display: flex;
+  align-items: center;
+  border: 0;
+  padding: 0;
+  background: none;
+  font-family: inherit;
+  /* İNCE TİPOGRAFİ — kullanıcı geri bildirimi (01.10.2026): "benimki çok kalın
+     duruyor, butonlar çok büyük". Referans başlıkta öğeler 500 ağırlıkta ve
+     ~15 px; eski 600/1.15rem (18,4 px) kombinasyonu şeritte ağır kalıyordu. */
+  font-weight: 500;
+  /* KULLANICI GERİ BİLDİRİMİ (01.10.2026): "yanındaki yazıyı da kutunun
+     içindekilerle EŞİT şekilde daralt". Arama kutusunun iç yazısı 0.875rem
+     olduğu için bu da aynı boyuta indi. */
+  font-size: 0.875rem;
+  color: #a0b1c5;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+/* Referans: `.main-menu .icon{margin-right:5px}` ve
+   `#random-anime .icon{width:20px;height:20px}` */
+.sh-main-menu svg {
+  /* 20 → 18 → 16 px: metinle birlikte ikon da inceldi; arama kutusundaki
+     büyüteç (16 px) ile aynı ölçekte durur (kullanıcı isteği 01.10.2026). */
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  margin-right: 5px;
+}
+
+.sh-main-menu:hover {
+  color: #54b8e1;
+}
+
+/* İkon `currentColor` kullanır → hover'da metinle birlikte renk değişir. */
+.sh-main-menu:hover svg {
+  color: var(--primary);
+}
+
+/* Mobil arama açıcı — referans `#search-toggler` (≥1200 px'te gizli). */
+.sh-search-toggler {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  cursor: pointer;
+  width: 40px;
+  height: 40px;
+  margin-right: 15px;
+  border: 0;
+  background: none;
+  color: #fff;
+  font-size: 1.15rem;
+}
+
+.sh-search-toggler:hover,
+.sh-search-toggler[aria-expanded="true"] {
+  color: var(--primary);
+}
+
+/* ── Hamburger menü paneli: referans `header #menu>ul` ────────────────────── */
+.sh-menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 50;
+  /* KULLANICI GERİ BİLDİRİMİ (01.10.2026 + 02.10.2026): panel GENİŞTİ ve
+     yalnızca ALT köşeleri yuvarlaktı. Şimdi: DAR (132 px alt sınır), DÖRT
+     köşesi yuvarlak, şeritten 8 px ayrık ve gölgeli (yüzen kart gibi). */
+  min-width: 190px;
+  margin: 8px 0 0;
+  /* Açılış animasyonu: koşullu çizildiği için her açılışta süzülerek belirir. */
+  animation: sh-suggest-in 0.18s ease-out;
+  padding: 5px;
+  list-style: none;
+  /* TEMA TOKENI (01.10.2026): sabit `#141519` yerine temanın katman rengi.
+     KULLANICI GERİ BİLDİRİMİ: "bastığında çıkan şeylerin arka planı bizim
+     temaya uygun değil". */
+  background-color: var(--popover);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: 0 18px 40px -14px rgb(0 0 0 / 0.85);
+}
+
+.sh-menu a,
+.sh-menu button {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  /* KULLANICI GERİ BİLDİRİMİ (01.10.2026): "çok kalın olmuş genişliği yani".
+     Dolgu 20 → 16 px, yazı 1.2rem (19,2 px) → 1rem (16 px): panel daraldı ve
+     şeridin geri kalanıyla aynı tipografik ölçeğe indi. */
+  min-height: 38px;
+  padding: 8px 10px;
+  border-radius: 9px;
+  border: 0;
+  background: none;
+  text-align: left;
+  text-transform: none;
+  font-family: inherit;
+  font-weight: 600;
+  font-size: 0.8125rem;
+  /* Tema tokenları: panel zemini değişince metin de onunla uyumlu kalır. */
+  color: var(--popover-foreground);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.sh-menu a:hover,
+.sh-menu button:hover {
+  color: var(--popover-foreground);
+  background-color: var(--secondary);
+}
+
+.sh-menu a > svg:first-child,
+.sh-menu button > svg:first-child {
+  flex-shrink: 0;
+  color: var(--muted-foreground);
+}
+
+.sh-menu a:hover > svg:first-child,
+.sh-menu button:hover > svg:first-child {
+  color: var(--primary);
+}
+
+.sh-menu-arrow {
+  margin-left: auto;
+  color: var(--muted-foreground);
+  opacity: 0.5;
+}
+
+/* Kapanış animasyonu: `menu-closing` 150 ms sola-solma oynatır, bitince düğüm
+   düşer (bkz. SiteHeader `closeMenu`). */
+.sh-menu.menu-closing {
+  animation: sh-menu-out 0.15s ease-in forwards;
+}
+
+@keyframes sh-menu-out {
+  from {
+    opacity: 1;
+    transform: none;
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sh-menu,
+  .sh-menu.menu-closing {
+    animation: none;
+  }
+}
+
+/* ── DİL DEĞİŞTİRİCİ: referans `header .title-language` ──────────────────────
+   Kök seviyede: dört ayrı başlıkta ortak kullanılan paylaşılan bir bileşen. */
+.sh-lang {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.sh-lang > button {
+  display: inline-block;
+  /* `content-box` ŞART: referans 23 px içerik + 2 px kenarlık hesaplıyor. */
+  box-sizing: content-box;
+  /* Referans ölçüsü (anikototv.to — tarayıcıda ölçüldü): 21 px yükseklik,
+     13,5 px yazı, 2 px yatay dolgu → çip ~31×21. Eski hâli 23 px + 2 px
+     kenarlık + 8 px dolgu + 16 px yazıydı ve şeritte ağır duruyordu. */
+  height: 21px;
+  line-height: 21px;
+  /* Metin ORTALANIR ve çipe metinden bağımsız bir alt sınır konur: "TR" ile "EN"
+     genişliği tek piksel oynasa bile şerit `flex` olduğu için kutu kaymaz. */
+  min-width: 24px;
+  padding: 0 2px;
+  /* Ayırıcı çizgi YOK (kullanıcı isteği): iki çip arası çizgi imleç gibi
+     duruyordu. */
+  border: 0;
+  border-radius: 0;
+  background: none;
+  text-align: center;
+  font-family: inherit;
+  font-weight: 600;
+  /* 1rem (16 px) → 0.8125rem (13 px): referansın kendi ölçüsü. */
+  font-size: 0.8125rem;
+  letter-spacing: 0.02em;
+  color: #8b98a9;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.sh-lang > button:first-child {
+  padding-left: 2px;
+  border-left: 0;
+  border-radius: 4px 0 0 4px;
+}
+
+.sh-lang > button:last-child {
+  padding-right: 2px;
+  border-radius: 0 4px 4px 0;
+}
+
+.sh-lang > button:hover {
+  /* TEMA TOKENI (01.10.2026): referansın lacivert hover'ı siyah zeminde
+     temadan kopuk duruyordu. */
+  background-color: var(--secondary);
+  color: var(--foreground);
+}
+
+/* Aktif çip: açık gri dolgu + koyu yazı — referansın imzası. Yazı rengi siyah
+   zemine uyarlandı (referansta lacivert `#142030`). */
+.sh-lang > button.active {
+  /* Referansın imzası: gümüş dolgu + koyu lacivert yazı. (Kullanıcı "anikoto
+     gibi olsun" dedi; tek satırla sade koyu dolguya çevrilebilir.) */
+  /* TEMA TOKENI (01.10.2026): "gümüş dolgu + koyu yazı" imzası korunur ama
+     renkler artık temadan gelir (sabit lacivert/silver yerine). */
+  color: var(--background);
+  background-color: var(--foreground);
+  border-radius: 4px;
+}
+
+/* Fareyle basınca kalan odak çizgisi (metin imleci gibi duruyordu) gizlenir;
+   klavye odağı halkası korunur. */
+.sh-lang > button:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════════
+   <1200 px — REFERANSIN MOBİL/TABLET BAŞLIĞI
+   Referansta kırılım noktası 1199,98 px: başlık 55 px'e iner, arama gizlenir ve
+   sağdaki büyüteçle başlığın ALTINA beyaz bir şerit olarak açılır.
+   ═══════════════════════════════════════════════════════════════════════════════ */
+@media (max-width: 1199.98px) {
+  .sh-wrapper {
+    /* Mobilde başlık ve logo rahat nefes alsın; içerik yüksekliği 54 px. */
+    height: 54px;
+  }
+
+  /* Header 6 px büyürken vitrinin başlangıcı aşağı itilmesin; üst kenar
+     önceki konumunda kalsın ve header vitrine hafifçe yaklaşsın. */
+  .hero-section {
+    margin-top: -6px;
+  }
+
+  .sh-start {
+    width: auto;
+    flex-grow: 0;
+  }
+
+  .sh-toggler {
+    margin-left: 0;
+    margin-right: 6px;
+  }
+
+  /* Büyüteç küçük + beyaz (kullanıcı isteği): gri ve kocaman duruyordu. */
+
+  /* RESPONSIVE DÜZELTME (01.10.2026): mobilde `#sh-header` 48 px'e iniyor
+      (bkz. aynı blok) ama `.sh-logo` masaüstü değeri olan 3rem (48 px) ile
+      kalıyordu — logo şeridin TAMAMINI kaplıyor, üstten/alttan taşıyordu.
+      02.10.2026: logo BÜYÜTÜLDÜ (kullanıcı isteği) — 2.75rem (44 px). */
+  /* Logo mobilde şerit boyunda (kullanıcı isteği): şerit/menü büyümez,
+     yalnızca logo 48 px'e dayanır. */
+  .sh-logo {
+    height: 3rem;
+    margin-right: 0;
+  }
+
+  /* Logo sola yaslanır (kullanıcı isteği): kap dolgusu ve hamburger boşluğu kısılır. */
+  #sh-header > div {
+    padding-left: 6px;
+    padding-right: 10px;
+  }
+
+  .sh-toggler {
+    margin-right: 2px;
+  }
+
+  .sh-logo {
+    margin-right: 0.25rem;
+    margin-left: 0;
+  }
+
+  /* Büyüteç logonun SAĞINDADIR (mobil istek): arada boşluk bırakır. */
+  .sh-start .sh-search-toggler {
+    margin-right: 0;
+    margin-left: 0;
+  }
+
+  /* RESPONSIVE (01.10.2026) — ÖLÇÜMLE DOĞRULANDI:
+       Masaüstü değerleri (2rem boşluk + 1.75rem dış boşluk) dar şeritte çok yer
+       yiyordu. Daha önemlisi `.sh-quick` BÜYÜMEYE çalışırken içeriği
+       daralamıyordu; dil çipi komşusu arama düğmesinin üzerine biniyordu
+       (360 px'de 1 px, 320 px'de 15 px çakışma ölçüldü).
+       ÇÖZÜM: grup artık BÜYÜMEZ (yalnız içeriği kadar yer kaplar), `.sh-end`
+       içinde bütün olarak SAĞA yaslanır ve arama düğmesiyle arasında boşluk
+       kalır. */
+  .sh-quick {
+    /* `flex: 0 0 auto` — NE büyür NE küçülür: grup daima İÇERİĞİ kadar yer
+          kaplar. Küçülmesine izin verilince içeriği daralamıyor ve komşusunun
+          üzerine biniyordu (ölçülen çakışmanın kök nedeni). */
+    flex: 0 0 auto;
+    gap: 1rem;
+    margin-left: 0;
+  }
+
+  .sh-end {
+    /* Grup sağa yaslanır ve arama düğmesiyle arasında 4 px nefes payı kalır.
+          Ölçüm: bu boşluk olmadan dil çipi ile düğme TAM TEMAS ediyordu
+          (0 px) — teknik olarak çakışma değil ama iki ayrı kontrol tek blok
+          gibi görünüyordu. 4 px, 320 px'lik en dar ekranda bile taşmadan
+          sığan en büyük değerdir (ölçülerek seçildi). */
+    justify-content: flex-end;
+    gap: 0.25rem;
+  }
+
+  .sh-search {
+    display: none;
+  }
+
+  /* SARKAN HAP (kullanıcı seçimi): şeridin altına yapışık, tam genişlikte
+     yuvarlak kart. Satırdaki hiçbir şey gizlenmez, sayfa oynamaz. */
+  .sh-search.is-open {
+    position: fixed;
+    /* Başlığa YAPIŞIK açılır (kullanıcı isteği): arada boşluk yok, alt
+       köşeler yuvarlak. */
+    top: 48px;
+    left: 0;
+    right: 0;
+    z-index: 60;
+    display: block;
+    /* Masaüstü sabit genişliği (23rem) mobilde geçersiz. */
+    width: auto;
+    max-width: none;
+    padding: 10px 12px 12px;
+    border: 0;
+    border-radius: 0 0 16px 16px;
+    /* Şeritle BİREBİR aynı zemin, çizgisiz: tek parça gibi durur. */
+    background: #0a0a0d;
+    box-shadow: 0 18px 40px -14px rgb(0 0 0 / 85%);
+    animation: sh-search-in 0.22s ease-out;
+  }
+
+  .sh-search.is-open form {
+    height: 44px;
+    padding: 0 6px 0 10px;
+    border: 1px solid var(--border);
+    /* İç kutu hap gibi yuvarlak: köşeli durmaz. */
+    border-radius: 999px;
+    background: #17181d;
+    font-size: 0.875rem;
+    overflow: hidden;
+  }
+
+  /* Kutu karttan açıldığı için içindeki büyüteç gereksizdir. */
+  .sh-search.is-open form > button {
+    display: none;
+  }
+
+  /* Sonuç kutusu: alt köşeler yuvarlak, kartla bütün durur. */
+  .sh-search.is-open .sh-suggest {
+    margin-top: 6px;
+    border-radius: 0 0 10px 10px;
+    max-height: 60vh;
+    overflow-y: auto;
+  }
+
+  .sh-search.is-open form input,
+  .sh-search.is-open form button {
+    border-radius: 0;
+    background: transparent;
+  }
+
+  /* ── Çok dar ekran (<480 px): şerit taşmasın ───────────────────────────
+     Ölçüm: 360 px ekranda kap 340 px; logo + hamburger + sağ grup sığmıyordu.
+     Çözüm: "Rastgele" yazısı gizlenir (simgesi kalır), boşluklar kısılır. */
+  @media (max-width: 479.98px) {
+    .sh-main-menu span {
+      display: none;
+    }
+
+    .sh-logo {
+      margin-right: 0.25rem;
+    }
+
+    .sh-quick {
+      gap: 0.5rem;
+    }
+
+    .sh-toggler {
+      margin-right: 2px;
+    }
+  }
+
+  @keyframes sh-search-in {
+    from {
+      opacity: 0;
+      transform: translateY(-12px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .sh-search.is-open {
+      animation: none;
+    }
+  }
+
+  /* İpucu mobilde gizlenir (referans: `#search form .tip{display:none}`). */
+  .sh-tip {
+    display: none;
+  }
+
+  /* TEMA TOKENLARI (01.10.2026): mobilde açılan arama kutusu BEYAZDI ve siyah
+     şeritte tamamen kopuk duruyordu — bu da "bastığında çıkan şeylerin arka
+     planı bizim temaya uygun değil" geri bildiriminin kapsamındadır.
+     Artık temanın `--input` tonuyla hafif bir alan olarak çizilir. */
+  .sh-search form input {
+    order: 0;
+    height: 100%;
+    padding: 0 10px;
+    color: var(--foreground);
+    background: var(--input);
+    border-radius: 3px 0 0 3px;
+  }
+
+  .sh-search form button {
+    order: 1;
+    height: 100%;
+    padding: 0 10px;
+    color: var(--muted-foreground);
+    background: var(--input);
+    border-radius: 0 3px 3px 0;
+  }
+
+  .sh-search form button:hover {
+    color: var(--primary);
+  }
+
+  .sh-search-toggler {
+    display: flex;
+    /* RESPONSIVE (01.10.2026): masaüstündeki 15 px sağ boşluk, kapsayıcının
+        kenar dolgusu (10 px) ile birlikte dar şeritte 25 px ölü alan bırakıyor
+        ve içerik taşıyordu. Mobilde kaldırıldı. */
+    margin-right: 0;
+  }
+
+  /* Menü paneli referansın mobil hâli: başlığın altında yüzen kart. */
+  .sh-menu {
+    top: calc(100% + 6px);
+    /* KULLANICI GERİ BİLDİRİMİ (06.10.2026): "mobil menü tek kocaman kart
+         gibi". Panel 220 px SABİTTİ; "TAKVİM" gibi kısa etiketlerde bile tam
+         genişlikte duruyordu. Artık İÇERİĞE GÖRE daralır: `max-content` + 168
+         px alt sınır. Uzun etiketler ekrandan taşmasın diye `max-width`
+         sınırı var. */
+    width: max-content;
+    min-width: 190px;
+    max-width: calc(100vw - 32px);
+    margin: 0;
+    padding: 5px;
+    /* TEMA TOKENI (01.10.2026): mobilde panel hâlâ referansın LACİVERTİNİ
+        (`#142030`) kullanıyordu — masaüstü düzeltilmiş olsa da asıl görünen
+        panel buydu. Kullanıcı geri bildirimi: "bastığında çıkan şeylerin
+        arka planı bizim temaya uygun değil". */
+    background: var(--popover);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: 0 16px 36px -12px rgb(0 0 0 / 0.9);
+  }
+
+  /* Mobil satırlar masaüstünden bir kademe küçük ve yuvarlak: seçili alan
+     "yüzen kart" hissi verir, satırlar kutuya yapışmaz. */
+  .sh-menu a,
+  .sh-menu button {
+    min-height: 38px;
+    padding: 8px 10px;
+    font-size: 0.8125rem;
+    letter-spacing: -0.01em;
+    border-radius: 9px;
+  }
+}
+
+/* ── Çok dar ekran: "Rastgele" düğmesi menüye taşınır ─────────────────────── */
+/*
+ * RESPONSIVE DÜZELTME (01.10.2026) — tarayıcıda ÖLÇÜLEN gerçek sayılar:
+ *   360 px → `.sh-lang` ile `.sh-search-toggler` 28×21 px ÇAKIŞIYOR,
+ *            ayrıca `#sh-header` içeriği 4 px taşıyor (349 > 345).
+ *   390 px → 40×21 px çakışma.
+ *   414 px → 40×21 px çakışma.
+ *   768 px ve üzeri → sorun YOK.
+ *
+ * SEBEP: hamburger + logo + "Rastgele" + dil değiştirici + arama düğmesi 360 px
+ * genişliğe sığmıyor. Flex kutusu daralırken İÇERİĞİ daralamadığı için dil çipi
+ * komşusunun üzerine biniyordu (kutu kesişmesi doğrulandı).
+ *
+ * ÇÖZÜM: 768 px altında "Rastgele" düğmesi gizlenir. İŞLEV KAYBOLMAZ — aynı
+ * düğme menü panelinde "RANDOM" satırı olarak durur (bkz. `SiteHeader.tsx`).
+ * 768 px ve üzerinde düğme görünür kalır; ölçümde orada yer var.
+ */
+@media (max-width: 767.98px) {
+  .sh-main-menu {
+    display: none;
+  }
+}
+
+/* ── Çok dar ekran (≤359 px): logo bir kademe daha iner ───────────────────── */
+/*
+ * RESPONSIVE (01.10.2026): 320 px'lik ekranda (eski iPhone SE) hamburger +
+ * logo + dil + arama düğmesi yan yana sığmıyor. Kullanıcı logonun BÜYÜK
+ * olmasını istediği için bu kural YALNIZCA bu en dar aralıkta devreye girer;
+ * 360 px ve üzerinde logo 2.25rem kalır.
+ */
+@media (max-width: 359.98px) {
+  .sh-logo {
+    height: 1.75rem;
+  }
+}
+
+/* ── İzleme sayfası açılır menüleri: AÇILMA **ve** KAPANMA animasyonu ───────── */
+/*
+ * KULLANICI İSTEĞİ (01.10.2026): "her açıp kapatırken animasyonla olması gerek".
+ *
+ * NEDEN AYRI BİR SINIF: Tailwind'in `animate-pop-in` yardımcı sınıfı yalnızca
+ * GİRİŞ animasyonu verir; kapanışta öğe anında yok olur. Kapanışı da
+ * canlandırmak için `display` geçişi gerekir ve bunun için `transition-behavior:
+ * allow-discrete` + `@starting-style` kullanılır (yerel `<details>` ile çalışır,
+ * ek JavaScript durumu istemez).
+ *
+ * YÖN: paneller YUKARI açılır (`bottom-full`), bu yüzden başlangıç konumu
+ * aşağıda (+4 px) ve hafif küçüktür; açılırken yukarı kayıp büyür.
+ *
+ * `prefers-reduced-motion` tercihine SAYGI duyulur.
+ */
+.watch-drop {
+  display: none;
+  opacity: 0;
+  transform: translateY(4px) scale(0.98);
+  transition:
+    opacity 0.18s ease,
+    transform 0.18s ease,
+    display 0.18s allow-discrete;
+}
+
+details[open] > .watch-drop {
+  display: block;
+  opacity: 1;
+  transform: none;
+}
+
+@starting-style {
+  details[open] > .watch-drop {
+    opacity: 0;
+    transform: translateY(4px) scale(0.98);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .watch-drop {
+    transition: none;
+  }
+}
+
+/* KATMAN DIŞI DÜZELTMELER — Tailwind `utilities` katmanı, `components`
+   katmanındaki aynı güçteki kuralları ezer. `display` çakışan kurallar bu
+   yüzden katman DIŞINDA tutulur (katmansız yazım katmanlıyı her zaman yener). */
+
+/* Sayfa geçiş animasyonu: adres değişince içerik yumuşakça açılır. */
+.route-enter {
+  animation: route-in 0.25s ease-out;
+}
+
+@keyframes route-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .route-enter {
+    animation: none;
+  }
+
+  .hero-dot.active::after {
+    animation: none;
+    transform: none;
+  }
+}
+
+/* PC çizgi göstergeler: kısa çizgiler, aktif olan kaydırdıkça kırmızı dolar
+   (otomatik dönüş süresiyle aynı: 24 sn). */
+@media (min-width: 768px) {
+  .hero-indicators {
+    display: flex;
+    gap: 8px;
+  }
+
+  .hero-dot {
+    width: 12px;
+    height: 3px;
+    padding: 0;
+    margin: 0;
+    border-radius: 2px;
+    background: rgb(255 255 255 / 25%);
+  }
+
+  .hero-dot.active {
+    background: #ff3c64;
+  }
+}
+
+@media (max-width: 767px) {
+  /* Mobilde kaydırma çubuğu YOK (kullanıcı isteği): telefonda parmak
+     kaydırır, çubuk yalnızca kalabalık eder. Masaüstünde ince çubuk durur. */
+  html {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  html::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Vitrin noktaları mobilde YOK (kullanıcı isteği). */
+  .hero-indicators {
+    display: none;
+  }
+
+  /* Vitrin→içerik boşluğu önceki mobil konumunda kalır; Keep watching yukarı
+     çekilmez. */
+  .home-sections {
+    padding-top: 1rem;
+  }
+}

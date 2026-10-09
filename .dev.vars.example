@@ -1,0 +1,13 @@
+# Yerel geliştirme ortam değişkenleri (`.env` yanında; repoya GİRMEZ).
+# Üretimde (Cloudflare Pages → Settings → Variables) AYNI adlarla tanımla.
+# R2_ACCOUNT_ID: Cloudflare hesap kimliği (R2 → Overview URL'sinde).
+# R2_ACCESS_KEY_ID / R2_SECRET_ACCESS_KEY: R2 → Manage API tokens (bu bucketa yetkili).
+# R2_BUCKET: shanime-media
+# R2_PUBLIC_URL: bucket'ın herkese açık adresi (R2 → Settings → Public Access).
+# VITE_R2_PUBLIC_URL: yukarısının aynısı (tarayıcı R2 anahtarını buradan türetir).
+R2_ACCOUNT_ID=
+R2_ACCESS_KEY_ID=
+R2_SECRET_ACCESS_KEY=
+R2_BUCKET=shanime-media
+R2_PUBLIC_URL=
+VITE_R2_PUBLIC_URL=

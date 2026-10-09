@@ -1,0 +1,21 @@
+# Cloudflare Pages önbellek politikası (kod değişikliği değil, sadece başlık).
+#
+# MANTIK: parmak izli dosyalar (hash'li JS/CSS + /static altındaki sabit
+# görseller) değişince ADRESİ değişir, o yüzden 1 yıl immutable tutulur.
+# HTML (sayfa iskeleti) her istekte tazelenir — vitrin/panel verisi bayatlamaz.
+#
+# NOT: R2 adresleri (cdn.shanime.xyz) buradan etkilenmez; onların başlığı
+# R2/custom-domain tarafında yönetilir. Bu dosya yalnızca Pages'ten
+# servis edilen /assets/* ve /static/* içindir.
+
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+
+/static/*
+  Cache-Control: public, max-age=31536000, immutable
+
+/*.js
+  Cache-Control: public, max-age=31536000, immutable
+
+/*.css
+  Cache-Control: public, max-age=31536000, immutable
