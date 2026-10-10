@@ -14,6 +14,14 @@ import { supabase } from "@/integrations/supabase/client";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = supabase as any;
 
+// Supabase/PostgREST varsayılan olarak en fazla 1000 satır döndürür. Kapsama
+// sorgusu bütün serilerin bölümlerini birlikte okuduğu için kaynakları küçük
+// kimlik gruplarına bölmek gerekir; aksi hâlde ilk 1000 satırdan sonrası sessizce
+// sayaçtan düşer.
+const COVERAGE_EPISODE_BATCH_SIZE = 100;
+const COVERAGE_EPISODE_PAGE_SIZE = 1000;
+const COVERAGE_SOURCE_PAGE_SIZE = 1000;
+
 export type EpisodeSource = {
   id: string;
   episode_id: string;
@@ -88,11 +96,12 @@ export async function fetchSourcesForEpisodes(
  *   panelde kayboluyordu; artık tüm sağlayıcı satırları ayrı ayrı sayılır.
  *   Bu yüzden sayaç artık doğrudan bu tablodan, canlı olarak okunur.
  *
- * MALİYET — SABİT 2 İSTEK (Supabase kotası neredeyse tükendiği için N+1 KESİNLİKLE
- * YASAK; seri başına sorgu YOK):
+ * MALİYET — BÖLÜM BAŞINA N+1 YOK (seri başına da sorgu yok):
  *   1) `show_episodes` → (id, show_id): verilen serilerin TÜM bölümleri,
- *   2) `episode_sources` → sağlayıcı ve bölüm kimlikleri,
- *   Eşleştirme/sayım JS'te yapılır. İstek sayısı seri/bölüm sayısından BAĞIMSIZDIR.
+ *      1000 satırlık sayfalarla,
+ *   2) `episode_sources` → 100 bölüm kimlikli toplu sayfalarla sağlayıcı ve
+ *      bölüm kimlikleri,
+ *   Eşleştirme/sayım JS'te yapılır; hiçbir bölüm için tek tek istek atılmaz.
  *
  * @returns show_id → en az bir 'tr' kaynağı olan (tekil) bölüm sayısı
  */
@@ -102,19 +111,66 @@ export async function fetchTurkishCoverage(
   const coverage = new Map<string, Map<string, number>>();
   if (showIds.length === 0) return coverage;
 
-  const [episodesRes, trRes] = await Promise.all([
-    db.from("show_episodes").select("id, show_id, number").in("show_id", showIds),
-    db.from("episode_sources").select("episode_id, provider"),
-  ]);
-  if (episodesRes.error) throw episodesRes.error;
-  if (trRes.error) throw trRes.error;
+  // Önce hedef serilerin bölüm kimliklerini al; kaynak sorgusunu TÜM tabloya
+  // filtresiz atma. Supabase/PostgREST büyük sonuçları ilk 1000 satırda
+  // kesebileceği için bölüm listesi de sayfalanır.
+  const episodeRows: {
+    id: string;
+    show_id: string;
+    number: number;
+  }[] = [];
+  let episodeOffset = 0;
+  while (true) {
+    const episodesRes = await db
+      .from("show_episodes")
+      .select("id, show_id, number")
+      .in("show_id", showIds)
+      .order("id", { ascending: true })
+      .range(episodeOffset, episodeOffset + COVERAGE_EPISODE_PAGE_SIZE - 1);
+    if (episodesRes.error) throw episodesRes.error;
+
+    const page = (episodesRes.data ?? []) as {
+      id: string;
+      show_id: string;
+      number: number;
+    }[];
+    episodeRows.push(...page);
+    if (page.length < COVERAGE_EPISODE_PAGE_SIZE) break;
+    episodeOffset += page.length;
+  }
+
+  const episodeIds = episodeRows.filter((row) => row.number > 0).map((row) => row.id);
+  const sourceRows: { episode_id: string; provider: string }[] = [];
+
+  // Tek bir `in(...)` sorgusu de bütün serilerde 1000 kaynak satırını aşabilir.
+  // Kimlikleri küçük gruplara ayırıp her grubu sayfalıyoruz; böylece Supabase'in
+  // varsayılan sonucu kırpması kapsama sayacını bozmaz.
+  for (let start = 0; start < episodeIds.length; start += COVERAGE_EPISODE_BATCH_SIZE) {
+    const batch = episodeIds.slice(start, start + COVERAGE_EPISODE_BATCH_SIZE);
+    let offset = 0;
+    while (true) {
+      const trRes = await db
+        .from("episode_sources")
+        .select("episode_id, provider")
+        .in("episode_id", batch)
+        .order("episode_id", { ascending: true })
+        .order("provider", { ascending: true })
+        .range(offset, offset + COVERAGE_SOURCE_PAGE_SIZE - 1);
+      if (trRes.error) throw trRes.error;
+
+      const page = (trRes.data ?? []) as { episode_id: string; provider: string }[];
+      sourceRows.push(...page);
+      if (page.length < COVERAGE_SOURCE_PAGE_SIZE) break;
+      offset += page.length;
+    }
+  }
 
   const episodeToShow = new Map<string, string>();
-  for (const row of (episodesRes.data ?? []) as { id: string; show_id: string; number: number }[]) {
+  for (const row of episodeRows) {
     if (row.number > 0) episodeToShow.set(row.id, row.show_id);
   }
   const episodeProviders = new Map<string, Set<string>>();
-  for (const row of (trRes.data ?? []) as { episode_id: string; provider: string }[]) {
+  for (const row of sourceRows) {
     const showId = episodeToShow.get(row.episode_id);
     if (!showId) continue;
     const provider = row.provider.trim().toLowerCase();

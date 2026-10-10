@@ -88,21 +88,27 @@ export function ShowRow({
             düzenleyicide duruyor (`/anime/` adres alanı + "MAL kimliği" kutusu).
             Arama etkilenmez: `visibleShows` hâlâ slug ve MAL ile süzer —
             yalnızca satırdaki GÖRÜNÜRLÜK kaldırıldı. */}
-        <p className="text-[11px] leading-relaxed text-muted-foreground">
-          {(show.kind ?? "series") === "movie"
-            ? "Film"
-            : `${counts.seasons} sezon · ${episodeCount} bölüm`}
-        </p>
-        {sourceCoverageEntries.length > 0 ? (
-          <p
-            className="mt-0.5 truncate text-[11px] font-bold text-amber-600"
-            title="Sağlayıcı bazında kaynak kapsamı: bulunan bölüm / normal bölüm toplamı."
-          >
-            {sourceCoverageEntries
-              .map(([provider, count]) => `${provider} ${count}/${episodeCount}`)
-              .join(" · ")}
-          </p>
-        ) : null}
+        <div className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1 text-[11px] leading-relaxed text-muted-foreground">
+          <span>
+            {(show.kind ?? "series") === "movie"
+              ? "Film"
+              : `${counts.seasons} sezon · ${episodeCount} bölüm`}
+          </span>
+          {sourceCoverageEntries.map(([provider, count]) => {
+            const compactProvider =
+              provider === "TauVideo" ? "Tau" : provider === "MegaPlay" ? "Mega" : provider;
+            return (
+              <span
+                key={provider}
+                title={`${provider}: ${count}/${episodeCount} bölümde kaynak var`}
+                aria-label={`${provider}: ${count}/${episodeCount} bölümde kaynak var`}
+                className="inline-flex shrink-0 items-center rounded-full border border-amber-500/25 bg-amber-500/10 px-1.5 py-px text-[9px] font-semibold leading-4 text-amber-500"
+              >
+                {compactProvider} {count}/{episodeCount}
+              </span>
+            );
+          })}
+        </div>
       </div>
       {/* Butonlar tek kapta: mobilde ince bir ayraçla alt satırda TAM GENİŞLİK —
           "Düzenle" solda, taşı/sil ikonları sağda (justify-between). PC'de hepsi

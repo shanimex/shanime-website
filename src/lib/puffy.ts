@@ -22,6 +22,15 @@ const PUFFY_SLUG_OVERRIDES: Record<string, string> = {
   "solo-leveling": "ore-dake-level-up-na-ken",
 };
 
+/**
+ * Sezon bazlı sağlayıcı adresleri — bazı sezonlar sayfa başlığında numara
+ * taşımaz. Örnek: Jujutsu Kaisen 3. sezon, puffytr'da "Shimetsu Kaiyuu -
+ * Zenpen" adıyla yayınlanıyor; `3rd-season` kalıbı bu yüzden bulunamıyor.
+ */
+const PUFFY_SEASON_SLUG_OVERRIDES: Record<string, Record<number, string>> = {
+  "jujutsu-kaisen": { 3: "jujutsu-kaisen-shimetsu-kaiyuu-zenpen" },
+};
+
 /** Bizim seri slug'ı → puffytr'daki dizi slug'ı (özel eşleme yoksa kendisi). */
 export function puffySlugFor(showSlug: string): string {
   const key = showSlug.trim();
@@ -98,6 +107,10 @@ export function puffySlugCandidates(base: string, season: number): string[] {
   // görülen diğer yazımlar gelir. Hepsi tek isteklik denemedir.
   const ordinal = ordinalFor(season);
   add(`${clean}-${ordinal}-season`);
+
+  // Sağlayıcının sezon numarasını başlıktan çıkardığı doğrulanmış adresler.
+  const knownSeasonSlug = PUFFY_SEASON_SLUG_OVERRIDES[clean]?.[season];
+  if (knownSeasonSlug) add(knownSeasonSlug);
 
   // Sağlayıcı, Attack on Titan'ın final sezonunu ordinal ekle değil,
   // başlığın kendi kanonik adıyla yayınlıyor. Bu adres ağ dizininde ve

@@ -80,7 +80,7 @@ export type Translate = (key: I18nKey, vars?: Record<string, string | number>) =
 const tr = {
   // ---- Ortak iskelet (header / nav / düğmeler) ----
   "common.home": "Ana sayfa",
-  "common.series": "Animeler",
+  "common.series": "Diziler",
   "common.thisSeason": "Bu sezon",
   "common.viewAll": "Tümü",
   "common.seeAll": "Tümünü gör",
@@ -116,9 +116,42 @@ const tr = {
   "footer.tagline":
     "Yeni serini bul: sezonun öne çıkan anime başlıkları, bölümleri ve detayları tek yerde.",
   "footer.explore": "Keşfet",
-  "footer.allSeries": "Tüm animeler",
+  "footer.allSeries": "Tüm diziler",
   "footer.genres": "Türler",
   "footer.copyright": "© 2026 shanime · Anime keşfi için tasarlanmıştır.",
+
+  // ---- Katalog ----
+  "catalog.all": "Tümü",
+  "catalog.series": "Diziler",
+  "catalog.movies": "Filmler",
+  "catalog.headingAll": "Tüm içerikler",
+  "catalog.headingSeries": "Diziler",
+  "catalog.headingMovies": "Filmler",
+  "catalog.cataloged": "{count} başlık",
+  "catalog.search": "Dizi veya film ara...",
+  "catalog.genre": "Tür",
+  "catalog.year": "Yıl",
+  "catalog.sort": "Sıralama",
+  "catalog.sortFeatured": "Öne çıkan",
+  "catalog.sortNewest": "Yeni eklenen",
+  "catalog.sortAZ": "A-Z",
+  "catalog.allGenres": "Tüm türler",
+  "catalog.allYears": "Tüm yıllar",
+  "catalog.clear": "Filtreleri temizle",
+  "catalog.filterAria": "Katalog filtreleri",
+  "catalog.noResults": "Bu filtrelere uyan içerik yok.",
+  "catalog.seriesKind": "Dizi",
+  "catalog.movieKind": "Film",
+
+  // ---- Kütüphane durumu ----
+  "library.aria": "Kütüphane durumu",
+  "library.add": "Kütüphaneye ekle",
+  "library.remove": "Kütüphaneden çıkar",
+  "library.watching": "İzliyorum",
+  "library.completed": "Tamamlandı",
+  "library.onHold": "Beklemede",
+  "library.dropped": "Bıraktım",
+  "library.planToWatch": "İzlenecek",
 
   // ---- Ana sayfa ----
   "home.heroBadge": "Öne çıkanlar",
@@ -457,7 +490,7 @@ const tr = {
 const en: Record<I18nKey, string> = {
   // ---- Shared chrome ----
   "common.home": "Home",
-  "common.series": "Animes",
+  "common.series": "Series",
   "common.thisSeason": "This season",
   "common.viewAll": "All",
   "common.seeAll": "View all",
@@ -492,9 +525,42 @@ const en: Record<I18nKey, string> = {
   "footer.tagline":
     "Find your next series: this season's standout anime titles, episodes and details in one place.",
   "footer.explore": "Explore",
-  "footer.allSeries": "Animes",
+  "footer.allSeries": "All series",
   "footer.genres": "Genres",
   "footer.copyright": "© 2026 shanime · Built for anime discovery.",
+
+  // ---- Catalogue ----
+  "catalog.all": "All",
+  "catalog.series": "Series",
+  "catalog.movies": "Movies",
+  "catalog.headingAll": "All titles",
+  "catalog.headingSeries": "Series",
+  "catalog.headingMovies": "Movies",
+  "catalog.cataloged": "{count} titles",
+  "catalog.search": "Search series or movies...",
+  "catalog.genre": "Genre",
+  "catalog.year": "Year",
+  "catalog.sort": "Sort",
+  "catalog.sortFeatured": "Featured",
+  "catalog.sortNewest": "Recently added",
+  "catalog.sortAZ": "A-Z",
+  "catalog.allGenres": "All genres",
+  "catalog.allYears": "All years",
+  "catalog.clear": "Clear filters",
+  "catalog.filterAria": "Catalogue filters",
+  "catalog.noResults": "No titles match these filters.",
+  "catalog.seriesKind": "Series",
+  "catalog.movieKind": "Movie",
+
+  // ---- Library status ----
+  "library.aria": "Library status",
+  "library.add": "Add to library",
+  "library.remove": "Remove from library",
+  "library.watching": "Watching",
+  "library.completed": "Completed",
+  "library.onHold": "On hold",
+  "library.dropped": "Dropped",
+  "library.planToWatch": "Plan to watch",
 
   // ---- Home ----
   "home.heroBadge": "Featured",

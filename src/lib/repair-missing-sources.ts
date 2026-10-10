@@ -7,6 +7,7 @@ type Show = {
   title: string;
   mal_id: number | null;
   animecix_id: number | null;
+  kind: string | null;
 };
 type Episode = { id: string; show_id: string; season: number; number: number };
 type Source = { episode_id: string; provider: string; url: string };
@@ -45,7 +46,7 @@ async function lookup(path: string, params: URLSearchParams) {
 
 export async function repairMissingSources(progress: (message: string) => void) {
   const [shows, episodes, sources] = (await Promise.all([
-    allHealthRows("shows", "id,slug,title,mal_id,animecix_id"),
+    allHealthRows("shows", "id,slug,title,mal_id,animecix_id,kind"),
     allHealthRows("show_episodes", "id,show_id,season,number"),
     allHealthRows("episode_sources", "id,episode_id,provider,url"),
   ])) as [Show[], Episode[], Source[]];
@@ -55,17 +56,22 @@ export async function repairMissingSources(progress: (message: string) => void) 
       .filter((row) => row.url?.trim())
       .map(
         (row) =>
-          `${row.episode_id}:${/^(puffy|puffytr)$/.test(row.provider) ? "anizm" : row.provider}`,
+          `${row.episode_id}:${/^(puffy|puffytr|anizmplayer)$/.test(row.provider) ? "anizm" : row.provider}`,
       ),
   );
   const providers = ["anizm", "animecix", "megaplay"];
   const jobs = episodes
     .filter((ep) => ep.number > 0)
-    .flatMap((ep) =>
-      providers
+    .flatMap((ep) => {
+      const show = byShow.get(ep.show_id);
+      // Animecix/TauVideo ve Anizm film kataloğu sunmuyor; film için yalnızca
+      // MegaPlay beklenir. Aksi hâlde onarım her taramada aynı sahte eksik işi
+      // yeniden üretir (ör. Jujutsu Kaisen 0).
+      const expectedProviders = show?.kind === "movie" ? ["megaplay"] : providers;
+      return expectedProviders
         .filter((provider) => !present.has(`${ep.id}:${provider}`))
-        .map((provider) => ({ ep, provider })),
-    );
+        .map((provider) => ({ ep, provider }));
+    });
   let added = 0;
   const failures: string[] = [];
   for (let index = 0; index < jobs.length; index++) {

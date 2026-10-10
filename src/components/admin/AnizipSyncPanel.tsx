@@ -944,9 +944,15 @@ export function AnizipSyncPanel({
     .filter(Boolean)
     .join(",");
   const [coverageLoading, setCoverageLoading] = useState(true);
+  const [coverageError, setCoverageError] = useState(false);
   useEffect(() => {
     const ids = existingSig ? existingSig.split(",") : [];
     setCoverageLoading(true);
+    setCoverageError(false);
+    // Sezon değişirken önceki sezonun bölüm numaraları aynı kalabilir. Eski
+    // haritayı bekletmek, yeni sorgu dönene kadar yanlışlıkla tüm kaynakları
+    // yeşil göstermeye neden olur; doğrulanana kadar durum bilinmiyor olmalı.
+    setLoadedByNumber(new Map());
     if (ids.length === 0) {
       setLoadedByNumber(new Map());
       setCoverageLoading(false);
@@ -970,9 +976,10 @@ export function AnizipSyncPanel({
         }
         setLoadedByNumber(next);
       } catch {
-        // Kapsama okunamazsa koruma DEVRE DIŞI kalır (panel yine çalışır) —
-        // listeyi boşaltıp kullanıcıyı yanlışlıkla "hepsi yüklü" sanmaya itmeyiz.
+        // Kapsama okunamazsa eksik kaynak varmış gibi davranma; durum bilinmiyor.
+        // Listeyi boşaltıp kullanıcıyı yanlışlıkla "hepsi yüklü" sanmayız.
         if (alive) setLoadedByNumber(new Map());
+        if (alive) setCoverageError(true);
       }
       if (alive) setCoverageLoading(false);
     })();
@@ -1262,6 +1269,8 @@ export function AnizipSyncPanel({
     );
   };
   const [busy, setBusy] = useAnizipField<boolean>(store, "busy");
+  /** Satır ilerlemesi yalnızca gerçekten çalışan koşuda geçerlidir. */
+  const liveRun = busy && isRunActive(storeKey);
   /** İş yarıda kaldı mı (yeniden açılışta "devam et" gösterilir). */
   const [interrupted, setInterrupted] = useAnizipField<boolean>(store, "interrupted");
   /**
@@ -3120,7 +3129,9 @@ export function AnizipSyncPanel({
    * "N/M bölüm yazıldı" demek için. `rowProgress` artık kalıcı (store) olduğu için
    * sayfa yenilense bile bu sayı korunur.
    */
-  const rowProgressDone = Object.values(rowProgress).filter((row) => row.status === "done").length;
+  const rowProgressDone = liveRun
+    ? Object.values(rowProgress).filter((row) => row.status === "done").length
+    : 0;
   /**
    * PART ARALIĞI İÇİN SAYIM — 0. BÖLÜM (özel) HARİÇ.
    * Özel bölüm her zaman listenin başında ve `number: 0`; part aralığı gösterimi
@@ -3792,7 +3803,10 @@ export function AnizipSyncPanel({
             {pageList.map((ep) => {
               const exists = taken.has(ep.number);
               /** Satırın yazma durumu — ilerleme çubuğuna prop olarak geçer. */
-              const row = rowProgress[ep.number];
+              // localStorage'dan kalan "done" durumları DB doğrulamasının yerine
+              // geçemez. Yalnızca aktif koşudaki ilerleme burada gösterilir;
+              // panel yeniden açıldığında gerçek kaynak haritası kullanılır.
+              const row = liveRun ? rowProgress[ep.number] : undefined;
               // (Burada eskiden `rename` bayrağı hesaplanıyordu; hem satır rozeti
               //  hem "Adları İngilizce'ye çevir" özelliği kaldırıldı — artık gerek yok.)
               return (
@@ -3871,7 +3885,7 @@ export function AnizipSyncPanel({
                           <RowProgress row={row} />
                         )}
                       </span>
-                    ) : loadedByNumber.has(ep.number) ? (
+                    ) : !coverageLoading && !coverageError && loadedByNumber.has(ep.number) ? (
                       /*
                          KALICI "YÜKLENDİ" — SİLİNENE KADAR KALIR.
                          (kullanıcı, 28.09.2026: "yüzde yüze gelip 'yüklendi' yazdı
@@ -3894,7 +3908,10 @@ export function AnizipSyncPanel({
                         <Check size={11} strokeWidth={3.5} className="text-emerald-600" />
                         <span className="text-[10px] font-bold text-emerald-600">yüklendi</span>
                       </>
-                    ) : taken.has(ep.number) && (loadedByNumber.get(ep.number)?.size ?? 0) === 0 ? (
+                    ) : !coverageLoading &&
+                      !coverageError &&
+                      taken.has(ep.number) &&
+                      (loadedByNumber.get(ep.number)?.size ?? 0) === 0 ? (
                       /*
                         BÖLÜM VAR AMA HİÇ KAYNAĞI YOK → açıkça söylenir.
                         (Kullanıcı bildirimi, 29.09.2026: bu hâl eskiden `null` idi,
@@ -3916,18 +3933,32 @@ export function AnizipSyncPanel({
                     */}
                     {taken.has(ep.number)
                       ? pickedItems.map((item) => {
-                          const has = loadedByNumber.get(ep.number)?.has(item.id) ?? false;
+                          const has =
+                            !coverageLoading &&
+                            !coverageError &&
+                            (loadedByNumber.get(ep.number)?.has(item.id) ?? false);
+                          const checking = coverageLoading;
                           return (
                             <span
                               key={item.id}
-                              title={`${item.short}: ${has ? "yüklü" : "yok"}`}
+                              title={`${item.short}: ${
+                                checking
+                                  ? "kontrol ediliyor"
+                                  : coverageError
+                                    ? "durum okunamadı"
+                                    : has
+                                      ? "yüklü"
+                                      : "yok"
+                              }`}
                               className={`rounded-full border px-1.5 py-0.5 text-[9px] font-bold ${
-                                has
-                                  ? "border-emerald-600/50 text-emerald-500"
-                                  : "border-amber-500/50 text-amber-400"
+                                checking || coverageError
+                                  ? "border-muted-foreground/30 text-muted-foreground"
+                                  : has
+                                    ? "border-emerald-600/50 text-emerald-500"
+                                    : "border-amber-500/50 text-amber-400"
                               }`}
                             >
-                              {item.short} {has ? "✓" : "✗"}
+                              {item.short} {checking ? "…" : coverageError ? "?" : has ? "✓" : "✗"}
                             </span>
                           );
                         })

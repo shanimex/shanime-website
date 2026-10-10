@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Check, ChevronDown, Loader2 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -49,6 +49,12 @@ export type ControlSelectOption = {
 export function ControlSelect({
   /** Tetikleyicide solda, soluk yazılan ön etiket (ör. "Kaynak"). */
   label,
+  /** Varsayılan seçenekte tetikleyicide gösterilecek kısa etiket (ör. "Tür"). */
+  triggerLabel,
+  /** İkon düğmesi gereken menüler için tetikleyicinin görseli. */
+  triggerIcon,
+  /** Yalnızca `triggerIcon` çiz; kart üzeri kütüphane düğmesi gibi. */
+  iconOnly = false,
   options,
   onSelect,
   ariaLabel,
@@ -59,6 +65,9 @@ export function ControlSelect({
   disabled = false,
 }: {
   label?: string | undefined;
+  triggerLabel?: string | undefined;
+  triggerIcon?: ReactNode;
+  iconOnly?: boolean;
   options: ReadonlyArray<ControlSelectOption>;
   onSelect: (key: string) => void;
   ariaLabel: string;
@@ -71,7 +80,7 @@ export function ControlSelect({
    *           kumanda çubuğu bunu kullanır (kullanıcı: "butonların stroke'ları
    *           olmasın").
    */
-  variant?: "pill" | "bare";
+  variant?: "pill" | "bare" | "catalog" | "library";
   disabled?: boolean;
 }) {
   const [open, setOpen] = useState(false);
@@ -94,6 +103,8 @@ export function ControlSelect({
   const lastToggleRef = useRef(0);
 
   const current = options.find((option) => option.active) ?? options[0];
+  const triggerText =
+    triggerLabel && current?.key === options[0]?.key ? triggerLabel : (current?.label ?? "");
 
   // GÖRÜNÜM ALANINA SIĞDIRMA: panel açıldığında ölç, taşıyorsa içeri kaydır.
   useEffect(() => {
@@ -154,7 +165,7 @@ export function ControlSelect({
       // `pill` (sezon seçici) SABİT kalır; `bare` (oynatıcı altı Kaynak/Ses)
       // daralabilir (`min-w-0`) — şerit tek satıra sığmadığında etiket kırpılır,
       // satır İKİNCİ SATIRA düşmez (kullanıcı geri bildirimi, 05.10.2026).
-      className={cn("relative", variant === "pill" ? "shrink-0" : "min-w-0", className)}
+      className={cn("relative", variant === "bare" ? "min-w-0" : "shrink-0", className)}
     >
       <button
         ref={triggerRef}
@@ -186,25 +197,43 @@ export function ControlSelect({
                 "hover:border-accent/60 focus-visible:border-accent focus-visible:outline-none",
                 (open || disabled) && "border-accent/60",
               )
-            : cn(
-                // İNCE + SAYDAM ARKAPLAN. Kullanıcı: "arkaplan olmasın demedim,
-                // daha saydam olsun; stroke da ekleme." → zemin var (`bg-secondary/40`),
-                // kenarlık YOK, yükseklik h-6 (24 px).
-                "h-6 gap-0.5 rounded-md bg-secondary/40 px-1 text-[11.5px] text-muted-foreground",
-                "hover:bg-secondary/70 hover:text-foreground focus-visible:bg-secondary/70 focus-visible:text-foreground focus-visible:outline-none",
-                open && "bg-secondary/70 text-foreground",
-              ),
+            : variant === "catalog"
+              ? cn(
+                  "h-8 gap-1 rounded-sm border-b-2 border-transparent bg-transparent px-1 text-sm font-semibold text-foreground",
+                  "hover:border-foreground/70 focus-visible:border-primary focus-visible:outline-none",
+                  open && "border-primary",
+                )
+              : variant === "library"
+                ? cn(
+                    "h-8 w-8 justify-center gap-0 rounded-full border border-white/25 bg-black/55 p-0 text-white backdrop-blur-sm",
+                    "hover:border-white/60 hover:bg-black/75 focus-visible:border-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70",
+                    open && "border-white/70 bg-black/75",
+                  )
+                : cn(
+                    // İNCE + SAYDAM ARKAPLAN. Kullanıcı: "arkaplan olmasın demedim,
+                    // daha saydam olsun; stroke da ekleme." → zemin var (`bg-secondary/40`),
+                    // kenarlık YOK, yükseklik h-6 (24 px).
+                    "h-6 gap-0.5 rounded-md bg-secondary/40 px-1 text-[11.5px] text-muted-foreground",
+                    "hover:bg-secondary/70 hover:text-foreground focus-visible:bg-secondary/70 focus-visible:text-foreground focus-visible:outline-none",
+                    open && "bg-secondary/70 text-foreground",
+                  ),
           disabled && "cursor-not-allowed opacity-50",
         )}
       >
-        {/* ÖN ETİKET ("Kaynak", "Ses") DAR EKRANDA GİZLENİR: mobilde şerit
+        {iconOnly ? (
+          <span className="grid size-full place-items-center" aria-hidden="true">
+            {triggerIcon}
+          </span>
+        ) : (
+          <>
+            {/* ÖN ETİKET ("Kaynak", "Ses") DAR EKRANDA GİZLENİR: mobilde şerit
             "önceki · sonraki · Kaynak · Ses" derken üç satıra düşüyordu. Etiket
             yalnızca `sm` ve üstünde görünür; seçili değerin kendisi zaten
             anlamlıdır ("Anizm", "TÜRKÇE"). */}
-        {label ? (
-          <span className="hidden font-medium text-muted-foreground sm:inline">{label}</span>
-        ) : null}
-        {/* SEÇİLİ DEĞER BEYAZ — YALNIZCA `sm` VE ÜSTÜ. Kullanıcı
+            {label ? (
+              <span className="hidden font-medium text-muted-foreground sm:inline">{label}</span>
+            ) : null}
+            {/* SEÇİLİ DEĞER BEYAZ — YALNIZCA `sm` VE ÜSTÜ. Kullanıcı
             (05.10.2026): "seçili olan değer beyaz olacak" — ön etiket
             ("Kaynak"/"Ses") soluk kalır, ondan sonra gelen değer tam kontrasta
             çıkar; ikisi tek bir gri cümle gibi okunmaz. `pill` zaten tümüyle
@@ -216,27 +245,31 @@ export function ControlSelect({
             Beyaz değer, ön etiketin (`sm:inline`) göründüğü genişlikten
             İTİBAREN anlamlıdır — ikisi bir arada okunurken kontrast gerekir.
             Etiketin gizlendiği telefonda değer ESKİ hâlinde (soluk) kalır. */}
-        <span className={cn("max-w-[9rem] truncate", variant === "bare" && "sm:text-foreground")}>
-          {current?.label ?? ""}
-        </span>
-        {current?.marker ? (
-          <span
-            className={cn(
-              "shrink-0 text-[10px] font-bold leading-none",
-              current.markerClassName ?? "text-primary",
-            )}
-          >
-            {current.marker}
-          </span>
-        ) : null}
-        <ChevronDown
-          size={13}
-          aria-hidden="true"
-          className={cn(
-            "shrink-0 text-muted-foreground transition-transform duration-200 ease-out",
-            open && "rotate-180",
-          )}
-        />
+            <span
+              className={cn("max-w-[9rem] truncate", variant === "bare" && "sm:text-foreground")}
+            >
+              {triggerText}
+            </span>
+            {current?.marker ? (
+              <span
+                className={cn(
+                  "shrink-0 text-[10px] font-bold leading-none",
+                  current.markerClassName ?? "text-primary",
+                )}
+              >
+                {current.marker}
+              </span>
+            ) : null}
+            <ChevronDown
+              size={13}
+              aria-hidden="true"
+              className={cn(
+                "shrink-0 text-muted-foreground transition-transform duration-200 ease-out",
+                open && "rotate-180",
+              )}
+            />
+          </>
+        )}
       </button>
 
       <div

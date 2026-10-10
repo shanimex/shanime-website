@@ -83,7 +83,7 @@ function AdminPage() {
     // TR KAYNAK KAPSAMASI — rozetin payı. Önceden derleme zamanındaki
     // `anizm-hashes.json` dosyasından ön ek sayılıyordu; yanlıştı (bkz.
     // `lib/anizm.ts` notu). Artık CANLI `episode_sources` verisinden gelir ve
-    // ek istek sayısı SABİTTİR (seri sayısından bağımsız 2 istek).
+    // bölüm başına N+1 değildir; kaynaklar küçük toplu sorgularla okunur.
     // Tablo/migration henüz kurulmadıysa panel ÇÖKMEZ: kapsama boş kalır (0).
     try {
       const coverage = await fetchTurkishCoverage(showsData.map((show) => show.id));

@@ -116,14 +116,6 @@ export function ContinueRow({
           aria-hidden
           className="pointer-events-none absolute inset-x-0 bottom-0 h-[68%] bg-gradient-to-t from-black/95 via-black/50 to-transparent"
         />
-        {!isMovie ? (
-          <span className="absolute bottom-1 left-1/2 -translate-x-1/2 whitespace-nowrap font-ui text-[10px] font-medium tracking-wide text-white drop-shadow-[0_1px_3px_rgba(0,0,0,0.95)] sm:text-xs">
-            {t("series.seasonEpisodeOverlay", {
-              season: String(season),
-              number: String(episode),
-            })}
-          </span>
-        ) : null}
         {/* ZAMAN DAMGASI — görselin sağ altı (referans ölçüsü: 11 px, yarı saydam
             siyah zemin). `tabular-nums` rakam genişliğini sabitler ki sayaç
             oynarken metin zıplamasın. */}

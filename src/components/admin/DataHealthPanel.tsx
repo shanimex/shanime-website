@@ -16,7 +16,6 @@ import { hasEpisodeCover } from "@/lib/content";
 import {
   findBrokenUrls,
   findMissingSeasons,
-  findMissingTurkishSources,
   findMissingMetadata,
   findInvalidSources,
   type BrokenEpisodeUrl,
@@ -29,6 +28,7 @@ import {
 /** Bozuk adres düzeltilirken yazılan değer (sağlayıcı direktifi). */
 const FIX_URL = "@megaplay";
 const MAX_VISIBLE_ISSUES = 100;
+type SourceCoverageItem = { label: string; count: number; expected: number };
 
 /**
  * "Veri sağlığı" — bozuk içerik kayıtlarını bulur ve **tek tıkla düzeltir**.
@@ -65,7 +65,6 @@ export function DataHealthPanel({
   const [error, setError] = useState<string | null>(null);
   const [brokenUrls, setBrokenUrls] = useState<BrokenEpisodeUrl[]>([]);
   const [missingSeasons, setMissingSeasons] = useState<MissingSeasonRow[]>([]);
-  const [missingTurkishSources, setMissingTurkishSources] = useState<MissingEpisodeSourceRow[]>([]);
   const [missingMetadata, setMissingMetadata] = useState<MetadataHealthRow[]>([]);
   /**
    * Dizi kimliği → MAL kimliği. "AniList'ten doldur" bu eşleme olmadan
@@ -74,8 +73,7 @@ export function DataHealthPanel({
   const [malIdByShow, setMalIdByShow] = useState<Record<string, number>>({});
   const [invalidSources, setInvalidSources] = useState<InvalidSourceRow[]>([]);
   const [missingEpisodeCovers, setMissingEpisodeCovers] = useState<MissingEpisodeSourceRow[]>([]);
-  const [sourceCoverage, setSourceCoverage] = useState<Array<{ label: string; count: number }>>([]);
-  const [episodesCount, setEpisodesCount] = useState(0);
+  const [sourceCoverage, setSourceCoverage] = useState<SourceCoverageItem[]>([]);
   const [repairStatus, setRepairStatus] = useState("");
   const [repairFailures, setRepairFailures] = useState<string[]>([]);
   async function runSourceRepair() {
@@ -122,7 +120,11 @@ export function DataHealthPanel({
       if (episodes.error) throw episodes.error;
       if (sources.error) throw sources.error;
 
-      const showRows = (shows.data ?? []) as { id: string; slug: string }[];
+      const showRows = (shows.data ?? []) as {
+        id: string;
+        slug: string;
+        kind: string | null;
+      }[];
       const seasonRows = (seasons.data ?? []) as {
         show_id: string;
         number: number;
@@ -146,21 +148,38 @@ export function DataHealthPanel({
       const normalEpisodeIds = new Set(
         episodeRows.filter((episode) => episode.number > 0).map((episode) => episode.id),
       );
-      setEpisodesCount(normalEpisodeIds.size);
+      const showKindById = new Map(
+        showRows.map((show) => [show.id, String(show.kind ?? "series").toLowerCase()]),
+      );
+      const nonMovieEpisodeIds = new Set(
+        episodeRows
+          .filter((episode) => episode.number > 0 && showKindById.get(episode.show_id) !== "movie")
+          .map((episode) => episode.id),
+      );
       const coverageGroups = [
-        { label: "Anizm", ids: new Set(["anizm", "puffy", "puffytr", "anizmplayer"]) },
-        { label: "TauVideo", ids: new Set(["animecix", "tauvideo"]) },
-        { label: "MegaPlay", ids: new Set(["megaplay"]) },
+        {
+          label: "Anizm",
+          ids: new Set(["anizm", "puffy", "puffytr", "anizmplayer"]),
+          expected: nonMovieEpisodeIds,
+        },
+        {
+          label: "TauVideo",
+          ids: new Set(["animecix", "tauvideo"]),
+          expected: nonMovieEpisodeIds,
+        },
+        { label: "MegaPlay", ids: new Set(["megaplay"]), expected: normalEpisodeIds },
       ];
       setSourceCoverage(
-        coverageGroups.map(({ label, ids }) => ({
+        coverageGroups.map(({ label, ids, expected }) => ({
           label,
+          expected: expected.size,
           count: new Set(
             sourceRows
               .filter(
                 (row) =>
                   ids.has(row.provider.trim().toLowerCase()) &&
-                  normalEpisodeIds.has(row.episode_id),
+                  normalEpisodeIds.has(row.episode_id) &&
+                  expected.has(row.episode_id),
               )
               .map((row) => row.episode_id),
           ).size,
@@ -169,7 +188,6 @@ export function DataHealthPanel({
 
       setBrokenUrls(findBrokenUrls(showRows, episodeRows));
       setMissingSeasons(findMissingSeasons(showRows, seasonRows, episodeRows));
-      setMissingTurkishSources(findMissingTurkishSources(showRows, episodeRows, sourceRows));
       const richShows = (shows.data ?? []) as Array<{
         id: string;
         slug: string;
@@ -395,10 +413,14 @@ export function DataHealthPanel({
     }
   }
 
+  const sourceGapCount = sourceCoverage.reduce(
+    (sum, item) => sum + Math.max(0, item.expected - item.count),
+    0,
+  );
   const total =
     brokenUrls.length +
     missingSeasons.length +
-    missingTurkishSources.length +
+    sourceGapCount +
     missingMetadata.length +
     invalidSources.length +
     missingEpisodeCovers.length;
@@ -409,7 +431,7 @@ export function DataHealthPanel({
       count: brokenUrls.length + missingSeasons.length + invalidSources.length,
       tone: "text-red-400",
     },
-    { label: "Eksik", count: missingTurkishSources.length, tone: "text-amber-400" },
+    { label: "Eksik kaynak", count: sourceGapCount, tone: "text-amber-400" },
     {
       label: "Bilgi",
       count: missingMetadata.length + missingEpisodeCovers.length,
@@ -468,7 +490,7 @@ export function DataHealthPanel({
             Hepsini düzelt
           </Button>
         )}
-        {sourceCoverage.some((item) => item.count < episodesCount) ? (
+        {sourceCoverage.some((item) => item.count < item.expected) ? (
           <Button
             size="sm"
             variant="outline"
@@ -503,9 +525,9 @@ export function DataHealthPanel({
           {sourceCoverage.map((item) => (
             <span
               key={item.label}
-              className={`rounded-full border px-2 py-1 ${item.count === episodesCount ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-300" : "border-amber-500/40 bg-amber-500/10 text-amber-300"}`}
+              className={`rounded-full border px-2 py-1 ${item.count === item.expected ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-300" : "border-amber-500/40 bg-amber-500/10 text-amber-300"}`}
             >
-              {item.label} {item.count}/{episodesCount}
+              {item.label} {item.count}/{item.expected}
             </span>
           ))}
         </div>
