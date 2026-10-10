@@ -98,7 +98,7 @@ function vimeoEmbedUrl(id: string): string {
 
 /**
  * Kayıtlı değeri çözümler. Tanınan bir video sitesi linki değilse DOSYA kabul edilir
- * (ör. R2 mp4 adresi ya da `/static/anime-data/<slug>/anime-header.mp4`).
+ * (ör. R2 mp4 adresi).
  */
 export function heroVideoSource(value: unknown): HeroVideoSource {
   const raw = typeof value === "string" ? value.trim() : "";

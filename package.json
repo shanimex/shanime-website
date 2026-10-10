@@ -13,7 +13,6 @@
     "covers:r2": "node scripts/migrate-episode-covers-r2.mjs",
     "covers:all": "node scripts/sync-covers-all.mjs",
     "prebuild": "node scripts/sync-covers-all.mjs",
-    "logos:manifest": "node scripts/generate-anime-logo-manifest.mjs",
     "format": "prettier --write ."
   },
   "dependencies": {

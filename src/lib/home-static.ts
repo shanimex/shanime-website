@@ -6,26 +6,15 @@
 import type { ShowWithImage } from "@/lib/content";
 
 /**
- * Statik dosya düzeni (public/static/anime-data/<slug>/):
- *   anime-cover.jpg   → grid kartı kapağı (veritabanındaki image_path ile aynı)
- *   anime-header.jpg  → vitrin arka planı (geniş, dikey kapak hero'da kırpılır)
- *   anime-header.mp4  → vitrin arka plan videosu (varsa)
- * Klasör adı her zaman seri slug'ıdır.
+ * Veritabanı erişilemezse kullanılan son fallback kapakları R2'den gelir.
+ * Böylece üretim kodu, silinmiş yerel medya yollarına geri dönmez.
  */
-const STATIC_DIR = "/static/anime-data";
-
-/** Vitrin arka planı: dikey kapaklar hero'da kötü kırpılıyor, geniş header'lar kullanılır. */
+/** Vitrin arka planı: admin banner'ı yoksa doğrulanmış R2 kapağı kullanılır. */
 export function heroBackdrop(slug: string | null | undefined, fallback: string): string {
   // Most static fallback entries only ship a poster. Returning a missing
   // header URL leaves the hero as a blank black block when Supabase is
   // unavailable, so use the known-good poster until a real banner exists.
   return fallback;
-}
-
-/** Vitrin arka plan videoları: eski sitede hero'da video oynatıyordu.
- *  Sadece aktif slaytın videosu indirilir/oynatılır; dosya yoksa jpg kalır. */
-export function heroVideo(slug: string | null | undefined): string | undefined {
-  return slug ? `${STATIC_DIR}/${slug}/anime-header.mp4` : undefined;
 }
 
 // Veritabanı boşsa veya yüklenemediyse gösterilen yedek içerik.
@@ -36,7 +25,7 @@ const fallbackHero = {
   slug: "jujutsu-kaisen",
   title: "Jujutsu Kaisen",
   subtitle: "Lanetler, büyücüler ve büyük bir hesaplaşma",
-  image: `${STATIC_DIR}/jujutsu-kaisen/anime-cover.jpg`,
+  image: "https://cdn.shanime.xyz/posters/689a8cea-d9f6-4dfd-bc67-80d45edfa47c.jpg",
   banner_image: undefined,
   is_featured: false,
   episode_count: 0,
@@ -53,7 +42,7 @@ export const fallbackShows = [
     slug: "re-zero",
     title: "Re:Zero",
     subtitle: "Başka bir dünyada sıfırdan başlamak",
-    image: `${STATIC_DIR}/re-zero/anime-cover.jpg`,
+    image: "https://cdn.shanime.xyz/posters/bd3ec138-2ecf-410e-afa5-18789c0ccba4.jpg",
     banner_image: undefined,
     episode_count: 0,
     is_featured: false,
@@ -67,7 +56,7 @@ export const fallbackShows = [
     slug: "mushoku-tensei",
     title: "Mushoku Tensei",
     subtitle: "İkinci bir hayat, sınırsız bir dünya",
-    image: `${STATIC_DIR}/mushoku-tensei/anime-cover.jpg`,
+    image: "https://cdn.shanime.xyz/posters/b4160a0c-11ec-4674-a709-c8e186c095fa.jpg",
     banner_image: undefined,
     episode_count: 0,
     is_featured: false,
@@ -81,7 +70,7 @@ export const fallbackShows = [
     slug: "erased",
     title: "Erased",
     subtitle: "Geçmişe uzanan karanlık bir gizem",
-    image: `${STATIC_DIR}/erased/anime-cover.jpg`,
+    image: "https://cdn.shanime.xyz/posters/9fe405f1-654a-425e-bf9b-08fb09950ef6.jpg",
     banner_image: undefined,
     episode_count: 0,
     is_featured: false,

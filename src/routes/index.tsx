@@ -39,7 +39,6 @@ import {
   cardSlug,
   fallbackShows,
   heroBackdrop,
-  heroVideo,
   type ContinueItem,
   type HeroCard,
 } from "@/lib/home-static";
@@ -1124,13 +1123,13 @@ function Index() {
               }
             }
             // Dikey kapak hero'da kırpılıyor: önce geniş header, dosya yoksa kapak.
-            // Öncelik: admin'den yüklenen vitrin banner'ı → statik header → kapak.
+            // Öncelik: admin'den yüklenen vitrin banner'ı → kapak.
             const backdrop = brokenBackdrops[key]
               ? show.image
               : show.banner_image || heroBackdrop(show.slug, show.image);
             const uploaded =
               "banner_video" in show && show.banner_video ? show.banner_video : undefined;
-            const videoUrl = brokenVideos[key] ? undefined : uploaded || heroVideo(show.slug);
+            const videoUrl = brokenVideos[key] ? undefined : uploaded;
             // Dosya mı, gömülü link mi? (YouTube/Vimeo linki `<video src>`e konamaz,
             // `<iframe>` ile gömülür — bkz. `lib/hero-video.ts`.)
             const videoSource = heroVideoSource(videoUrl);
