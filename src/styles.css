@@ -1507,7 +1507,7 @@
   overflow: hidden;
   border: 1px solid rgb(255 255 255 / 0.025);
   border-radius: 1.25rem;
-  background: #101419;
+  background: linear-gradient(160deg, #202020 0%, #17191b 44%, #101419 100%);
   box-shadow: 0 24px 80px rgb(0 0 0 / 0.58);
   color: #f3f4f6;
   padding: 1.55rem 1.6rem 1.45rem;
@@ -1672,8 +1672,17 @@
 }
 
 .auth-modal-form input:focus {
-  border-color: #4b5563;
-  box-shadow: 0 0 0 3px rgb(255 255 255 / 0.04);
+  border-color: transparent;
+  box-shadow: none;
+  background: #25282c;
+}
+
+.auth-modal-form input:hover {
+  background: #25282c;
+}
+
+.auth-modal-form input:focus-visible {
+  outline: none;
 }
 
 .auth-modal-forgot {
@@ -3161,7 +3170,7 @@ details[open] > .watch-drop {
 }
 
 .info-page-link {
-  color: #e9b938;
+  color: var(--primary);
   font-weight: 700;
   text-decoration: underline;
   text-decoration-color: transparent;
@@ -3225,8 +3234,8 @@ details[open] > .watch-drop {
 .info-page-form input:focus,
 .info-page-form select:focus,
 .info-page-form textarea:focus {
-  border-color: #e9b938;
-  box-shadow: 0 0 0 3px rgb(233 185 56 / 0.14);
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgb(224 42 42 / 0.14);
 }
 
 .info-page-submit {
@@ -3243,7 +3252,7 @@ details[open] > .watch-drop {
 }
 
 .info-page-submit:hover {
-  background: #e9b938;
+  background: var(--primary);
 }
 
 .info-page-note {
