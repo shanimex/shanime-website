@@ -1506,8 +1506,8 @@
   max-height: calc(100vh - 2rem);
   overflow: hidden;
   border: 1px solid rgb(255 255 255 / 0.025);
-  border-radius: 1.45rem;
-  background: #161616;
+  border-radius: 1.7rem;
+  background: #0d0d0d;
   box-shadow: 0 24px 80px rgb(0 0 0 / 0.58);
   color: #f3f4f6;
   padding: 1.55rem 1.6rem 1.45rem;
@@ -1579,7 +1579,7 @@
   place-items: center;
   border: 0;
   border-radius: 999px;
-  background: #242424;
+  background: #1c1c1c;
   color: #a8a8a8;
   cursor: pointer;
 }
@@ -1620,7 +1620,7 @@
 
 .auth-modal-tabs button {
   border-radius: 999px;
-  background: #202020;
+  background: #181818;
   color: #858585;
   font-size: 0.78rem;
   font-weight: 800;
@@ -1628,7 +1628,7 @@
 }
 
 .auth-modal-tabs button.is-active {
-  background: #303030;
+  background: #292929;
   color: #f3f4f6;
 }
 
@@ -1660,7 +1660,7 @@
   border: 1px solid transparent;
   border-radius: 0.72rem;
   outline: 0;
-  background: #1d1d1d;
+  background: #161616;
   color: #f3f4f6;
   font: inherit;
   font-size: 0.82rem;
@@ -1674,11 +1674,11 @@
 .auth-modal-form input:focus {
   border-color: transparent;
   box-shadow: none;
-  background: #292929;
+  background: #242424;
 }
 
 .auth-modal-form input:hover {
-  background: #292929;
+  background: #242424;
 }
 
 .auth-modal-form input:focus-visible {
@@ -1703,7 +1703,10 @@
   min-height: 0;
   width: min(100%, 21.75rem);
   max-width: 100%;
-  overflow: visible;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-color: #3a3a3a transparent;
+  scrollbar-width: thin;
   border: 0;
   background: transparent;
   padding: 0;
@@ -1812,7 +1815,7 @@
   gap: 0.38rem;
   min-width: 0;
   border-radius: 999px;
-  background: #202020;
+  background: #181818;
   color: #e6e8ed;
   font-size: 0.75rem;
   font-weight: 700;
@@ -1835,7 +1838,7 @@
 }
 
 .auth-modal-providers button:hover {
-  background: #2b2b2b;
+  background: #262626;
 }
 
 .auth-modal-switch {
@@ -1863,7 +1866,7 @@
     width: min(100%, 22rem);
     max-height: calc(100dvh - 1rem);
     overflow: hidden;
-    border-radius: 1.15rem;
+    border-radius: 1.6rem;
     padding: 1.25rem 1.05rem 1rem;
   }
 
@@ -1875,28 +1878,28 @@
   }
 
   .auth-captcha {
-    width: min(100%, 19rem);
+    width: 100%;
   }
 
   .auth-captcha iframe {
-    width: 100% !important;
-    min-width: 0 !important;
-    max-width: 100%;
+    width: 300px !important;
+    min-width: 300px !important;
+    max-width: none;
   }
 
-  /* Turnstile kendi içinde 300 px'lik bir tuval koruyor. 350 px altındaki
-     telefonlarda Cloudflare markası sağdan kesilmesin diye yalnızca iframe'i
-     küçültüyoruz; form alanlarının ölçüsü değişmiyor. */
+  /* Turnstile kendi içinde 300 px'lik bir tuval koruyor. Dar telefonlarda
+     doğrulama kutusu kesilmek yerine yalnızca kendi içinde yatay kayar. */
+  .auth-captcha > div {
+    min-width: 300px;
+  }
+
   @media (max-width: 350px) {
     .auth-captcha {
       min-height: 3.55rem;
     }
 
     .auth-captcha iframe {
-      width: 300px !important;
-      min-width: 300px !important;
-      transform: scale(0.86);
-      transform-origin: left top;
+      transform: none;
     }
   }
 
