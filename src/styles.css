@@ -1878,9 +1878,7 @@
 
   .auth-modal.is-signup {
     max-height: calc(100dvh - 0.75rem);
-    overflow-y: auto;
-    scrollbar-color: #3a3a3a transparent;
-    scrollbar-width: thin;
+    overflow: hidden;
   }
 
   .auth-captcha {
