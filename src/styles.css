@@ -1878,7 +1878,12 @@
 
   .auth-modal.is-signup {
     max-height: calc(100dvh - 0.75rem);
-    overflow: hidden;
+    overflow-y: auto;
+    scrollbar-width: none;
+  }
+
+  .auth-modal.is-signup::-webkit-scrollbar {
+    display: none;
   }
 
   .auth-captcha {
@@ -1970,8 +1975,17 @@
   }
 
   .auth-modal-providers button {
-    font-size: 0.75rem;
-    padding: 0.52rem 0.2rem;
+    font-size: 0.68rem;
+    padding: 0.46rem 0.12rem;
+  }
+
+  .auth-modal-providers {
+    gap: 0.4rem;
+  }
+
+  .auth-modal-providers .auth-provider-icon {
+    width: 0.8rem;
+    height: 0.8rem;
   }
 
   .auth-modal-switch {
