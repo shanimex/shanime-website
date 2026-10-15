@@ -9,7 +9,7 @@ import {
 import { useLang } from "@/lib/i18n";
 
 export function SiteFooter() {
-  const { t } = useLang();
+  const { lang, t } = useLang();
 
   return (
     <footer className="site-footer">
@@ -39,6 +39,9 @@ export function SiteFooter() {
           </Link>
           <Link to="/terms" className="link-hover">
             {t("footer.terms")}
+          </Link>
+          <Link to="/privacy" className="link-hover">
+            {lang === "tr" ? "Gizlilik" : "Privacy"}
           </Link>
           <Link to="/contact" className="link-hover">
             {t("footer.contact")}

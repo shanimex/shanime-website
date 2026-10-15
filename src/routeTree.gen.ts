@@ -15,6 +15,7 @@ import { Route as AdminRouteImport } from './routes/admin'
 import { Route as AnimesRouteImport } from './routes/animes'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as ContactRouteImport } from './routes/contact'
+import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as ScheduleRouteImport } from './routes/schedule'
 import { Route as SeriesRouteImport } from './routes/series'
 import { Route as TermsRouteImport } from './routes/terms'
@@ -60,6 +61,11 @@ const AuthRoute = AuthRouteImport.update({
 const ContactRoute = ContactRouteImport.update({
   id: '/contact',
   path: '/contact',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PrivacyRoute = PrivacyRouteImport.update({
+  id: '/privacy',
+  path: '/privacy',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ScheduleRoute = ScheduleRouteImport.update({
@@ -151,6 +157,7 @@ export interface FileRoutesByFullPath {
   '/animes': typeof AnimesRoute
   '/auth': typeof AuthRoute
   '/contact': typeof ContactRoute
+  '/privacy': typeof PrivacyRoute
   '/schedule': typeof ScheduleRoute
   '/series': typeof SeriesRoute
   '/terms': typeof TermsRoute
@@ -175,6 +182,7 @@ export interface FileRoutesByTo {
   '/animes': typeof AnimesRoute
   '/auth': typeof AuthRoute
   '/contact': typeof ContactRoute
+  '/privacy': typeof PrivacyRoute
   '/schedule': typeof ScheduleRoute
   '/series': typeof SeriesRoute
   '/terms': typeof TermsRoute
@@ -200,6 +208,7 @@ export interface FileRoutesById {
   '/animes': typeof AnimesRoute
   '/auth': typeof AuthRoute
   '/contact': typeof ContactRoute
+  '/privacy': typeof PrivacyRoute
   '/schedule': typeof ScheduleRoute
   '/series': typeof SeriesRoute
   '/terms': typeof TermsRoute
@@ -226,6 +235,7 @@ export interface FileRouteTypes {
     | '/animes'
     | '/auth'
     | '/contact'
+    | '/privacy'
     | '/schedule'
     | '/series'
     | '/terms'
@@ -250,6 +260,7 @@ export interface FileRouteTypes {
     | '/animes'
     | '/auth'
     | '/contact'
+    | '/privacy'
     | '/schedule'
     | '/series'
     | '/terms'
@@ -274,6 +285,7 @@ export interface FileRouteTypes {
     | '/animes'
     | '/auth'
     | '/contact'
+    | '/privacy'
     | '/schedule'
     | '/series'
     | '/terms'
@@ -299,6 +311,7 @@ export interface RootRouteChildren {
   AnimesRoute: typeof AnimesRoute
   AuthRoute: typeof AuthRoute
   ContactRoute: typeof ContactRoute
+  PrivacyRoute: typeof PrivacyRoute
   ScheduleRoute: typeof ScheduleRoute
   SeriesRoute: typeof SeriesRoute
   TermsRoute: typeof TermsRoute
@@ -359,6 +372,13 @@ declare module '@tanstack/react-router' {
       path: '/contact'
       fullPath: '/contact'
       preLoaderRoute: typeof ContactRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/privacy': {
+      id: '/privacy'
+      path: '/privacy'
+      fullPath: '/privacy'
+      preLoaderRoute: typeof PrivacyRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/schedule': {
@@ -483,6 +503,7 @@ const rootRouteChildren: RootRouteChildren = {
   AnimesRoute: AnimesRoute,
   AuthRoute: AuthRoute,
   ContactRoute: ContactRoute,
+  PrivacyRoute: PrivacyRoute,
   ScheduleRoute: ScheduleRoute,
   SeriesRoute: SeriesRoute,
   TermsRoute: TermsRoute,
