@@ -34,6 +34,7 @@ import { useLang } from "@/lib/i18n";
 import { useQuery } from "@tanstack/react-query";
 import { BRAND_LOGO_HEIGHT, BRAND_LOGO_SRC, BRAND_LOGO_WIDTH } from "@/lib/brand";
 import { PAGE_CONTAINER } from "@/components/home/homeClass";
+import { supabase } from "@/integrations/supabase/client";
 
 /** Şerit, sayfa içeriğiyle AYNI kabı kullanır (ana sayfadaki ölçümün aynısı). */
 // İçerik kabıyla AYNI ölçü (bkz. components/home/homeClass.ts → PAGE_CONTAINER).
@@ -160,7 +161,7 @@ function SearchSuggestionPanel({
 }
 
 export function SiteHeader() {
-  const { t } = useLang();
+  const { lang, t } = useLang();
   const navigate = useNavigate();
 
   const [menuOpen, setMenuOpen] = useState(false);
@@ -168,6 +169,7 @@ export function SiteHeader() {
   const [authClosing, setAuthClosing] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [query, setQuery] = useState("");
+  const [authUserEmail, setAuthUserEmail] = useState<string | null>(null);
   /**
    * Menü KAPANIŞ animasyonu: koşullu çizim anında yok ettiği için kapanışta
    * önce `menuClosing` bayrağı kalkar (150 ms sola-solma), sonra düğüm düşer.
@@ -198,6 +200,24 @@ export function SiteHeader() {
    * açıldı). Böylece yalnızca sayfa gezen ziyaretçide ek okuma doğmaz.
    */
   const [catalogWanted, setCatalogWanted] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    void supabase.auth.getSession().then(({ data }) => {
+      if (active) setAuthUserEmail(data.session?.user.email ?? null);
+    });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setAuthUserEmail(session?.user.email ?? null);
+    });
+
+    return () => {
+      active = false;
+      subscription.unsubscribe();
+    };
+  }, []);
 
   const catalogQuery = useQuery({
     ...catalogQueryOptions(),
@@ -493,11 +513,16 @@ export function SiteHeader() {
                 type="button"
                 className="sh-sign-in"
                 onClick={() => {
+                  if (authUserEmail) {
+                    void supabase.auth.signOut();
+                    return;
+                  }
                   setAuthClosing(false);
                   setAuthOpen(true);
                 }}
+                aria-label={authUserEmail ? t("common.signOut") : t("common.signIn")}
               >
-                {t("common.signIn")}
+                {authUserEmail ? authUserEmail.split("@")[0] : t("common.signIn")}
               </button>
             </div>
           </div>
