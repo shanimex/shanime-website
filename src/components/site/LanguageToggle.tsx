@@ -19,7 +19,7 @@ import { cn } from "@/lib/utils";
  *     böylece iki çip birleşince tek bir hap gibi görünür.
  *   · AKTİF çip: açık gri dolgu (`#a0b1c5`), KOYU lacivert yazı (`#142030`).
  *     Pasif çip: dolgusuz, `#a0b1c5` yazı. Hover: `#233854` dolgu.
- *   · Font: başlık şeridinde `Nunito` (bkz. styles.css `#sh-header`).
+ *   · Font: sitenin ortak `Manrope` ailesi.
  * KURAL YERİ: ölçüler Tailwind sınıfı olarak değil, `styles.css` içindeki `.sh-lang`
  * bloğunda durur — referansın 2 px'lik kenarlığı ile `content-box` yüksekliği
  * birebir korunabilsin diye.

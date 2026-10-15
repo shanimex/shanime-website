@@ -787,7 +787,7 @@ function ShowDetailPage() {
                 artık başlığın ALTINDAKİ künye satırında yıl ile sezon/bölüm
                 arasında yazılıyor — ayrı rozet bilgi tekrarıydı. */}
             {/* Başlık artık VİTRİN başlığıyla AYNI ailede: Manrope (`font-ui`),
-                kalın. Eskiden Archivo Black + altın renkti; vitrindeki anime
+                kalın. Eskiden farklı bir yazı ailesi + altın renkti; vitrindeki anime
                 başlıkları beyaz/düz olduğu için uyumsuz duruyordu. */}
             <div className="flex items-start gap-3">
               <h1 className="page-title font-display text-2xl text-foreground sm:text-4xl md:text-5xl">

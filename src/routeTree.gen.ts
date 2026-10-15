@@ -10,11 +10,14 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AboutRouteImport } from './routes/about'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as AnimesRouteImport } from './routes/animes'
 import { Route as AuthRouteImport } from './routes/auth'
+import { Route as ContactRouteImport } from './routes/contact'
 import { Route as ScheduleRouteImport } from './routes/schedule'
 import { Route as SeriesRouteImport } from './routes/series'
+import { Route as TermsRouteImport } from './routes/terms'
 import { Route as ApiAnilistRouteImport } from './routes/api.anilist'
 import { Route as ApiAnilistCoverRouteImport } from './routes/api.anilist-cover'
 import { Route as ApiAnimecixRouteImport } from './routes/api.animecix'
@@ -22,6 +25,7 @@ import { Route as ApiAnizmRouteImport } from './routes/api.anizm'
 import { Route as ApiDevLogRouteImport } from './routes/api.dev-log'
 import { Route as ApiEmbedRouteImport } from './routes/api.embed'
 import { Route as ApiTranslateRouteImport } from './routes/api.translate'
+import { Route as ApiTurnstileRouteImport } from './routes/api.turnstile'
 import { Route as ApiUploadRouteImport } from './routes/api.upload'
 import { Route as IzleSlugRouteImport } from './routes/izle.$slug'
 import { Route as SeriSlugRouteImport } from './routes/seri.$slug'
@@ -31,6 +35,11 @@ import { Route as AnimeSlugSeasonSeasonEpisodeEpisodeRouteImport } from './route
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AboutRoute = AboutRouteImport.update({
+  id: '/about',
+  path: '/about',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminRoute = AdminRouteImport.update({
@@ -48,6 +57,11 @@ const AuthRoute = AuthRouteImport.update({
   path: '/auth',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ContactRoute = ContactRouteImport.update({
+  id: '/contact',
+  path: '/contact',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ScheduleRoute = ScheduleRouteImport.update({
   id: '/schedule',
   path: '/schedule',
@@ -56,6 +70,11 @@ const ScheduleRoute = ScheduleRouteImport.update({
 const SeriesRoute = SeriesRouteImport.update({
   id: '/series',
   path: '/series',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TermsRoute = TermsRouteImport.update({
+  id: '/terms',
+  path: '/terms',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiAnilistRoute = ApiAnilistRouteImport.update({
@@ -93,6 +112,11 @@ const ApiTranslateRoute = ApiTranslateRouteImport.update({
   path: '/api/translate',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiTurnstileRoute = ApiTurnstileRouteImport.update({
+  id: '/api/turnstile',
+  path: '/api/turnstile',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiUploadRoute = ApiUploadRouteImport.update({
   id: '/api/upload',
   path: '/api/upload',
@@ -122,11 +146,14 @@ const AnimeSlugSeasonSeasonEpisodeEpisodeRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/about': typeof AboutRoute
   '/admin': typeof AdminRoute
   '/animes': typeof AnimesRoute
   '/auth': typeof AuthRoute
+  '/contact': typeof ContactRoute
   '/schedule': typeof ScheduleRoute
   '/series': typeof SeriesRoute
+  '/terms': typeof TermsRoute
   '/api/anilist': typeof ApiAnilistRoute
   '/api/anilist-cover': typeof ApiAnilistCoverRoute
   '/api/animecix': typeof ApiAnimecixRoute
@@ -134,6 +161,7 @@ export interface FileRoutesByFullPath {
   '/api/dev-log': typeof ApiDevLogRoute
   '/api/embed': typeof ApiEmbedRoute
   '/api/translate': typeof ApiTranslateRoute
+  '/api/turnstile': typeof ApiTurnstileRoute
   '/api/upload': typeof ApiUploadRoute
   '/izle/$slug': typeof IzleSlugRoute
   '/seri/$slug': typeof SeriSlugRoute
@@ -142,11 +170,14 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/about': typeof AboutRoute
   '/admin': typeof AdminRoute
   '/animes': typeof AnimesRoute
   '/auth': typeof AuthRoute
+  '/contact': typeof ContactRoute
   '/schedule': typeof ScheduleRoute
   '/series': typeof SeriesRoute
+  '/terms': typeof TermsRoute
   '/api/anilist': typeof ApiAnilistRoute
   '/api/anilist-cover': typeof ApiAnilistCoverRoute
   '/api/animecix': typeof ApiAnimecixRoute
@@ -154,6 +185,7 @@ export interface FileRoutesByTo {
   '/api/dev-log': typeof ApiDevLogRoute
   '/api/embed': typeof ApiEmbedRoute
   '/api/translate': typeof ApiTranslateRoute
+  '/api/turnstile': typeof ApiTurnstileRoute
   '/api/upload': typeof ApiUploadRoute
   '/izle/$slug': typeof IzleSlugRoute
   '/seri/$slug': typeof SeriSlugRoute
@@ -163,11 +195,14 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/about': typeof AboutRoute
   '/admin': typeof AdminRoute
   '/animes': typeof AnimesRoute
   '/auth': typeof AuthRoute
+  '/contact': typeof ContactRoute
   '/schedule': typeof ScheduleRoute
   '/series': typeof SeriesRoute
+  '/terms': typeof TermsRoute
   '/api/anilist': typeof ApiAnilistRoute
   '/api/anilist-cover': typeof ApiAnilistCoverRoute
   '/api/animecix': typeof ApiAnimecixRoute
@@ -175,6 +210,7 @@ export interface FileRoutesById {
   '/api/dev-log': typeof ApiDevLogRoute
   '/api/embed': typeof ApiEmbedRoute
   '/api/translate': typeof ApiTranslateRoute
+  '/api/turnstile': typeof ApiTurnstileRoute
   '/api/upload': typeof ApiUploadRoute
   '/izle/$slug': typeof IzleSlugRoute
   '/seri/$slug': typeof SeriSlugRoute
@@ -185,11 +221,14 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/about'
     | '/admin'
     | '/animes'
     | '/auth'
+    | '/contact'
     | '/schedule'
     | '/series'
+    | '/terms'
     | '/api/anilist'
     | '/api/anilist-cover'
     | '/api/animecix'
@@ -197,6 +236,7 @@ export interface FileRouteTypes {
     | '/api/dev-log'
     | '/api/embed'
     | '/api/translate'
+    | '/api/turnstile'
     | '/api/upload'
     | '/izle/$slug'
     | '/seri/$slug'
@@ -205,11 +245,14 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/about'
     | '/admin'
     | '/animes'
     | '/auth'
+    | '/contact'
     | '/schedule'
     | '/series'
+    | '/terms'
     | '/api/anilist'
     | '/api/anilist-cover'
     | '/api/animecix'
@@ -217,6 +260,7 @@ export interface FileRouteTypes {
     | '/api/dev-log'
     | '/api/embed'
     | '/api/translate'
+    | '/api/turnstile'
     | '/api/upload'
     | '/izle/$slug'
     | '/seri/$slug'
@@ -225,11 +269,14 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/about'
     | '/admin'
     | '/animes'
     | '/auth'
+    | '/contact'
     | '/schedule'
     | '/series'
+    | '/terms'
     | '/api/anilist'
     | '/api/anilist-cover'
     | '/api/animecix'
@@ -237,6 +284,7 @@ export interface FileRouteTypes {
     | '/api/dev-log'
     | '/api/embed'
     | '/api/translate'
+    | '/api/turnstile'
     | '/api/upload'
     | '/izle/$slug'
     | '/seri/$slug'
@@ -246,11 +294,14 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AboutRoute: typeof AboutRoute
   AdminRoute: typeof AdminRoute
   AnimesRoute: typeof AnimesRoute
   AuthRoute: typeof AuthRoute
+  ContactRoute: typeof ContactRoute
   ScheduleRoute: typeof ScheduleRoute
   SeriesRoute: typeof SeriesRoute
+  TermsRoute: typeof TermsRoute
   ApiAnilistRoute: typeof ApiAnilistRoute
   ApiAnilistCoverRoute: typeof ApiAnilistCoverRoute
   ApiAnimecixRoute: typeof ApiAnimecixRoute
@@ -258,6 +309,7 @@ export interface RootRouteChildren {
   ApiDevLogRoute: typeof ApiDevLogRoute
   ApiEmbedRoute: typeof ApiEmbedRoute
   ApiTranslateRoute: typeof ApiTranslateRoute
+  ApiTurnstileRoute: typeof ApiTurnstileRoute
   ApiUploadRoute: typeof ApiUploadRoute
   IzleSlugRoute: typeof IzleSlugRoute
   SeriSlugRoute: typeof SeriSlugRoute
@@ -272,6 +324,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/about': {
+      id: '/about'
+      path: '/about'
+      fullPath: '/about'
+      preLoaderRoute: typeof AboutRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin': {
@@ -295,6 +354,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/contact': {
+      id: '/contact'
+      path: '/contact'
+      fullPath: '/contact'
+      preLoaderRoute: typeof ContactRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/schedule': {
       id: '/schedule'
       path: '/schedule'
@@ -307,6 +373,13 @@ declare module '@tanstack/react-router' {
       path: '/series'
       fullPath: '/series'
       preLoaderRoute: typeof SeriesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/terms': {
+      id: '/terms'
+      path: '/terms'
+      fullPath: '/terms'
+      preLoaderRoute: typeof TermsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/anilist': {
@@ -358,6 +431,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiTranslateRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/turnstile': {
+      id: '/api/turnstile'
+      path: '/api/turnstile'
+      fullPath: '/api/turnstile'
+      preLoaderRoute: typeof ApiTurnstileRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/upload': {
       id: '/api/upload'
       path: '/api/upload'
@@ -398,11 +478,14 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AboutRoute: AboutRoute,
   AdminRoute: AdminRoute,
   AnimesRoute: AnimesRoute,
   AuthRoute: AuthRoute,
+  ContactRoute: ContactRoute,
   ScheduleRoute: ScheduleRoute,
   SeriesRoute: SeriesRoute,
+  TermsRoute: TermsRoute,
   ApiAnilistRoute: ApiAnilistRoute,
   ApiAnilistCoverRoute: ApiAnilistCoverRoute,
   ApiAnimecixRoute: ApiAnimecixRoute,
@@ -410,6 +493,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiDevLogRoute: ApiDevLogRoute,
   ApiEmbedRoute: ApiEmbedRoute,
   ApiTranslateRoute: ApiTranslateRoute,
+  ApiTurnstileRoute: ApiTurnstileRoute,
   ApiUploadRoute: ApiUploadRoute,
   IzleSlugRoute: IzleSlugRoute,
   SeriSlugRoute: SeriSlugRoute,

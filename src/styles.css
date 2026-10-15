@@ -16,13 +16,13 @@
  */
 
 @theme inline {
-  --font-sans: "Manrope", system-ui, sans-serif;
-  --font-display: "Manrope", system-ui, sans-serif;
+  --font-sans: "Manrope";
+  --font-display: "Manrope";
   /* Arayüz/okuma yazı tipi. Önce animecix ile aynı aile (Inter) denendi; kullanıcı
      ağır/"kaba" buldu (30.09.2026) → daha sade olan Manrope'a geçildi. `font-ui`
      sınıfını üretir; bölüm satırlarında kullanılır
      (bkz. routes/anime.$slug.index.tsx). */
-  --font-ui: "Manrope", system-ui, sans-serif;
+  --font-ui: "Manrope";
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -59,7 +59,9 @@
      görüyordu (beyaz kenar/çerçeve hissi). */
   color-scheme: dark;
   --radius: 1rem;
-  --background: oklch(0.075 0.006 270);
+  /* Ana tuval bütün rotalarda aynı kalır: siyah. Koyu gri yüzeyler kart,
+     panel ve footer katmanlarında ayrıca kullanılır. */
+  --background: #000000;
   --foreground: oklch(0.97 0.004 90);
   --card: oklch(0.115 0.007 270);
   --card-foreground: oklch(0.97 0.004 90);
@@ -227,6 +229,7 @@
      arayüz öğelerini koyu çizsin (açık klasik çubuk gelmesin). */
   html {
     color-scheme: dark;
+    scrollbar-gutter: stable;
   }
 
   /* Kaydırma çubuğu — referansla birebir (02.10.2026, kodlarından alındı):
@@ -1200,14 +1203,6 @@
       display: none;
     }
 
-    /* Mobil alt sekme çubuğu (~60 px + güvenli alan) içeriğin üstüne binmesin:
-     footer/telif satırı çubuğun altında kalmasın diye alt boşluk. */
-    @media (max-width: 767px) {
-      body {
-        padding-bottom: calc(64px + env(safe-area-inset-bottom));
-      }
-    }
-
     /* Noktalar her ekranda YOK (yukarıdaki kural); dokunma alanı
        kuralları artık gereksizdir. */
 
@@ -1430,7 +1425,7 @@
   z-index: 50;
   width: 100%;
   /* Simsiyah (kullanıcı isteği): tema zemininden de koyu, tek renk, oynamaz. */
-  background: #000;
+  background: #090909;
   color: #a0b1c5;
   /* Site genelindeki Manrope ile aynı yazı ailesini kullanır. */
   font-family: var(--font-sans);
@@ -1488,6 +1483,491 @@
   display: none;
 }
 
+/* ── Public sign-in modal ──────────────────────────────────────────────────
+   Header girişi kullanıcı akışını admin rotasından ayırır. Görsel kabuk Gotaku
+   referansındaki koyu panel, bulanık arka plan ve kısa form ritmini korur. */
+.auth-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  padding: 1.25rem;
+  background: rgb(4 7 11 / 0.72);
+  backdrop-filter: blur(10px);
+  overscroll-behavior: contain;
+  animation: auth-backdrop-in 220ms ease-out both;
+}
+
+.auth-modal {
+  position: relative;
+  box-sizing: border-box;
+  width: min(100%, 25rem);
+  max-height: calc(100vh - 2rem);
+  overflow: hidden;
+  border: 1px solid rgb(255 255 255 / 0.025);
+  border-radius: 1.25rem;
+  background: #101419;
+  box-shadow: 0 24px 80px rgb(0 0 0 / 0.58);
+  color: #f3f4f6;
+  padding: 1.55rem 1.6rem 1.45rem;
+  animation: auth-modal-in 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.auth-modal *,
+.auth-modal *::before,
+.auth-modal *::after {
+  box-sizing: border-box;
+}
+
+.auth-modal-backdrop.is-closing {
+  animation: auth-backdrop-out 180ms ease-in both;
+  pointer-events: none;
+}
+
+.auth-modal-backdrop.is-closing .auth-modal {
+  animation: auth-modal-out 180ms ease-in both;
+}
+
+@keyframes auth-backdrop-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes auth-backdrop-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes auth-modal-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.65rem) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes auth-modal-out {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(0.45rem) scale(0.98);
+  }
+}
+
+.auth-modal-close {
+  position: absolute;
+  top: 0.85rem;
+  right: 0.85rem;
+  display: grid;
+  width: 1.65rem;
+  height: 1.65rem;
+  place-items: center;
+  border: 0;
+  border-radius: 999px;
+  background: #20252c;
+  color: #a8afb9;
+  cursor: pointer;
+}
+
+.auth-modal-close:hover {
+  background: #2b3139;
+  color: #fff;
+}
+
+.auth-modal h2 {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 800;
+  letter-spacing: -0.025em;
+  line-height: 1.2;
+}
+
+.auth-modal-subtitle {
+  margin: 0.7rem 0 1.15rem;
+  color: #858a94;
+  font-size: 0.82rem;
+  line-height: 1.4;
+}
+
+.auth-modal-tabs {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1.15rem;
+}
+
+.auth-modal-tabs button,
+.auth-modal-providers button,
+.auth-modal-switch button {
+  border: 0;
+  font: inherit;
+  cursor: pointer;
+}
+
+.auth-modal-tabs button {
+  border-radius: 999px;
+  background: #20242a;
+  color: #858a94;
+  font-size: 0.78rem;
+  font-weight: 800;
+  padding: 0.52rem 1rem;
+}
+
+.auth-modal-tabs button.is-active {
+  background: #30353d;
+  color: #f3f4f6;
+}
+
+.auth-modal-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  min-width: 0;
+  gap: 0.85rem;
+}
+
+.auth-modal-form label {
+  display: grid;
+  min-width: 0;
+  gap: 0.5rem;
+}
+
+.auth-modal-form label > span {
+  color: #777d88;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+}
+
+.auth-modal-form input {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  height: 2.65rem;
+  border: 1px solid transparent;
+  border-radius: 0.72rem;
+  outline: 0;
+  background: #1c2026;
+  color: #f3f4f6;
+  font: inherit;
+  font-size: 0.82rem;
+  padding: 0 0.85rem;
+}
+
+.auth-modal-form input::placeholder {
+  color: #656b76;
+}
+
+.auth-modal-form input:focus {
+  border-color: #4b5563;
+  box-shadow: 0 0 0 3px rgb(255 255 255 / 0.04);
+}
+
+.auth-modal-forgot {
+  justify-self: start;
+  margin-top: -0.15rem;
+  border: 0;
+  background: transparent;
+  color: var(--primary);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 800;
+  padding: 0;
+}
+
+.auth-captcha {
+  display: block;
+  min-height: 0;
+  width: min(100%, 21.75rem);
+  max-width: 100%;
+  overflow: visible;
+  border: 0;
+  background: transparent;
+  padding: 0;
+}
+
+.auth-captcha > div {
+  width: 100%;
+  max-width: 100%;
+  min-height: 4rem;
+}
+
+.auth-captcha iframe {
+  display: block;
+  width: 100% !important;
+  max-width: 100%;
+  border: 0;
+}
+
+.auth-captcha-dots {
+  color: #35d47c;
+  font-size: 1.05rem;
+  letter-spacing: 0.07rem;
+}
+
+.auth-captcha strong {
+  display: grid;
+  margin-left: auto;
+  color: #f5a623;
+  font-size: 0.66rem;
+  letter-spacing: 0.1em;
+}
+
+.auth-captcha small {
+  color: #d0d0d0;
+  font-size: 0.48rem;
+  letter-spacing: 0;
+  text-align: right;
+}
+
+.auth-modal-message {
+  margin: 0;
+  border-radius: 0.65rem;
+  background: rgb(255 255 255 / 0.06);
+  color: #d7dbe2;
+  font-size: 0.72rem;
+  line-height: 1.4;
+  padding: 0.6rem 0.7rem;
+}
+
+.auth-modal-message.is-error {
+  background: rgb(239 68 68 / 0.12);
+  color: #fca5a5;
+}
+
+.auth-modal-submit {
+  min-height: 2.85rem;
+  border: 0;
+  border-radius: 999px;
+  background: #f4f3fb;
+  color: #15171b;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.auth-modal-submit:hover {
+  background: #fff;
+}
+
+.auth-modal-submit:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+.auth-modal-divider {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  margin: 1rem 0 0.75rem;
+  color: #696f7b;
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  white-space: nowrap;
+}
+
+.auth-modal-divider::before,
+.auth-modal-divider::after {
+  height: 1px;
+  flex: 1;
+  background: #2c3138;
+  content: "";
+}
+
+.auth-modal-providers {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.55rem;
+}
+
+.auth-modal-providers button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.38rem;
+  min-width: 0;
+  border-radius: 999px;
+  background: #20242a;
+  color: #e6e8ed;
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 0.62rem 0.35rem;
+}
+
+.auth-provider-icon {
+  display: block;
+  width: 0.95rem;
+  height: 0.95rem;
+  flex: 0 0 auto;
+}
+
+.auth-provider-icon-stroke {
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
+}
+
+.auth-modal-providers button:hover {
+  background: #2a3038;
+}
+
+.auth-modal-switch {
+  margin: 1.1rem 0 0;
+  color: #717783;
+  font-size: 0.72rem;
+  text-align: center;
+}
+
+.auth-modal-switch button {
+  background: transparent;
+  color: var(--primary);
+  font-size: inherit;
+  font-weight: 800;
+  padding: 0;
+}
+
+@media (max-width: 767px) {
+  .auth-modal-backdrop {
+    place-items: center;
+    padding: 0.75rem;
+  }
+
+  .auth-modal {
+    width: min(100%, 25rem);
+    max-height: calc(100dvh - 1rem);
+    overflow: hidden;
+    border-radius: 1.15rem;
+    padding: 1rem 1.35rem 0.9rem;
+  }
+
+  .auth-modal.is-signup {
+    max-height: calc(100dvh - 0.75rem);
+  }
+
+  .auth-captcha {
+    width: min(100%, 19rem);
+  }
+
+  .auth-captcha iframe {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100%;
+  }
+
+  /* Turnstile kendi içinde 300 px'lik bir tuval koruyor. 350 px altındaki
+     telefonlarda Cloudflare markası sağdan kesilmesin diye yalnızca iframe'i
+     küçültüyoruz; form alanlarının ölçüsü değişmiyor. */
+  @media (max-width: 350px) {
+    .auth-captcha {
+      min-height: 3.55rem;
+    }
+
+    .auth-captcha iframe {
+      width: 300px !important;
+      min-width: 300px !important;
+      transform: scale(0.86);
+      transform-origin: left top;
+    }
+  }
+
+  .auth-modal h2 {
+    font-size: 1.02rem;
+  }
+
+  .auth-modal-subtitle {
+    margin: 0.38rem 0 0.65rem;
+    font-size: 0.7rem;
+  }
+
+  .auth-modal-tabs {
+    gap: 0.4rem;
+    margin-bottom: 0.65rem;
+  }
+
+  .auth-modal-tabs button {
+    font-size: 0.69rem;
+    padding: 0.43rem 0.85rem;
+  }
+
+  .auth-modal-form {
+    gap: 0.45rem;
+  }
+
+  .auth-modal-form label {
+    gap: 0.22rem;
+  }
+
+  .auth-modal-form label > span {
+    font-size: 0.58rem;
+  }
+
+  .auth-modal-form input {
+    height: 2.05rem;
+    font-size: 0.68rem;
+  }
+
+  .auth-modal.is-signup .auth-modal-form {
+    gap: 0.34rem;
+  }
+
+  .auth-modal.is-signup .auth-modal-form label {
+    gap: 0.16rem;
+  }
+
+  .auth-modal.is-signup .auth-modal-form input {
+    height: 1.98rem;
+  }
+
+  .auth-modal.is-signup .auth-captcha > div {
+    min-height: 3.7rem;
+  }
+
+  .auth-modal-divider {
+    margin: 0.42rem 0 0.36rem;
+  }
+
+  .auth-modal-providers button {
+    font-size: 0.68rem;
+    padding: 0.44rem 0.2rem;
+  }
+
+  .auth-modal-switch {
+    margin-top: 0.42rem;
+    font-size: 0.66rem;
+  }
+
+  .auth-modal.is-signup .auth-modal-switch {
+    margin-top: 0.32rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .auth-modal-backdrop,
+  .auth-modal,
+  .auth-modal-backdrop.is-closing,
+  .auth-modal-backdrop.is-closing .auth-modal {
+    animation-duration: 1ms;
+  }
+}
+
 @media (min-width: 768px) {
   .sh-toggler,
   .sh-search-toggler,
@@ -1496,7 +1976,7 @@
   }
 
   .sh-start {
-    gap: 1.75rem;
+    gap: 2.25rem;
   }
 
   .sh-logo {
@@ -1506,7 +1986,7 @@
   .sh-desktop-nav {
     display: flex;
     align-items: center;
-    gap: 0.25rem;
+    gap: 1.625rem;
     height: 100%;
     align-self: center;
   }
@@ -1523,7 +2003,7 @@
     background: transparent;
     color: var(--muted-foreground);
     font: inherit;
-    font-size: 0.8rem;
+    font-size: 0.875rem;
     font-weight: 700;
     white-space: nowrap;
     cursor: pointer;
@@ -1536,15 +2016,17 @@
      sabit kalır. Padding yerine gerçek width kullanılır; böylece aktif hapın
      arka planı açıldığında komşu öğeler kesinlikle sağa-sola oynamaz. */
   .sh-desktop-nav a {
-    flex: 0 0 5.75rem;
-    width: 5.75rem;
-    min-width: 5.75rem;
+    flex: 0 0 auto;
+    width: auto;
+    min-width: 0;
+    padding: 8px 15px;
+    font-weight: 600;
   }
 
   .sh-desktop-nav button {
-    flex: 0 0 2.5rem;
-    width: 2.5rem;
-    min-width: 2.5rem;
+    flex: 0 0 37px;
+    width: 37px;
+    min-width: 37px;
   }
 
   .sh-desktop-nav a:hover,
@@ -1563,6 +2045,7 @@
   .sh-end .sh-search {
     order: 0;
     width: min(23rem, 31vw);
+    margin-right: clamp(2rem, 7.5vw, 9rem);
     align-self: center;
   }
 
@@ -1716,16 +2199,18 @@
      markası olduğu için yükseklik doğrudan okunurluğu belirler; referans
      sitelerde (reanime) marka şeridin ~%75-80'ini doldurur.
      2.4 → 3rem (48 px): şeritte 6 px nefes payı kalır. */
-  height: 3rem;
+  height: 50px;
+  width: 11.5rem;
   /* 2rem → 1.75rem (01.10.2026): hamburger küçülünce logo ile arasındaki 32 px'lik
      boşluk ölçüsüz kalıyordu; iki öğe artık yakın durur. */
-  margin-right: 1.75rem;
+  margin-right: 0;
 }
 
 .sh-logo img {
   height: 100%;
-  width: auto;
+  width: 100%;
   object-fit: contain;
+  object-position: left center;
 }
 
 /* ── Arama: referans `#search` ────────────────────────────────────────────── */
@@ -1763,10 +2248,10 @@
      orantısız kalıyordu; kutu ve yazı birlikte bir kademe küçültüldü.
      01.10.2026: "çok kalın" geri bildirimiyle bir kademe daha inceltildi
      (34 → 31 px) ve yazı 1rem → 0.9375rem indi. */
-  height: 31px;
-  line-height: 31px;
+  height: 38px;
+  line-height: 38px;
   padding: 0 10px;
-  border-radius: 0.5rem;
+  border-radius: 999px;
   /* Siyah zemine uyarlandı: referansın laciverti `#101925`. */
   background-color: #17181d;
   /* KULLANICI GERİ BİLDİRİMİ (01.10.2026): "arama barının içindeki yazı ve
@@ -2029,6 +2514,12 @@
   box-shadow: 0 18px 40px -14px rgb(0 0 0 / 0.85);
 }
 
+/* Dil seçimi mobilde header'dan menüye taşınır; masaüstünde header grubunda
+   kalır. Menü açılmadan bu satır DOM'a çizilmez. */
+.sh-menu-language {
+  display: none;
+}
+
 .sh-menu a,
 .sh-menu button {
   display: flex;
@@ -2211,7 +2702,8 @@
   /* Logo mobilde şerit boyunda (kullanıcı isteği): şerit/menü büyümez,
      yalnızca logo 48 px'e dayanır. */
   .sh-logo {
-    height: 3rem;
+    height: 42px;
+    width: 12.5rem;
     margin-right: 0;
   }
 
@@ -2251,6 +2743,39 @@
     flex: 0 0 auto;
     gap: 1rem;
     margin-left: 0;
+    display: none;
+  }
+
+  .sh-header-language {
+    display: none;
+  }
+
+  .sh-menu-language {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    min-height: 38px;
+    padding: 8px 10px;
+    color: var(--muted-foreground);
+  }
+
+  .sh-menu-language-label {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  .sh-menu-language .sh-lang {
+    flex-shrink: 0;
+  }
+
+  .sh-menu-language .sh-lang > button {
+    display: inline-block;
+    width: auto;
+    min-width: 24px;
+    min-height: 21px;
+    padding: 0 2px;
   }
 
   .sh-end {
@@ -2265,6 +2790,23 @@
 
   .sh-search {
     display: none;
+  }
+
+  /* Gotaku mobile düzeni: arama ve dil grubunun yanında Sign in da görünür. */
+  .sh-sign-in {
+    display: inline-flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    min-height: 34px;
+    min-width: 4.5rem;
+    padding: 0 0.85rem;
+    border-radius: 999px;
+    background: var(--foreground);
+    color: var(--background);
+    font-size: 0.8rem;
+    font-weight: 800;
+    white-space: nowrap;
   }
 
   /* SARKAN HAP (kullanıcı seçimi): şeridin altına yapışık, tam genişlikte
@@ -2433,6 +2975,40 @@
   }
 }
 
+@media (max-width: 767.98px) {
+  .site-footer-shell {
+    min-height: 0;
+    display: grid;
+    grid-template-columns: 132px minmax(0, 1fr);
+    align-items: stretch;
+    column-gap: 1rem;
+    row-gap: 1.35rem;
+    padding: 1.5rem 1rem 1.75rem;
+  }
+
+  .site-footer-brand {
+    align-self: stretch;
+    align-items: center;
+    justify-content: center;
+    border-right: 1px solid #2b3138;
+    padding-right: 1rem;
+  }
+
+  .site-footer-copy {
+    align-self: center;
+    max-width: none;
+    margin: 0;
+    text-align: left;
+  }
+
+  .site-footer-nav {
+    grid-column: 1 / -1;
+    justify-content: flex-start;
+    gap: 2rem;
+    margin-left: 0;
+  }
+}
+
 /* ── Çok dar ekran: "Rastgele" düğmesi menüye taşınır ─────────────────────── */
 /*
  * RESPONSIVE DÜZELTME (01.10.2026) — tarayıcıda ÖLÇÜLEN gerçek sayılar:
@@ -2456,16 +3032,16 @@
   }
 }
 
-/* ── Çok dar ekran (≤359 px): logo bir kademe daha iner ───────────────────── */
+/* ── Çok dar ekran (≤359 px): logo header içinde yine büyük kalır ──────────── */
 /*
- * RESPONSIVE (01.10.2026): 320 px'lik ekranda (eski iPhone SE) hamburger +
- * logo + dil + arama düğmesi yan yana sığmıyor. Kullanıcı logonun BÜYÜK
- * olmasını istediği için bu kural YALNIZCA bu en dar aralıkta devreye girer;
- * 360 px ve üzerinde logo 2.25rem kalır.
+ * Dil seçimi artık menüde olduğu için 320 px'lik ekranda da üst satırda alan
+ * var. Logo küçültülmez; yalnızca header yüksekliğini aşmaması için bir kademe
+ * daha kontrollü tutulur.
  */
 @media (max-width: 359.98px) {
   .sh-logo {
-    height: 1.75rem;
+    height: 36px;
+    width: 11.5rem;
   }
 }
 
@@ -2520,6 +3096,200 @@ details[open] > .watch-drop {
 /* Sayfa geçiş animasyonu: adres değişince içerik yumuşakça açılır. */
 .route-enter {
   animation: route-gotaku-in 680ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* ── Bilgi sayfaları: Gotaku referansının dar, tek panel düzeni ────────────
+   About / Terms / Contact sayfaları vitrin ızgarası gibi genişlemez. Başlık ve
+   içerik 608 px'lik aynı eksende kalır; içerik tek panel içinde akar. Kartları
+   bölüm bölüm çoğaltmak yerine referansın tipografik ritmi korunur. */
+.info-page {
+  min-height: calc(100vh - 60px);
+  background: var(--background);
+  color: #f3f4f6;
+}
+
+.info-page-main {
+  width: min(calc(100% - 32px), 608px);
+  margin: 0 auto;
+  padding: 38px 0 44px;
+}
+
+.info-page-title {
+  margin: 0 0 26px;
+  color: #f4f4f5;
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.035em;
+  line-height: 1.2;
+}
+
+.info-page-card {
+  border-radius: 20px;
+  background: #151515;
+  padding: 26px;
+}
+
+.info-page-card p,
+.info-page-section-body {
+  color: #b4b4bc;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.75;
+}
+
+.info-page-paragraphs,
+.info-page-section-body {
+  display: grid;
+  gap: 14px;
+}
+
+.info-page-section {
+  margin-top: 28px;
+}
+
+.info-page-section h2 {
+  margin: 0 0 14px;
+  color: #f1f2f4;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  line-height: 1.25;
+}
+
+.info-page-section-body > p {
+  margin: 0;
+}
+
+.info-page-link {
+  color: #e9b938;
+  font-weight: 700;
+  text-decoration: underline;
+  text-decoration-color: transparent;
+  text-underline-offset: 3px;
+}
+
+.info-page-link:hover {
+  text-decoration-color: currentColor;
+}
+
+.info-page-form {
+  display: grid;
+  gap: 14px;
+  margin-top: 24px;
+}
+
+.info-page-form label {
+  display: grid;
+  gap: 8px;
+}
+
+.info-page-form label > span {
+  color: #858b97;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.info-page-form input,
+.info-page-form select,
+.info-page-form textarea {
+  width: 100%;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  background: #1d1d1d;
+  color: #f1f2f4;
+  font: inherit;
+  font-size: 14px;
+  line-height: 1.5;
+  outline: none;
+  padding: 11px 14px;
+}
+
+.info-page-form input::placeholder,
+.info-page-form textarea::placeholder {
+  color: #777e8b;
+}
+
+.info-page-form select {
+  appearance: none;
+  cursor: pointer;
+}
+
+.info-page-form textarea {
+  min-height: 140px;
+  resize: vertical;
+}
+
+.info-page-form input:focus,
+.info-page-form select:focus,
+.info-page-form textarea:focus {
+  border-color: #e9b938;
+  box-shadow: 0 0 0 3px rgb(233 185 56 / 0.14);
+}
+
+.info-page-submit {
+  justify-self: start;
+  border: 0;
+  border-radius: 999px;
+  background: #f1f2f4;
+  color: #15191f;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 1;
+  padding: 13px 20px;
+}
+
+.info-page-submit:hover {
+  background: #e9b938;
+}
+
+.info-page-note {
+  color: #7f8794;
+  font-size: 12px !important;
+  line-height: 1.6 !important;
+}
+
+.site-footer {
+  background: #151515;
+  color: #b4b4bc;
+}
+
+@media (max-width: 767.98px) {
+  .info-page {
+    min-height: calc(100vh - 54px);
+  }
+
+  .info-page-main {
+    width: calc(100% - 32px);
+    padding: 32px 0 40px;
+  }
+
+  .info-page-title {
+    margin-bottom: 22px;
+    font-size: 24px;
+  }
+
+  .info-page-card {
+    border-radius: 18px;
+    padding: 20px;
+  }
+
+  .info-page-card p,
+  .info-page-section-body {
+    font-size: 14px;
+    line-height: 1.7;
+  }
+
+  .info-page-section {
+    margin-top: 26px;
+  }
+
+  .info-page-section h2 {
+    font-size: 19px;
+  }
 }
 
 /* Home'da vitrin medyası sabit kalır. Dış wrapper'a translateY vermek, tam

@@ -13,7 +13,6 @@ import { useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { LanguageToggle } from "@/components/site/LanguageToggle";
-import { MobileTabBar } from "@/components/site/MobileTabBar";
 import { SiteHeader } from "@/components/site/SiteHeader";
 // `translate`: modül seviyesindeki `t`nin takma adı — kök `<head>` meta'sı
 // bileşen dışında (rota `head()` içinde) üretildiği için orada hook çağrılamaz.
@@ -48,7 +47,7 @@ function NotFoundComponent() {
             height={BRAND_LOGO_HEIGHT}
             loading="eager"
             decoding="async"
-            className="h-14 w-auto object-contain"
+            className="h-16 w-24 object-contain object-center"
           />
           <span className="sr-only">shanime</span>
         </Link>
@@ -187,11 +186,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         },
         {
           rel: "stylesheet",
-          // `Nunito` — yalnızca başlık şeridi (header) referans sitedeki (anikoto)
-          // yazı tipini birebir kullanır (bkz. styles.css `#sh-header`).
-          // `Signika Negative` KALDIRILDI (05.10.2026): tüm gövde/açıklama metni
-          // artık vitrinle aynı `Manrope` (kullanıcı isteği) → font isteği gereksiz.
-          href: "https://fonts.googleapis.com/css2?family=Archivo+Black&family=Manrope:wght@400;500;600;700;800&family=Nunito:wght@400;500;600;700&display=swap",
+          // Sitedeki tüm metinler ortak Manrope ailesini kullanır.
+          href: "https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap",
         },
         // SEKME İKONLARI — sürüm `brand.ts`ten gelir (tek yerden yönetilir).
         // İkonlar 01.10.2026'da yeniden üretildi: görünür içerik tuvalin
@@ -288,8 +284,6 @@ function RootComponent() {
       <div className="site-page-frame">
         {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
         <Outlet />
-        {/* Mobil alt sekme çubuğu: yönetim/giriş ekranlarında çizilmez. */}
-        {showHeader && <MobileTabBar pathname={pathname} />}
       </div>
     </QueryClientProvider>
   );

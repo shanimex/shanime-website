@@ -36,11 +36,15 @@
  *   8 → 9 : yeni site logosu (beyaz "Sha" + kırmızı "nime", 2170×725).
  *   9 → 10: aynı dosyanın boş siyah kenarları kırpıldı (1290×373) — içerik
  *           tuvalin yarısından azdı, şeritte minik görünüyordu.
+ *   10 → 12: header ve footer için yatay SHANIME kelime markası ayrıldı.
+ *   12 → 13: kullanıcı tarafından seçilen Anime / Manga alt başlıklı kırmızı
+ *             SHANIME logosu uygulandı.
  */
-const LOGO_VERSION = "10";
+const LOGO_VERSION = "13";
 
 /** Dosya adları — `public/` altındaki gerçek dosyalar. */
-const SITE_LOGO_FILE = "/shanime-logo.png";
+const SITE_LOGO_FILE = "/shanime-logo-header.png";
+const FOOTER_LOGO_FILE = "/shanime-logo-footer.png";
 const ADMIN_LOGO_FILE = "/shanime-logo-admin.png";
 
 /**
@@ -56,13 +60,16 @@ export const BRAND_ICON_VERSION = LOGO_VERSION;
 /**
  * SİTE logosu — `/admin` DIŞINDA her yerde.
  *
- * Dosya 1290×373 px'dir (boş kenarları kırpılmış yeni marka).
+ * Header logosu yatay kelime markasıdır; CSS ölçüsü gerçek oranını korur.
  */
 export const BRAND_LOGO_SRC = `${SITE_LOGO_FILE}?v=${LOGO_VERSION}`;
+export const BRAND_FOOTER_LOGO_SRC = `${FOOTER_LOGO_FILE}?v=${LOGO_VERSION}`;
 
 /** SİTE logosunun gerçek piksel ölçüsü — `width`/`height` ile verilir (yerleşim kaymasın). */
-export const BRAND_LOGO_WIDTH = 1290;
-export const BRAND_LOGO_HEIGHT = 373;
+export const BRAND_LOGO_WIDTH = 2172;
+export const BRAND_LOGO_HEIGHT = 724;
+export const BRAND_FOOTER_LOGO_WIDTH = 2172;
+export const BRAND_FOOTER_LOGO_HEIGHT = 724;
 
 /**
  * PANEL logosu — YALNIZCA `/admin`.
@@ -73,5 +80,5 @@ export const BRAND_LOGO_HEIGHT = 373;
 export const ADMIN_LOGO_SRC = `${ADMIN_LOGO_FILE}?v=${LOGO_VERSION}`;
 
 /** PANEL logosunun gerçek piksel ölçüsü. */
-export const ADMIN_LOGO_WIDTH = 1060;
-export const ADMIN_LOGO_HEIGHT = 856;
+export const ADMIN_LOGO_WIDTH = 1037;
+export const ADMIN_LOGO_HEIGHT = 876;

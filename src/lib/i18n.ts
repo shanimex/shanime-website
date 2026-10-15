@@ -121,10 +121,102 @@ const tr = {
   // ---- Footer ----
   "footer.tagline":
     "Yeni serini bul: sezonun öne çıkan anime başlıkları, bölümleri ve detayları tek yerde.",
+  "footer.updatedCopy":
+    "İçerik her saat güncellenir. Minimum reklam, stabil sunucular ve hızlı yayın.",
+  "footer.siteInfo": "Site bilgileri",
+  "footer.about": "Hakkında",
+  "footer.terms": "Kullanım şartları",
+  "footer.contact": "İletişim",
   "footer.explore": "Keşfet",
   "footer.allSeries": "Tüm diziler",
   "footer.genres": "Türler",
   "footer.copyright": "© 2026 shanime · Anime keşfi için tasarlanmıştır.",
+
+  // ---- Bilgi sayfaları ----
+  "info.aboutTitle": "Hakkında",
+  "info.aboutLead": "Uğradığın için teşekkürler.",
+  "info.aboutIntroOne":
+    "Anime keşfetmenin ve izlemek istediğin seriye ulaşmanın gereksiz derecede karmaşık olmaması gerektiğine inanıyoruz.",
+  "info.aboutIntroTwo":
+    "shanime’nin amacı; serileri, bölüm detaylarını ve yayın takvimini sade bir yerde buluşturmak. Aradığın içeriği daha rahat bulabilmen için siteyi mümkün olduğunca anlaşılır tutuyoruz.",
+  "info.aboutIntroThree":
+    "Burada gördüğün bir hata veya geliştirme fikrin varsa, bunu İletişim sayfası üzerinden bizimle paylaşabilirsin.",
+  "info.aboutContactBefore": "Burada gördüğün bir hata veya geliştirme fikrin varsa, bunu ",
+  "info.aboutContactAfter": " sayfası üzerinden bizimle paylaşabilirsin.",
+  "info.aboutDiscoverHeading": "Reklamlar hakkında",
+  "info.aboutDiscoverText":
+    "Siteyi çalışır durumda tutmak; sunucu, alan adı ve içerik hizmetleri nedeniyle düzenli bir maliyet oluşturuyor. Reklamlar bu masrafların karşılanmasına yardımcı oluyor ve mümkün olduğunca sınırlı tutuluyor.",
+  "info.aboutAdsText":
+    "Bir reklam engelleyici kullanmaman, shanime’nin çevrim içi kalmasına destek olmanın en kolay yollarından biri. Deneyimi bozacak yoğun reklam alanlarından kaçınmaya çalışıyoruz.",
+  "info.aboutBrowseItem": "Serileri ve filmleri keşfet",
+  "info.aboutEpisodeItem": "Sezon ve bölüm detaylarını incele",
+  "info.aboutScheduleItem": "Yayın takvimini takip et",
+  "info.aboutSourcesNote":
+    "Başlık bilgileri, görseller ve izleme kaynakları üçüncü taraf servislerden sağlanabilir. İçerik üzerindeki haklar ilgili sahiplerine aittir.",
+  "info.aboutShareHeading": "Paylaşmayı unutma",
+  "info.aboutShareText":
+    "shanime işine yarıyorsa bir arkadaşına göndermen veya anime konuşulan bir toplulukta paylaşman bize yardımcı olur. Küçük siteler çoğunlukla kullanıcılarının tavsiyeleriyle büyür.",
+  "info.aboutThanks": "İyi seyirler.",
+  "info.termsTitle": "Kullanım şartları",
+  "info.termsLead":
+    "Bu şartlar; siteyi ziyaret ederken, hesap oluştururken ve yorum özelliklerini kullanırken uyman gereken temel kuralları açıklar. shanime’yi kullanmadan önce lütfen dikkatlice oku.",
+  "info.termsAcceptanceHeading": "1. Şartların kabulü",
+  "info.termsAcceptanceText":
+    "Siteye erişerek veya siteyi kullanarak bu şartlara uymayı kabul etmiş olursun. Şartların herhangi bir bölümünü kabul etmiyorsan siteyi kullanmayı bırakmalısın.",
+  "info.termsAccountsHeading": "2. Hesaplar",
+  "info.termsAccountsText":
+    "İçeriklerin çoğunu hesap açmadan inceleyebilirsin. Hesap gerektiren özellikleri kullanıyorsan giriş bilgilerini gizli tutmak ve hesabındaki hareketlerden sorumlu olmak sana aittir.",
+  "info.termsConductHeading": "3. Davranış ve yorumlar",
+  "info.termsConductText":
+    "Yorum yazarken yasa dışı, tehditkâr, taciz edici, nefret içeren veya başkalarının kişisel bilgilerini izinsiz paylaşan içerikler gönderme. Spam, dolandırıcılık ve kötü amaçlı bağlantılar da yasaktır.",
+  "info.termsModerationHeading": "4. Moderasyon",
+  "info.termsModerationText":
+    "Yönetim ekibi kurallara aykırı yorumları gizleyebilir veya kaldırabilir; hesabın yorum yetkisini geçici ya da kalıcı olarak sınırlayabilir. Bu işlemler önceden bildirim yapılmadan uygulanabilir.",
+  "info.termsPrivacyHeading": "5. Gizlilik ve veriler",
+  "info.termsPrivacyText":
+    "Hesap oluşturduğunda hesap bilgilerin, tercihlerin ve site içindeki ilerlemen hizmeti sunmak için işlenebilir. Hassas kişisel bilgileri yorumlarda veya iletişim formlarında paylaşmamalısın.",
+  "info.termsStorageHeading": "6. Çerezler ve tarayıcı depolaması",
+  "info.termsStorageText":
+    "Dil tercihi, izleme ilerlemesi ve bazı arayüz tercihleri cihazındaki tarayıcı depolamasında tutulabilir. Tarayıcı ayarlarından bu verileri silebilirsin; bu işlem bazı tercihlerinin ve oturumunun sıfırlanmasına neden olabilir.",
+  "info.termsThirdPartyHeading": "7. Üçüncü taraf hizmetleri",
+  "info.termsThirdPartyText":
+    "Site; kimlik doğrulama, yazı tipi, reklam, görsel veya oynatma özellikleri için üçüncü taraf hizmetlere bağlantı verebilir. Bu hizmetlerin kendi gizlilik kuralları ve kullanım şartları olabilir.",
+  "info.termsCopyrightHeading": "8. Fikri mülkiyet",
+  "info.termsCopyrightText":
+    "Başlık, görsel, açıklama ve bağlantıların hakları ilgili hak sahiplerine aittir. Hak sahibi veya yetkili temsilciysen ve bir içeriğe dair itirazın varsa, sayfa adresi ve iletişim bilgilerinle birlikte bize bildirim gönder.",
+  "info.termsLiabilityHeading": "9. Sorumluluğun sınırlandırılması",
+  "info.termsLiabilityText":
+    "Siteyi güvenilir tutmaya çalışıyoruz; ancak hizmetin her zaman kesintisiz, hatasız veya erişilebilir olacağını garanti etmiyoruz. Özellikler değiştirilebilir, askıya alınabilir veya kaldırılabilir.",
+  "info.termsChangesHeading": "10. Şartlardaki değişiklikler",
+  "info.termsChangesText":
+    "Bu şartlar zaman zaman güncellenebilir. Değişiklikler bu sayfada yayınlandığı anda geçerli olur. Güncellemeden sonra siteyi kullanmaya devam etmen yeni şartları kabul ettiğin anlamına gelir.",
+  "info.termsContactHeading": "11. İletişim",
+  "info.termsContactText":
+    "Bu şartlar veya verilerin hakkında bir sorunun varsa İletişim sayfası üzerinden bize mesaj gönderebilirsin.",
+  "info.termsContactAction": "İletişim sayfasına git",
+  "info.contactTitle": "İletişim",
+  "info.contactLead":
+    "Geri bildirim, hata bildirimi ve iş birliği veya reklam talepleri için aşağıdaki formu kullanabilirsin. Sana geri dönebilmemiz için bir e-posta adresi bırak.",
+  "info.contactFormHeading": "Bize mesaj gönder",
+  "info.contactEmailLabel": "E-posta",
+  "info.contactEmailPlaceholder": "ornek@eposta.com",
+  "info.contactTypeLabel": "Konu türü",
+  "info.contactTypeFeedback": "Geri bildirim / Hata bildirimi",
+  "info.contactTypeCopyright": "Telif hakkı bildirimi",
+  "info.contactTypePartnership": "İş birliği / Reklam",
+  "info.contactSubjectLabel": "Konu",
+  "info.contactSubjectPlaceholder": "Mesaj ne hakkında?",
+  "info.contactMessageLabel": "Mesaj",
+  "info.contactMessagePlaceholder": "Bize biraz daha anlat",
+  "info.contactOpenAction": "Mesaj gönder",
+  "info.contactTechnicalHeading": "Teknik destek",
+  "info.contactTechnicalText":
+    "Bir sayfa açılmıyor veya oynatma sırasında sorun yaşıyorsan sayfa adresini, cihazını ve sorunu kısaca belirt.",
+  "info.contactCopyrightHeading": "Telif hakkı bildirimi",
+  "info.contactCopyrightText":
+    "Bildiriminde hak sahibi veya yetkili temsilci olduğunu, ilgili eseri ve sitedeki tam adresi açıkça belirt.",
+  "info.contactExternalNote":
+    "Gönderim formu ayrı bir shanime iletişim merkezinde açılır ve yeni bir sekmede görüntülenir.",
 
   // ---- Katalog ----
   "catalog.all": "Tümü",
@@ -551,10 +643,103 @@ const en: Record<I18nKey, string> = {
   // ---- Footer ----
   "footer.tagline":
     "Find your next series: this season's standout anime titles, episodes and details in one place.",
+  "footer.updatedCopy":
+    "Content updated every hour. Minimal ads, stable servers, and fast streaming.",
+  "footer.siteInfo": "Site information",
+  "footer.about": "About",
+  "footer.terms": "Terms",
+  "footer.contact": "Contact",
   "footer.explore": "Explore",
   "footer.allSeries": "All series",
   "footer.genres": "Genres",
   "footer.copyright": "© 2026 shanime · Built for anime discovery.",
+
+  // ---- Information pages ----
+  "info.aboutTitle": "About",
+  "info.aboutLead": "Hi, and thanks for stopping by.",
+  "info.aboutIntroOne":
+    "Finding anime and getting to the series you want to watch should not be unnecessarily complicated.",
+  "info.aboutIntroTwo":
+    "shanime brings series, episode details and release schedules together in one simple place. We try to keep the site clear so you can spend less time fighting the page and more time watching.",
+  "info.aboutIntroThree":
+    "If you spot something that is wrong or have an idea that would make the site better, you can share it through the Contact page.",
+  "info.aboutContactBefore":
+    "If you spot something that is wrong or have an idea that would make the site better, you can share it through the ",
+  "info.aboutContactAfter": " page.",
+  "info.aboutDiscoverHeading": "A word about ads",
+  "info.aboutDiscoverText":
+    "Keeping a site like this online comes with regular hosting, domain and content-service costs. Ads help cover those costs, and we keep them as limited as we can.",
+  "info.aboutAdsText":
+    "If you can leave them enabled, it is one of the simplest ways to support shanime. We try to avoid ad placements that make the site difficult to use.",
+  "info.aboutBrowseItem": "Discover series and movies",
+  "info.aboutEpisodeItem": "Explore season and episode details",
+  "info.aboutScheduleItem": "Follow the release schedule",
+  "info.aboutSourcesNote":
+    "Title data, artwork and viewing sources may be provided by third-party services. Rights in that material remain with the respective owners.",
+  "info.aboutShareHeading": "Please pass it on",
+  "info.aboutShareText":
+    "If shanime makes watching a little easier, sending it to a friend or sharing it in an anime community helps us more than you might think. Small sites usually grow through word of mouth.",
+  "info.aboutThanks": "Thanks for watching.",
+  "info.termsTitle": "Terms of Use",
+  "info.termsLead":
+    "These terms explain the basic rules for visiting shanime, creating an account and using comment features. Please read them carefully before using the site.",
+  "info.termsAcceptanceHeading": "1. Acceptance of these terms",
+  "info.termsAcceptanceText":
+    "By accessing or using the site, you agree to follow these terms. If you do not agree with any part of them, please stop using the site.",
+  "info.termsAccountsHeading": "2. Accounts",
+  "info.termsAccountsText":
+    "You can browse most of the site without an account. If you use features that require an account, you are responsible for keeping your sign-in details private and for activity under your account.",
+  "info.termsConductHeading": "3. Conduct and comments",
+  "info.termsConductText":
+    "When commenting, do not post unlawful, threatening, abusive or hateful material, expose someone else’s personal information, send spam or share fraudulent and malicious links.",
+  "info.termsModerationHeading": "4. Moderation",
+  "info.termsModerationText":
+    "The administration may hide or remove comments that break these rules and may restrict commenting for an account temporarily or permanently. Moderation can happen without prior notice.",
+  "info.termsPrivacyHeading": "5. Privacy and data",
+  "info.termsPrivacyText":
+    "When you create an account, account details, preferences and viewing progress may be processed to provide the service. Do not publish sensitive personal information in comments or contact forms.",
+  "info.termsStorageHeading": "6. Cookies and browser storage",
+  "info.termsStorageText":
+    "Language choice, watch progress and some interface preferences may be stored in your browser. You can clear this data through your browser settings, although doing so may reset preferences or sign you out.",
+  "info.termsThirdPartyHeading": "7. Third-party services",
+  "info.termsThirdPartyText":
+    "The site may use or link to third-party services for authentication, fonts, advertising, artwork or playback. Those services can have their own privacy policies and terms.",
+  "info.termsCopyrightHeading": "8. Intellectual property",
+  "info.termsCopyrightText":
+    "Rights in titles, artwork, descriptions and links belong to their respective owners. If you are a rights holder or authorised representative with a concern, send us the page URL and your contact details.",
+  "info.termsLiabilityHeading": "9. Limitation of liability",
+  "info.termsLiabilityText":
+    "We try to keep the site reliable, but we cannot guarantee that it will always be available, uninterrupted or free of errors. Features may be changed, suspended or discontinued.",
+  "info.termsChangesHeading": "10. Changes to these terms",
+  "info.termsChangesText":
+    "We may update these terms from time to time. Changes take effect when posted on this page. Continuing to use the site after an update means you accept the revised terms.",
+  "info.termsContactHeading": "11. Contact",
+  "info.termsContactText":
+    "If you have questions about these terms or your data, send us a message through the Contact page.",
+  "info.termsContactAction": "Go to Contact",
+  "info.contactTitle": "Contact",
+  "info.contactLead":
+    "Feedback, bug reports, and partnership or advertising enquiries are welcome. Leave an email address so we can get back to you.",
+  "info.contactFormHeading": "Send us a message",
+  "info.contactEmailLabel": "Email",
+  "info.contactEmailPlaceholder": "you@example.com",
+  "info.contactTypeLabel": "Type",
+  "info.contactTypeFeedback": "Feedback / Bug report",
+  "info.contactTypeCopyright": "Copyright notice",
+  "info.contactTypePartnership": "Partnership / Advertising",
+  "info.contactSubjectLabel": "Subject",
+  "info.contactSubjectPlaceholder": "What is it about?",
+  "info.contactMessageLabel": "Message",
+  "info.contactMessagePlaceholder": "Tell us more",
+  "info.contactOpenAction": "Send message",
+  "info.contactTechnicalHeading": "Technical support",
+  "info.contactTechnicalText":
+    "If a page does not open or playback is not working, include the page URL, your device and a short description of the problem.",
+  "info.contactCopyrightHeading": "Copyright notice",
+  "info.contactCopyrightText":
+    "State that you are the rights holder or authorised representative, identify the work and provide the exact page address.",
+  "info.contactExternalNote":
+    "The sending form opens on a separate shanime contact centre in a new tab.",
 
   // ---- Catalogue ----
   "catalog.all": "All",
@@ -935,25 +1120,22 @@ function writeStoredLang(lang: Lang): void {
  * `DEFAULT_LANG`e (bugün `en`) düşer. (Eskiden varsayılan `tr`ydi.)
  */
 function detectBrowserLang(): Lang | null {
-  /**
-   * TARAYICI DİLİ ARTIK KULLANILMIYOR — site HERKESE İngilizce açılır.
-   *
-   * KULLANICI İSTEĞİ (01.10.2026): "ana dil İngilizce olacak, varsayılan".
-   *
-   * ESKİDEN NEYDİ: sıra "KAYITLI TERCİH → TARAYICI DİLİ → varsayılan" idi; bu
-   * yüzden Türkçe tarayıcı (`navigator.language = "tr…"`) otomatik TÜRKÇE
-   * açılıyordu. İngilizce isteyen ziyaretçi her seferinde TR→EN çevirmek zorunda
-   * kalıyordu ve site varsayılan olarak Türkçe görünüyordu.
-   *
-   * YENİ SIRA: KAYITLI TERCİH → (yoksa) İNGİLİZCE.
-   * Yani:
-   *   · İlk kez gelen HERKES İngilizce görür (tarayıcısı ne olursa olsun),
-   *   · TR düğmesine basan TÜRKÇE'ye geçer ve tercih cihazda saklanır,
-   *   · kayıtlı tercih her zaman kazanır — kimsenin seçimi ezilmez.
-   *
-   * Fonksiyon silinmedi: `hydrateLang()` hâlâ onu çağırıyor ve `null` dönmesi
-   * "varsayılana düş" anlamına geliyor; böylece çağrı zinciri değişmiyor.
-   */
+  if (typeof navigator === "undefined") return null;
+
+  /* `navigator.languages` kullanıcının tercih sırasını taşır; tek dilli ya da
+     eski tarayıcılarda `navigator.language` yedeğiyle yine çalışır. Desteklenen
+     ilk dili seçeriz: örneğin `de-DE, tr-TR` listesi Türkçe'yi bulur. */
+  const candidates = [
+    ...(Array.isArray(navigator.languages) ? navigator.languages : []),
+    navigator.language,
+  ];
+
+  for (const candidate of candidates) {
+    const normalized = candidate.trim().toLowerCase();
+    if (normalized === "tr" || normalized.startsWith("tr-")) return "tr";
+    if (normalized === "en" || normalized.startsWith("en-")) return "en";
+  }
+
   return null;
 }
 

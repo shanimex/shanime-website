@@ -89,7 +89,7 @@ function AuthPage() {
             height={BRAND_LOGO_HEIGHT}
             loading="eager"
             decoding="async"
-            className="h-14 w-auto object-contain"
+            className="h-14 w-40 object-cover object-center"
           />
           <span className="sr-only">shanime</span>
         </a>

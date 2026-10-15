@@ -28,6 +28,7 @@ import { CalendarDays, ChevronRight, House, Library, Search, Shuffle } from "luc
 import { FaSolid } from "@/components/site/FaSolid";
 import { QuickAccessGlyph, RandomGlyph } from "@/components/site/HeaderGlyphs";
 import { LanguageToggle } from "@/components/site/LanguageToggle";
+import { SignInModal } from "@/components/site/SignInModal";
 import { catalogQueryOptions } from "@/lib/content";
 import { useLang } from "@/lib/i18n";
 import { useQuery } from "@tanstack/react-query";
@@ -163,6 +164,8 @@ export function SiteHeader() {
   const navigate = useNavigate();
 
   const [menuOpen, setMenuOpen] = useState(false);
+  const [authOpen, setAuthOpen] = useState(false);
+  const [authClosing, setAuthClosing] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [query, setQuery] = useState("");
   /**
@@ -320,13 +323,25 @@ export function SiteHeader() {
   }, [closeMenu]);
 
   /* Arama açıkken sayfa kaymaz (kullanıcı isteği): kutuda kaydırınca arka
-     plan da sürükleniyordu. Kapanınca eski haline döner. */
+     plan da sürükleniyordu. Masaüstünde arama bir dropdown olduğu için body'yi
+     kilitlemiyoruz; bu kilit scrollbar'ı kaldırıp bütün sayfayı oynatıyordu.
+     Sadece mobilde başlığın altına açılan tam ekran panel kilitlenir. */
   useEffect(() => {
     if (!searchOpen) return;
+    if (window.matchMedia("(min-width: 1200px)").matches) return;
     const previous = document.body.style.overflow;
+    const previousPaddingRight = document.body.style.paddingRight;
+    // Arama paneli açılırken body kilitlenince Chromium dikey scrollbar'ı
+    // kaldırır ve tüm sayfa birkaç piksel sağa-sola oynar. Gutter sabit olsa
+    // bile eski tarayıcılar için gerçek scrollbar genişliğini telafi ediyoruz.
+    const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
     document.body.style.overflow = "hidden";
+    if (scrollbarWidth > 0) {
+      document.body.style.paddingRight = `${scrollbarWidth}px`;
+    }
     return () => {
       document.body.style.overflow = previous;
+      document.body.style.paddingRight = previousPaddingRight;
     };
   }, [searchOpen]);
 
@@ -337,187 +352,215 @@ export function SiteHeader() {
   };
 
   return (
-    <header id="sh-header">
-      {/* Şerit, sayfanın geri kalanıyla AYNI kabı kullanır; `relative` ŞART:
+    <>
+      <header id="sh-header">
+        {/* Şerit, sayfanın geri kalanıyla AYNI kabı kullanır; `relative` ŞART:
           hamburger menü paneli bu kabın sol kenarına hizalanır. */}
-      <div className={`${PAGE_CONTAINER} relative`}>
-        <div className="sh-wrapper">
-          <div className="sh-start">
-            {/* Hamburger her boyutta görünür: bağlantılar açılır paneldedir. */}
-            <button
-              ref={togglerRef}
-              type="button"
-              className="sh-toggler"
-              aria-expanded={menuOpen && !menuClosing}
-              aria-controls="sh-menu"
-              aria-label={menuOpen ? t("common.closeMenu") : t("common.openMenu")}
-              onClick={toggleMenu}
-            >
-              {/* Üç çubuk bir KAP içinde: referans (reanime) da `gap: 4px` için
-                  sütun flex bir kap kullanır; düğme grid + ortalama yapar. */}
-              <span className="sh-glyph" aria-hidden="true">
-                <i />
-                <i />
-                <i />
-              </span>
-            </button>
-
-            {/* Logo → ana sayfa (ve yukarı kaydır). `Link`: sayfa YENİLENMEZ. */}
-            <Link to="/" onClick={scrollTop} aria-label={t("common.homeAria")} className="sh-logo">
-              <img
-                src={BRAND_LOGO_SRC}
-                alt={t("common.logoAlt")}
-                width={BRAND_LOGO_WIDTH}
-                height={BRAND_LOGO_HEIGHT}
-                loading="eager"
-                decoding="async"
-              />
-              <span className="sr-only">shanime</span>
-            </Link>
-
-            <nav className="sh-desktop-nav" aria-label={t("common.mainNav")}>
-              <Link to="/" activeOptions={{ exact: true }}>
-                <span>{t("common.home")}</span>
-              </Link>
-              <Link to="/animes" preload="intent" preloadDelay={120}>
-                <span>{t("common.browse")}</span>
-              </Link>
-              <Link to="/schedule" preload="intent" preloadDelay={120}>
-                <span>{t("common.schedule")}</span>
-              </Link>
+        <div className={`${PAGE_CONTAINER} relative`}>
+          <div className="sh-wrapper">
+            <div className="sh-start">
+              {/* Hamburger her boyutta görünür: bağlantılar açılır paneldedir. */}
               <button
+                ref={togglerRef}
                 type="button"
-                onClick={goRandom}
-                aria-label={t("common.random")}
-                title={t("common.random")}
+                className="sh-toggler"
+                aria-expanded={menuOpen && !menuClosing}
+                aria-controls="sh-menu"
+                aria-label={menuOpen ? t("common.closeMenu") : t("common.openMenu")}
+                onClick={toggleMenu}
               >
-                <Shuffle size={15} aria-hidden="true" />
+                {/* Üç çubuk bir KAP içinde: referans (reanime) da `gap: 4px` için
+                  sütun flex bir kap kullanır; düğme grid + ortalama yapar. */}
+                <span className="sh-glyph" aria-hidden="true">
+                  <i />
+                  <i />
+                  <i />
+                </span>
               </button>
-            </nav>
-          </div>
 
-          <div className="sh-end">
-            <div
-              ref={desktopSearchRef}
-              className={`sh-search ${searchOpen ? "is-open" : ""} ${
-                searchOpen && searchSuggestions.length > 0 ? "has-panel" : ""
-              }`}
-            >
-              <form role="search" onSubmit={(event) => event.preventDefault()}>
+              {/* Logo → ana sayfa (ve yukarı kaydır). `Link`: sayfa YENİLENMEZ. */}
+              <Link
+                to="/"
+                onClick={scrollTop}
+                aria-label={t("common.homeAria")}
+                className="sh-logo"
+              >
+                <img
+                  src={BRAND_LOGO_SRC}
+                  alt={t("common.logoAlt")}
+                  width={BRAND_LOGO_WIDTH}
+                  height={BRAND_LOGO_HEIGHT}
+                  loading="eager"
+                  decoding="async"
+                />
+                <span className="sr-only">shanime</span>
+              </Link>
+
+              <nav className="sh-desktop-nav" aria-label={t("common.mainNav")}>
+                <Link to="/" activeOptions={{ exact: true }}>
+                  <span>{t("common.home")}</span>
+                </Link>
+                <Link to="/animes" preload="intent" preloadDelay={120}>
+                  <span>{t("common.browse")}</span>
+                </Link>
+                <Link to="/schedule" preload="intent" preloadDelay={120}>
+                  <span>{t("common.schedule")}</span>
+                </Link>
                 <button
                   type="button"
-                  aria-label={t("common.search")}
-                  onClick={() => searchRef.current?.focus()}
+                  onClick={goRandom}
+                  aria-label={t("common.random")}
+                  title={t("common.random")}
                 >
-                  <FaSolid name="magnifyingGlass" />
+                  <Shuffle size={15} aria-hidden="true" />
                 </button>
-                <input
-                  ref={searchRef}
-                  id="search"
-                  type="text"
-                  autoComplete="off"
-                  value={query}
-                  onChange={(event) => setQuery(event.target.value)}
-                  onFocus={() => {
-                    setCatalogWanted(true);
-                    setSearchOpen(true);
-                  }}
-                  placeholder={t("common.searchPlaceholder")}
-                  aria-label={t("common.search")}
-                />
-                <div className="sh-tip">
-                  <QuickAccessGlyph />
-                  <span>{t("common.quickAccess")}</span>
-                </div>
-              </form>
-              {searchOpen && (
-                <SearchSuggestionPanel
-                  query={query}
-                  items={searchSuggestions}
-                  className="absolute inset-x-0 top-full z-40 motion-safe:animate-pop-in motion-reduce:animate-none"
-                  onNavigate={() => {
-                    setSearchOpen(false);
-                    setQuery("");
-                  }}
-                />
-              )}
+              </nav>
             </div>
-            {/* Büyüteç dil grubunun SOLUNDADIR (mobil istek). */}
-            <button
-              ref={searchTogglerRef}
-              type="button"
-              className="sh-search-toggler"
-              aria-label={t("common.search")}
-              aria-expanded={searchOpen}
-              onClick={() => (searchOpen ? setSearchOpen(false) : openSearch())}
-            >
-              <FaSolid name="magnifyingGlass" />
-            </button>
-            <div className="sh-quick">
+
+            <div className="sh-end">
+              <div
+                ref={desktopSearchRef}
+                className={`sh-search ${searchOpen ? "is-open" : ""} ${
+                  searchOpen && searchSuggestions.length > 0 ? "has-panel" : ""
+                }`}
+              >
+                <form role="search" onSubmit={(event) => event.preventDefault()}>
+                  <button
+                    type="button"
+                    aria-label={t("common.search")}
+                    onClick={() => searchRef.current?.focus()}
+                  >
+                    <FaSolid name="magnifyingGlass" />
+                  </button>
+                  <input
+                    ref={searchRef}
+                    id="search"
+                    type="text"
+                    autoComplete="off"
+                    value={query}
+                    onChange={(event) => setQuery(event.target.value)}
+                    onFocus={() => {
+                      setCatalogWanted(true);
+                      setSearchOpen(true);
+                    }}
+                    placeholder={t("common.searchPlaceholder")}
+                    aria-label={t("common.search")}
+                  />
+                  <div className="sh-tip">
+                    <QuickAccessGlyph />
+                    <span>{t("common.quickAccess")}</span>
+                  </div>
+                </form>
+                {searchOpen && (
+                  <SearchSuggestionPanel
+                    query={query}
+                    items={searchSuggestions}
+                    className="absolute inset-x-0 top-full z-40 motion-safe:animate-pop-in motion-reduce:animate-none"
+                    onNavigate={() => {
+                      setSearchOpen(false);
+                      setQuery("");
+                    }}
+                  />
+                )}
+              </div>
+              {/* Mobilde bu büyüteç, dil grubunun yerini alır; dil seçimi menüdedir. */}
+              <button
+                ref={searchTogglerRef}
+                type="button"
+                className="sh-search-toggler"
+                aria-label={t("common.search")}
+                aria-expanded={searchOpen}
+                onClick={() => (searchOpen ? setSearchOpen(false) : openSearch())}
+              >
+                <FaSolid name="magnifyingGlass" />
+              </button>
+              <div className="sh-quick">
+                <button
+                  type="button"
+                  className="sh-main-menu"
+                  aria-label={t("common.random")}
+                  // `title` BİLEREK YOK: etiket zaten görünür, tarayıcı balonu şeridi kirletiyordu.
+                  onClick={goRandom}
+                >
+                  <RandomGlyph />
+                  <span>{t("common.random")}</span>
+                </button>
+                {/* Dil değiştirici SAĞ UÇTA kalır; "Rastgele" ise arama kutusunun
+                  yanına yaslanır (kullanıcı isteği 01.10.2026). */}
+                <LanguageToggle className="sh-header-language ml-auto" />
+              </div>
               <button
                 type="button"
-                className="sh-main-menu"
-                aria-label={t("common.random")}
-                // `title` BİLEREK YOK: etiket zaten görünür, tarayıcı balonu şeridi kirletiyordu.
-                onClick={goRandom}
+                className="sh-sign-in"
+                onClick={() => {
+                  setAuthClosing(false);
+                  setAuthOpen(true);
+                }}
               >
-                <RandomGlyph />
-                <span>{t("common.random")}</span>
+                {t("common.signIn")}
               </button>
-              {/* Dil değiştirici SAĞ UÇTA kalır; "Rastgele" ise arama kutusunun
-                  yanına yaslanır (kullanıcı isteği 01.10.2026). */}
-              <LanguageToggle className="ml-auto" />
             </div>
-            <Link to="/auth" className="sh-sign-in">
-              {t("common.signIn")}
-            </Link>
           </div>
-        </div>
 
-        {menuOpen && (
-          <nav
-            ref={mobileSearchRef}
-            id="sh-menu"
-            aria-label={t("common.mainNav")}
-            // Kapanırken `menu-closing` sınıfı 150 ms sola-solma oynatır.
-            className={`sh-menu${menuClosing ? " menu-closing" : ""}`}
-          >
-            {/* Hepsi `Link`: sayfa YENİLENMEDEN gider. Çapalar (`hash`) ana
+          {menuOpen && (
+            <nav
+              ref={mobileSearchRef}
+              id="sh-menu"
+              aria-label={t("common.mainNav")}
+              // Kapanırken `menu-closing` sınıfı 150 ms sola-solma oynatır.
+              className={`sh-menu${menuClosing ? " menu-closing" : ""}`}
+            >
+              {/* Hepsi `Link`: sayfa YENİLENMEDEN gider. Çapalar (`hash`) ana
                 sayfadaki bölümlere kaydırır; başka sayfadan basılırsa önce ana
                 sayfaya döner, sonra ilgili bölüme iner. */}
-            {/* Menü öğeleri gezinmeden sonra KAPANIR: şerit unmount olmadığı
+              {/* Menü öğeleri gezinmeden sonra KAPANIR: şerit unmount olmadığı
                 için kendiliğinden kapanmaz. */}
-            <Link
-              to="/"
-              activeOptions={{ exact: true }}
-              onClick={() => {
-                scrollTop();
-                closeMenu();
-              }}
-            >
-              <House size={17} aria-hidden="true" />
-              <span>{t("common.home")}</span>
-              <ChevronRight size={14} className="sh-menu-arrow" aria-hidden="true" />
-            </Link>
-            <Link to="/animes" onClick={() => closeMenu()}>
-              <Library size={17} aria-hidden="true" />
-              <span>{t("common.animes")}</span>
-              <ChevronRight size={14} className="sh-menu-arrow" aria-hidden="true" />
-            </Link>
-            <Link to="/schedule" onClick={() => closeMenu()}>
-              <CalendarDays size={17} aria-hidden="true" />
-              <span>{t("common.schedule")}</span>
-              <ChevronRight size={14} className="sh-menu-arrow" aria-hidden="true" />
-            </Link>
-            {/* Rastgele menüde de durur: metin tabanlı bir yol kalsın. */}
-            <button type="button" onClick={goRandom}>
-              <Shuffle size={17} aria-hidden="true" />
-              <span>{t("common.random")}</span>
-              <ChevronRight size={14} className="sh-menu-arrow" aria-hidden="true" />
-            </button>
-          </nav>
-        )}
-      </div>
-    </header>
+              <Link
+                to="/"
+                activeOptions={{ exact: true }}
+                onClick={() => {
+                  scrollTop();
+                  closeMenu();
+                }}
+              >
+                <House size={17} aria-hidden="true" />
+                <span>{t("common.home")}</span>
+                <ChevronRight size={14} className="sh-menu-arrow" aria-hidden="true" />
+              </Link>
+              <Link to="/animes" onClick={() => closeMenu()}>
+                <Library size={17} aria-hidden="true" />
+                <span>{t("common.animes")}</span>
+                <ChevronRight size={14} className="sh-menu-arrow" aria-hidden="true" />
+              </Link>
+              <Link to="/schedule" onClick={() => closeMenu()}>
+                <CalendarDays size={17} aria-hidden="true" />
+                <span>{t("common.schedule")}</span>
+                <ChevronRight size={14} className="sh-menu-arrow" aria-hidden="true" />
+              </Link>
+              {/* Rastgele menüde de durur: metin tabanlı bir yol kalsın. */}
+              <button type="button" onClick={goRandom}>
+                <Shuffle size={17} aria-hidden="true" />
+                <span>{t("common.random")}</span>
+                <ChevronRight size={14} className="sh-menu-arrow" aria-hidden="true" />
+              </button>
+              <div className="sh-menu-language">
+                <span className="sh-menu-language-label">{t("lang.groupLabel")}</span>
+                <LanguageToggle />
+              </div>
+            </nav>
+          )}
+        </div>
+      </header>
+      {authOpen && (
+        <SignInModal
+          isClosing={authClosing}
+          onClose={() => setAuthClosing(true)}
+          onClosed={() => {
+            setAuthOpen(false);
+            setAuthClosing(false);
+          }}
+        />
+      )}
+    </>
   );
 }

@@ -1,54 +1,49 @@
-/**
- * Ana sayfanın sade alt alanı.
- *
- * A-Z ve sezon filtreleri artık katalog ekranında (`/animes`) tutulur; ana
- * sayfa yalnızca keşif akışını ve hafif bir footer'ı gösterir.
- */
+/** Ana sayfanın düşük profilli, tek satırlık alt bilgi çubuğu. */
 import { Link } from "@tanstack/react-router";
 
-import { PAGE_CONTAINER } from "@/components/home/homeClass";
-import { BRAND_LOGO_HEIGHT, BRAND_LOGO_SRC, BRAND_LOGO_WIDTH } from "@/lib/brand";
+import {
+  BRAND_FOOTER_LOGO_HEIGHT,
+  BRAND_FOOTER_LOGO_SRC,
+  BRAND_FOOTER_LOGO_WIDTH,
+} from "@/lib/brand";
 import { useLang } from "@/lib/i18n";
 
 export function SiteFooter() {
   const { t } = useLang();
 
   return (
-    <footer className="border-t border-border bg-secondary text-foreground">
-      <div className={`${PAGE_CONTAINER} grid gap-10 py-12 md:grid-cols-2`}>
-        <div>
+    <footer className="site-footer">
+      <div className="site-footer-shell mx-auto flex min-h-[137px] w-full max-w-[1360px] flex-col gap-5 px-4 py-[44px] pb-[38px] sm:flex-row sm:items-center sm:gap-[76px] sm:px-4">
+        <div className="site-footer-brand flex shrink-0 flex-col items-start border-r border-[#2b3138] pr-8">
           <Link to="/" aria-label={t("common.homeAria")} className="inline-flex">
             <img
-              src={BRAND_LOGO_SRC}
+              src={BRAND_FOOTER_LOGO_SRC}
               alt={t("common.logoAlt")}
-              width={BRAND_LOGO_WIDTH}
-              height={BRAND_LOGO_HEIGHT}
+              width={BRAND_FOOTER_LOGO_WIDTH}
+              height={BRAND_FOOTER_LOGO_HEIGHT}
               loading="lazy"
               decoding="async"
-              className="h-12 w-auto object-contain"
+              className="h-auto w-[8.5rem] object-contain object-center"
             />
           </Link>
-          <p className="mt-4 max-w-xs text-sm leading-6 text-muted-foreground">
-            {t("footer.tagline")}
-          </p>
         </div>
-        <div>
-          <p className="text-sm font-extrabold">{t("footer.explore")}</p>
-          <div className="mt-4 flex flex-col gap-1 text-sm text-muted-foreground">
-            <Link to="/animes" className="link-hover w-fit py-2">
-              {t("common.explore")}
-            </Link>
-            <Link to="/animes" className="link-hover w-fit py-2">
-              {t("footer.allSeries")}
-            </Link>
-            <Link to="/animes" className="link-hover w-fit py-2">
-              {t("footer.genres")}
-            </Link>
-          </div>
-        </div>
-      </div>
-      <div className="border-t border-border px-5 py-5 text-center text-xs text-muted-foreground">
-        {t("footer.copyright")}
+        <p className="site-footer-copy max-w-[420px] flex-1 text-center text-sm leading-6 text-[#b4b4bc] sm:text-left">
+          {t("footer.updatedCopy")}
+        </p>
+        <nav
+          aria-label={t("footer.siteInfo")}
+          className="site-footer-nav ml-auto flex shrink-0 items-center gap-[26px] text-sm text-[#b4b4bc]"
+        >
+          <Link to="/about" className="link-hover">
+            {t("footer.about")}
+          </Link>
+          <Link to="/terms" className="link-hover">
+            {t("footer.terms")}
+          </Link>
+          <Link to="/contact" className="link-hover">
+            {t("footer.contact")}
+          </Link>
+        </nav>
       </div>
     </footer>
   );
