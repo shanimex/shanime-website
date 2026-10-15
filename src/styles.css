@@ -1507,7 +1507,7 @@
   overflow: hidden;
   border: 1px solid rgb(255 255 255 / 0.025);
   border-radius: 2rem;
-  background: #0b0b0b;
+  background: #050505;
   box-shadow: 0 24px 80px rgb(0 0 0 / 0.58);
   color: #f3f4f6;
   padding: 1.55rem 1.6rem 1.45rem;
@@ -1660,15 +1660,17 @@
   border: 1px solid transparent;
   border-radius: 0.72rem;
   outline: 0;
-  background: #121212;
+  background: #151515;
   color: #f3f4f6;
   font: inherit;
-  font-size: 0.82rem;
+  font-size: 0.74rem;
   padding: 0 0.85rem;
 }
 
 .auth-modal-form input::placeholder {
   color: #656b76;
+  font-size: 0.74rem;
+  opacity: 1;
 }
 
 .auth-modal-form input:focus {
@@ -1937,8 +1939,12 @@
 
   .auth-modal-form input {
     height: 2.35rem;
-    font-size: 0.72rem;
+    font-size: 0.64rem;
     padding-inline: 0.75rem;
+  }
+
+  .auth-modal-form input::placeholder {
+    font-size: 0.64rem;
   }
 
   .auth-modal.is-signup .auth-modal-form {
