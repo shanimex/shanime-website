@@ -375,27 +375,6 @@ export function SignInModal({ onClose, isClosing = false, onClosed }: SignInModa
           {mode === "signin" ? copy.subtitle : copy.signupSubtitle}
         </p>
 
-        <div className="auth-modal-tabs" role="tablist" aria-label={copy.account}>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={mode === "signin"}
-            className={mode === "signin" ? "is-active" : ""}
-            onClick={() => switchMode("signin")}
-          >
-            {copy.signin}
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={mode === "signup"}
-            className={mode === "signup" ? "is-active" : ""}
-            onClick={() => switchMode("signup")}
-          >
-            {copy.signup}
-          </button>
-        </div>
-
         <form className="auth-modal-form" onSubmit={handleSubmit}>
           {mode === "signup" && (
             <label>
