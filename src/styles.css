@@ -1506,8 +1506,8 @@
   max-height: calc(100vh - 2rem);
   overflow: hidden;
   border: 1px solid rgb(255 255 255 / 0.025);
-  border-radius: 1.7rem;
-  background: #0d0d0d;
+  border-radius: 2rem;
+  background: #050505;
   box-shadow: 0 24px 80px rgb(0 0 0 / 0.58);
   color: #f3f4f6;
   padding: 1.55rem 1.6rem 1.45rem;
@@ -1579,7 +1579,7 @@
   place-items: center;
   border: 0;
   border-radius: 999px;
-  background: #1c1c1c;
+  background: #141414;
   color: #a8a8a8;
   cursor: pointer;
 }
@@ -1866,7 +1866,7 @@
     width: min(100%, 22rem);
     max-height: calc(100dvh - 1rem);
     overflow: hidden;
-    border-radius: 1.6rem;
+    border-radius: 1.9rem;
     padding: 1.25rem 1.05rem 1rem;
   }
 
@@ -1931,12 +1931,14 @@
   }
 
   .auth-modal-form label > span {
-    font-size: 0.64rem;
+    font-size: 0.54rem;
+    letter-spacing: 0.14em;
   }
 
   .auth-modal-form input {
-    height: 2.5rem;
-    font-size: 0.82rem;
+    height: 2.35rem;
+    font-size: 0.72rem;
+    padding-inline: 0.75rem;
   }
 
   .auth-modal.is-signup .auth-modal-form {
@@ -1948,7 +1950,7 @@
   }
 
   .auth-modal.is-signup .auth-modal-form input {
-    height: 2.35rem;
+    height: 2.2rem;
   }
 
   .auth-modal.is-signup .auth-captcha > div {
