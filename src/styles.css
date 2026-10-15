@@ -1506,7 +1506,7 @@
   max-height: calc(100vh - 2rem);
   overflow: hidden;
   border: 1px solid rgb(255 255 255 / 0.025);
-  border-radius: 2rem;
+  border-radius: 2.2rem;
   background: #050505;
   box-shadow: 0 24px 80px rgb(0 0 0 / 0.58);
   color: #f3f4f6;
@@ -1868,8 +1868,12 @@
     width: min(100%, 22rem);
     max-height: calc(100dvh - 1rem);
     overflow: hidden;
-    border-radius: 1.9rem;
+    border-radius: 2.35rem;
     padding: 1.25rem 1.05rem 1rem;
+  }
+
+  .auth-modal.is-signup .auth-modal-tabs button:nth-child(2) {
+    display: none;
   }
 
   .auth-modal.is-signup {
