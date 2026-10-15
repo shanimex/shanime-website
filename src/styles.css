@@ -1502,12 +1502,12 @@
 .auth-modal {
   position: relative;
   box-sizing: border-box;
-  width: min(100%, 25rem);
+  width: min(100%, 23.5rem);
   max-height: calc(100vh - 2rem);
   overflow: hidden;
   border: 1px solid rgb(255 255 255 / 0.025);
   border-radius: 1.45rem;
-  background: #151515;
+  background: #161616;
   box-shadow: 0 24px 80px rgb(0 0 0 / 0.58);
   color: #f3f4f6;
   padding: 1.55rem 1.6rem 1.45rem;
@@ -1579,13 +1579,13 @@
   place-items: center;
   border: 0;
   border-radius: 999px;
-  background: #20252c;
-  color: #a8afb9;
+  background: #242424;
+  color: #a8a8a8;
   cursor: pointer;
 }
 
 .auth-modal-close:hover {
-  background: #2b3139;
+  background: #303030;
   color: #fff;
 }
 
@@ -1620,15 +1620,15 @@
 
 .auth-modal-tabs button {
   border-radius: 999px;
-  background: #20242a;
-  color: #858a94;
+  background: #202020;
+  color: #858585;
   font-size: 0.78rem;
   font-weight: 800;
   padding: 0.52rem 1rem;
 }
 
 .auth-modal-tabs button.is-active {
-  background: #30353d;
+  background: #303030;
   color: #f3f4f6;
 }
 
@@ -1660,7 +1660,7 @@
   border: 1px solid transparent;
   border-radius: 0.72rem;
   outline: 0;
-  background: #1c2026;
+  background: #1d1d1d;
   color: #f3f4f6;
   font: inherit;
   font-size: 0.82rem;
@@ -1674,11 +1674,11 @@
 .auth-modal-form input:focus {
   border-color: transparent;
   box-shadow: none;
-  background: #25282c;
+  background: #292929;
 }
 
 .auth-modal-form input:hover {
-  background: #25282c;
+  background: #292929;
 }
 
 .auth-modal-form input:focus-visible {
@@ -1812,7 +1812,7 @@
   gap: 0.38rem;
   min-width: 0;
   border-radius: 999px;
-  background: #20242a;
+  background: #202020;
   color: #e6e8ed;
   font-size: 0.75rem;
   font-weight: 700;
@@ -1835,7 +1835,7 @@
 }
 
 .auth-modal-providers button:hover {
-  background: #2a3038;
+  background: #2b2b2b;
 }
 
 .auth-modal-switch {
@@ -1860,7 +1860,7 @@
   }
 
   .auth-modal {
-    width: min(100%, 25rem);
+    width: min(100%, 22rem);
     max-height: calc(100dvh - 1rem);
     overflow: hidden;
     border-radius: 1.15rem;
@@ -1869,6 +1869,9 @@
 
   .auth-modal.is-signup {
     max-height: calc(100dvh - 0.75rem);
+    overflow-y: auto;
+    scrollbar-color: #3a3a3a transparent;
+    scrollbar-width: thin;
   }
 
   .auth-captcha {
