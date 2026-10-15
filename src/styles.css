@@ -2741,14 +2741,14 @@
   /* Logo mobilde şerit boyunda (kullanıcı isteği): şerit/menü büyümez,
      yalnızca logo 48 px'e dayanır. */
   .sh-logo {
-    height: 42px;
-    width: 12.5rem;
-    margin-right: 0;
+    height: 46px;
+    width: 13.5rem;
+    margin-right: 0.2rem;
   }
 
   /* Logo sola yaslanır (kullanıcı isteği): kap dolgusu ve hamburger boşluğu kısılır. */
   #sh-header > div {
-    padding-left: 6px;
+    padding-left: 2px;
     padding-right: 10px;
   }
 
@@ -2758,7 +2758,7 @@
 
   .sh-logo {
     margin-right: 0.25rem;
-    margin-left: 0;
+    margin-left: -4px;
   }
 
   /* Büyüteç logonun SAĞINDADIR (mobil istek): arada boşluk bırakır. */
@@ -3079,8 +3079,8 @@
  */
 @media (max-width: 359.98px) {
   .sh-logo {
-    height: 36px;
-    width: 11.5rem;
+    height: 40px;
+    width: 12rem;
   }
 }
 
