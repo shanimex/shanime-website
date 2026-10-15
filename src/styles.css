@@ -1858,6 +1858,10 @@
   padding: 0;
 }
 
+.auth-modal-tabs button:nth-child(2) {
+  display: none;
+}
+
 @media (max-width: 767px) {
   .auth-modal-backdrop {
     place-items: center;
@@ -1870,10 +1874,6 @@
     overflow: hidden;
     border-radius: 2.35rem;
     padding: 1.25rem 1.05rem 1rem;
-  }
-
-  .auth-modal.is-signup .auth-modal-tabs button:nth-child(2) {
-    display: none;
   }
 
   .auth-modal.is-signup {
