@@ -1506,8 +1506,8 @@
   max-height: calc(100vh - 2rem);
   overflow: hidden;
   border: 1px solid rgb(255 255 255 / 0.025);
-  border-radius: 1.25rem;
-  background: linear-gradient(160deg, #202020 0%, #17191b 44%, #101419 100%);
+  border-radius: 1.45rem;
+  background: #151515;
   box-shadow: 0 24px 80px rgb(0 0 0 / 0.58);
   color: #f3f4f6;
   padding: 1.55rem 1.6rem 1.45rem;

@@ -222,6 +222,11 @@ export function SignInModal({ onClose, isClosing = false, onClosed }: SignInModa
 
   useEffect(() => {
     let cancelled = false;
+    if (mode !== "signup") {
+      setCaptchaToken(null);
+      return;
+    }
+
     const captchaElement = captchaRef.current;
     const renderWidget = () => {
       if (cancelled || !captchaElement || !window.turnstile || widgetIdRef.current) return;
@@ -250,7 +255,7 @@ export function SignInModal({ onClose, isClosing = false, onClosed }: SignInModa
       }
       captchaElement?.replaceChildren();
     };
-  }, []);
+  }, [mode]);
 
   const switchMode = (nextMode: AuthMode) => {
     setMode(nextMode);
@@ -265,13 +270,13 @@ export function SignInModal({ onClose, isClosing = false, onClosed }: SignInModa
     setMessage(null);
     const cleanEmail = email.trim().toLowerCase();
 
-    if (!import.meta.env.DEV && !captchaToken) {
+    if (mode === "signup" && !import.meta.env.DEV && !captchaToken) {
       setLoading(false);
       setError(tr ? "Önce doğrulamayı tamamla." : "Complete the verification first.");
       return;
     }
 
-    if (captchaToken) {
+    if (mode === "signup" && captchaToken) {
       const verification = await fetch("/api/turnstile", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -456,7 +461,9 @@ export function SignInModal({ onClose, isClosing = false, onClosed }: SignInModa
               {copy.forgot}
             </button>
           )}
-          <div className="auth-captcha" aria-label={copy.verifying} ref={captchaRef} />
+          {mode === "signup" && (
+            <div className="auth-captcha" aria-label={copy.verifying} ref={captchaRef} />
+          )}
           {error && <p className="auth-modal-message is-error">{error}</p>}
           {message && <p className="auth-modal-message">{message}</p>}
           <button type="submit" className="auth-modal-submit" disabled={loading}>
