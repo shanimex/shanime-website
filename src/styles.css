@@ -1507,7 +1507,7 @@
   overflow: hidden;
   border: 1px solid rgb(255 255 255 / 0.025);
   border-radius: 2rem;
-  background: #050505;
+  background: #0b0b0b;
   box-shadow: 0 24px 80px rgb(0 0 0 / 0.58);
   color: #f3f4f6;
   padding: 1.55rem 1.6rem 1.45rem;
@@ -1660,7 +1660,7 @@
   border: 1px solid transparent;
   border-radius: 0.72rem;
   outline: 0;
-  background: #161616;
+  background: #121212;
   color: #f3f4f6;
   font: inherit;
   font-size: 0.82rem;
@@ -1931,8 +1931,8 @@
   }
 
   .auth-modal-form label > span {
-    font-size: 0.54rem;
-    letter-spacing: 0.14em;
+    font-size: 0.64rem;
+    letter-spacing: 0.18em;
   }
 
   .auth-modal-form input {
