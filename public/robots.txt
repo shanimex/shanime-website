@@ -1,0 +1,10 @@
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /auth
+# İzleme sayfaları indekslenmez (yeni yapı: /anime/<slug>/season/<n>/episode/<n>).
+# Eski /izle/ adresleri yalnızca yönlendirmedir; taranmalarının anlamı yok.
+Disallow: /anime/*/season/
+Disallow: /izle/
+
+Sitemap: https://shanime.xyz/sitemap.xml
